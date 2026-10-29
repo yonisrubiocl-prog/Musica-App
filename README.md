@@ -36,16 +36,33 @@ sin publicarlo ni cobrar nada.
 
 ### Canciones
 
-La caché del bot (`/var/lib/musicbot/cache`, ~1.900 canciones en `.webm` con audio **Opus**, listo para mandar
-a la app sin convertir) se monta en el contenedor **solo lectura**. Su catálogo está en `~/MusicBot/data/index.json`
-(título, artista, álbum…), también solo lectura y releído de vez en cuando.
+El bot y la app **leen las dos carpetas y cada uno escribe solo en la suya**:
 
-1. Si la canción está en la caché del bot, se manda de ahí.
-2. Si no, la app la baja a **su** carpeta (`/var/lib/musicapp/cache`) con su propio catálogo.
-3. Si el bot la borró (al pasar de 15 GB borra las menos usadas recientemente), se vuelve a bajar a la de la app.
+```
+            lee ┌──────────────────────┐ lee
+   Bot ────────►│ /var/lib/musicbot    │◄──────── App
+    │  escribe  └──────────────────────┘           │
+    │           ┌──────────────────────┐           │
+    └──────────►│ /var/lib/musicapp    │◄──────────┘
+          lee   └──────────────────────┘  escribe
+```
 
-**No se escribe nunca en la carpeta ni en el catálogo del bot:** el bot guarda `index.json` él solo (los dos lo
-pisarían), y al no contar lo que pone la app como "usado", borraría sus canciones al llenarse.
+- La carpeta del otro se monta **solo lectura**: ninguno puede borrar ni estropear lo del otro.
+- Los dos descargan igual (yt-dlp, `.webm` con audio **Opus**, archivo nombrado por el ID de YouTube:
+  `yt-<id>.webm`), así que una canción se reconoce en cualquiera de las dos carpetas.
+- **El catálogo de la app usa el mismo formato que el del bot** (`index.json`: título, artista, álbum…), para que
+  cada uno pueda buscar por nombre también en el del otro. Catálogo del bot: `~/MusicBot/data/index.json`.
+
+Al pedir una canción: si está en cualquiera de las dos carpetas se usa de ahí; si no, se baja a la propia.
+Si desaparece del otro lado (el bot, al pasar de 15 GB, borra las menos usadas recientemente), se vuelve a
+bajar a la propia. Así casi no hay duplicados (de media ~3,6 MB por canción).
+
+**Nunca se escribe en la carpeta ni en el catálogo del otro:** se pisarían el `index.json`, y el bot borraría lo
+de la app al llenarse (no lo cuenta como usado).
+
+Estado: la app lee la caché del bot desde el principio (~1.900 canciones). Que **el bot lea la de la app**
+requiere un cambio pequeño en `MusicBot` (montar la carpeta solo lectura y buscar también en ese catálogo); se
+hace cuando la app ya descargue canciones, en una sesión de `MusicBot` aparte y probado.
 
 Del bot (`MusicBot/bot.py`) se aprovechan como **idea/código** la búsqueda, la descarga con yt-dlp, la
 caché y las letras; no se comparte el programa.
