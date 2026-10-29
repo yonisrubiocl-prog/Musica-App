@@ -69,6 +69,17 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
   segundos y suena en Discord como 💾 Local sin volver a bajarse; una bajada desde Discord la encuentra la app
   al buscar. Probado el 29-10-2026 (Culpables · KAROL G: primera vez 🌐 Online, la segunda 💾 Local).
 
+### Repartir la app
+
+La app (Android) se baja desde la misma página de acceso: `https://musica.yoneapolis.com/acceso`. Quien entra con
+Google y **ya está aprobado** ve "⬇️ Descargar la app"; el resto, lo de siempre (pendiente o sin acceso). El enlace
+sirve 10 min y no lleva la sesión dentro: pasarlo a otro solo le da el APK, que sin una cuenta aprobada no
+reproduce nada. Mientras no haya APK, al aprobado le dice "todavía no está lista".
+
+**Publicar una versión:** copiar el APK firmado a `/var/lib/musicapp/app/musica.apk` (montada solo lectura en la
+API como `/app-dist`). Sin reiniciar nada: el siguiente que entre baja la nueva. Solo Android: en iPhone no se
+pueden instalar apps fuera de la tienda. El actualizador propio de la fase 2 puede usar este mismo archivo.
+
 Restos de antes de juntar las carpetas (se pueden borrar cuando se quiera, con `sudo`):
 `/var/lib/musicbot/cache` (los mismos archivos que la biblioteca, enlazados: borrarla casi no libera espacio
 ni quita canciones), `/var/lib/musicapp/cache`, `~/MusicBot/data/index.json*` y `~/MusicBot/data/cookies.txt`;
@@ -85,7 +96,9 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /auth/google` | Cuerpo `{"id_token": "…"}` (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
-| `GET /acceso` | Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. No reproduce nada (si está aprobado, cierra la sesión al momento). Sin clave |
+| `GET /acceso` | Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le da el botón para bajar la app** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
+| `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
+| `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (todas las palabras en título/artista/álbum, mejor primero), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
@@ -243,7 +256,7 @@ Cada fase funciona por sí sola.
 ```
 /home/lainer/MusicApp/
 ├── server/
-│   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot
+│   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot; también reparte el APK
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
 │   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
@@ -253,5 +266,6 @@ Cada fase funciona por sí sola.
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               users.json, sessions.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── README.md     este documento
+(/var/lib/musicapp/app/musica.apk   la app para repartir, fuera de git; ver "Repartir la app")
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```

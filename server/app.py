@@ -6,6 +6,7 @@ directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pid
 """
 import asyncio
 import hmac
+import secrets
 import logging
 import os
 import re
@@ -29,6 +30,8 @@ MUSIC_DIR = "/music"                    # la biblioteca (en el servidor: /var/li
 MUSIC_INDEX = "/music/index.json"       # su catálogo, junto a la música: el bot lo lee de su montaje
 MUSIC_GB = float(os.environ.get("MUSIC_GB", "15"))
 COOKIES = "/data/youtube-cookies.txt"   # cookies de YouTube (las del bot); solo las lee el usuario 1000
+APK = "/app-dist/musica.apk"            # la app para Android (en el servidor: /var/lib/musicapp/app/musica.apk)
+APK_LINK_TTL = 10 * 60                  # cuánto sirve un enlace de descarga de la app
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -47,6 +50,7 @@ LIB = Library(MUSIC_DIR, MUSIC_GB * 1024 ** 3, MUSIC_INDEX)
 _yt_blocked_until = 0.0
 _downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
 _downloads_lock = threading.Lock()
+_apk_links = {}                         # enlace de descarga de la app -> hasta cuándo sirve
 
 
 def ydl(**extra):
@@ -195,6 +199,29 @@ def login_test_page():
 def access_page():
     """Página para pasar a los amigos: entran con Google y quedan pendientes de aprobar. No reproduce nada."""
     return ACCESS_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
+
+
+@app.post("/app/enlace")
+def apk_link(found=Depends(check_token)):
+    """Enlace para bajar la app, solo para aprobados (lo usa /acceso). Sirve APK_LINK_TTL y no lleva la sesión
+    dentro: pasarlo a otro no le da acceso a la música."""
+    if not os.path.isfile(APK):
+        raise HTTPException(404, "la app todavía no está lista")
+    now = time.time()
+    for k in [k for k, until in _apk_links.items() if until < now]:
+        del _apk_links[k]
+    link = secrets.token_urlsafe(24)
+    _apk_links[link] = now + APK_LINK_TTL
+    log.info("enlace de la app para %s", found[1]["email"] if found else "clave compartida")
+    return {"url": f"/app/descargar/{link}", "minutes": APK_LINK_TTL // 60,
+            "size": os.path.getsize(APK), "date": int(os.path.getmtime(APK))}
+
+
+@app.get("/app/descargar/{link}")
+def apk_download(link: str):
+    if _apk_links.get(link, 0) < time.time() or not os.path.isfile(APK):
+        raise HTTPException(404, "enlace caducado: vuelve a entrar en /acceso")
+    return FileResponse(APK, media_type="application/vnd.android.package-archive", filename="musica.apk")
 
 
 @app.get("/search", dependencies=[Depends(check_token)])
@@ -456,6 +483,9 @@ ACCESS_HTML = """<!doctype html>
   #estado.ok{display:block;background:#3ddc8422;border:1px solid var(--ok)}
   #estado.wait{display:block;background:#ffd23f1f;border:1px solid var(--wait)}
   #estado.no{display:block;background:#ff5c5c1f;border:1px solid var(--no)}
+  .apk{display:inline-block;margin-top:12px;padding:12px 20px;border-radius:999px;background:var(--ok);color:#0d0d0f;
+       font-weight:600;text-decoration:none}
+  .nota{display:block;margin-top:10px;font-size:.85rem;color:var(--sub)}
 </style>
 <script src="https://accounts.google.com/gsi/client" async></script></head><body>
 <main class="card">
@@ -476,9 +506,20 @@ async function entrar(r) {
     const j = await res.json();
     const d = j.detail && typeof j.detail === 'object' ? j.detail : j;
     const nombre = (d.user && (d.user.name || d.user.email)) || '';
-    if (j.session) {   // aquí no se usa la sesión: se cierra al momento
-      fetch('/auth/logout', {method: 'POST', headers: {Authorization: 'Bearer ' + j.session}});
-      estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. Cuando tengas la app, entra con esta misma cuenta.');
+    if (j.session) {   // la sesión solo sirve para pedir el enlace de la app: luego se cierra
+      const auth = {Authorization: 'Bearer ' + j.session};
+      const app = await fetch('/app/enlace', {method: 'POST', headers: auth});
+      fetch('/auth/logout', {method: 'POST', headers: auth});
+      if (app.ok) {
+        const a = await app.json();
+        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado.<br>' +
+          '<a class="apk" href="' + a.url + '">⬇️ Descargar la app (' + (a.size / 1e6).toFixed(0) + ' MB)</a>' +
+          '<span class="nota">Solo Android. Si pide permiso para "instalar apps desconocidas", acéptalo. ' +
+          'El enlace sirve ' + a.minutes + ' min. Dentro, entra con esta misma cuenta.</span>');
+      } else {
+        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. La app todavía no está lista para descargar: ' +
+          'vuelve a esta página en unos días y entra con esta misma cuenta.');
+      }
     } else if (d.status === 'pendiente') {
       estado('wait', '⏳ Listo, <b>' + nombre + '</b>. Tu solicitud quedó enviada: avisa para que te aprueben.');
     } else if (d.status === 'bloqueado') {
