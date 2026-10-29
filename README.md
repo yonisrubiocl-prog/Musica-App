@@ -32,7 +32,20 @@ sin publicarlo ni cobrar nada.
 | **Servidor** (`server/`) | Este servidor, en Docker | API de música. Servicio aparte del bot de Discord: si se rompe, el bot sigue |
 | **App** | PC del usuario | Flutter (Android y PC; iPhone algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador |
 | **Túnel** | Contenedor `tailscale` aquí + servidores de Tailscale | Da una dirección pública fija con HTTPS sin abrir puertos ni comprar dominio |
-| **Canciones** | `/var/lib/musicapp/cache` | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra |
+| **Canciones** | `/var/lib/musicapp/cache` (propias) + `/var/lib/musicbot/cache` (del bot, solo lectura) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
+
+### Canciones
+
+La caché del bot (`/var/lib/musicbot/cache`, ~1.900 canciones en `.webm` con audio **Opus**, listo para mandar
+a la app sin convertir) se monta en el contenedor **solo lectura**. Su catálogo está en `~/MusicBot/data/index.json`
+(título, artista, álbum…), también solo lectura y releído de vez en cuando.
+
+1. Si la canción está en la caché del bot, se manda de ahí.
+2. Si no, la app la baja a **su** carpeta (`/var/lib/musicapp/cache`) con su propio catálogo.
+3. Si el bot la borró (al pasar de 15 GB borra las menos usadas recientemente), se vuelve a bajar a la de la app.
+
+**No se escribe nunca en la carpeta ni en el catálogo del bot:** el bot guarda `index.json` él solo (los dos lo
+pisarían), y al no contar lo que pone la app como "usado", borraría sus canciones al llenarse.
 
 Del bot (`MusicBot/bot.py`) se aprovechan como **idea/código** la búsqueda, la descarga con yt-dlp, la
 caché y las letras; no se comparte el programa.
