@@ -1,0 +1,37 @@
+name: musicapp
+
+# Red propia: el contenedor de Tailscale solo llega a la API, no al resto del servidor.
+services:
+  api:
+    build: .
+    container_name: musicapp-api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor
+    volumes:
+      - ./data:/data                                 # catálogo propio (index.json)
+      - /var/lib/musicapp/cache:/cache               # canciones propias
+      - /var/lib/musicbot/cache:/bot-cache:ro        # canciones del bot, solo lectura
+      - /home/lainer/MusicBot/data:/bot-data:ro      # catálogo del bot, solo lectura (sus cookies no son legibles: uid 1000)
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: musicapp-tailscale
+    hostname: musicapp                    # -> https://musicapp.<tailnet>.ts.net
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "true"                # sin privilegios ni acceso a la red del servidor
+    volumes:
+      - ./data/tailscale:/var/lib/tailscale
+      - ./funnel.json:/config/serve.json:ro
+    depends_on: [api]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}

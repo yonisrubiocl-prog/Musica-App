@@ -11,7 +11,8 @@ No tiene nada que ver con Discord (el bot `MusicBot` es otro proyecto y no se to
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
 
-**Estado actual:** solo está la carpeta y este documento. Todavía no hay código.
+**Estado actual:** fase 1 a medias. El servidor ya busca y sirve canciones (probado en este servidor con
+`curl`); falta ponerlo detrás de Tailscale Funnel y medir su límite de velocidad.
 
 ---
 
@@ -60,12 +61,38 @@ bajar a la propia. Así casi no hay duplicados (de media ~3,6 MB por canción).
 **Nunca se escribe en la carpeta ni en el catálogo del otro:** se pisarían el `index.json`, y el bot borraría lo
 de la app al llenarse (no lo cuenta como usado).
 
-Estado: la app lee la caché del bot desde el principio (~1.900 canciones). Que **el bot lea la de la app**
-requiere un cambio pequeño en `MusicBot` (montar la carpeta solo lectura y buscar también en ese catálogo); se
-hace cuando la app ya descargue canciones, en una sesión de `MusicBot` aparte y probado.
+Estado: la app ya lee la caché del bot (~1.900 canciones) y baja a la suya lo que falta. Que **el bot lea la de la app**
+requiere un cambio pequeño en `MusicBot` (montar solo lectura `/var/lib/musicapp/cache` y el catálogo
+`~/MusicApp/server/data/index.json`, y buscar también ahí); se hace en una sesión de `MusicBot` aparte y probado.
+La caché propia aún no tiene tope de tamaño (`/var` tiene ~88 GB libres); se le pondrá como el del bot si crece.
 
 Del bot (`MusicBot/bot.py`) se aprovechan como **idea/código** la búsqueda, la descarga con yt-dlp, la
 caché y las letras; no se comparte el programa.
+
+### Servidor (`server/`)
+
+Python con **FastAPI** + **yt-dlp** en el contenedor `musicapp-api` (usuario 1000, no root; actualiza yt-dlp
+en cada arranque, como el bot). Escucha en `127.0.0.1:8090` solo para pruebas desde este servidor.
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /health` | `{"ok": true}`, sin clave |
+| `GET /search?q=…` | Primero lo guardado (propio y del bot, todas las palabras en título/artista/álbum), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`app`/`bot`/`youtube`). `&yt=0` = solo lo guardado |
+| `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Lo saca de la caché propia o de la del bot; si no está, lo baja a la propia (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
+
+Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
+bloqueo); lo guardado sigue sonando.
+
+**Clave de la fase 1:** todo menos `/health` pide `API_TOKEN` (en `server/.env`, fuera de git) como
+`Authorization: Bearer …` o `?token=…`. Es provisional hasta el login con lista de permitidos.
+
+```bash
+cd ~/MusicApp/server
+docker compose up -d --build api        # arrancar / actualizar tras cambiar app.py
+T=$(grep API_TOKEN .env | cut -d= -f2)
+curl -H "Authorization: Bearer $T" "http://127.0.0.1:8090/search?q=daft+punk+one+more+time"
+curl -H "Authorization: Bearer $T" -o cancion.webm "http://127.0.0.1:8090/stream/FGBhQbmPwH8"
+```
 
 ## 2. Acceso y seguridad
 
@@ -82,7 +109,9 @@ Tailscale **solo reenvía, no filtra**: toda petición llega a la API, así que 
   no hay contraseñas que guardar); se puede cambiar por usuario/contraseña propios si apetece hacerlo.
 - **Bloqueo automático** a quien insista: demasiados fallos o peticiones seguidas → bloqueado un tiempo,
   cada vez más largo. Queda en el registro. (Pendiente comprobar si Funnel pasa la IP real.)
-- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de su caché.
+- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de su caché. El ID de canción
+  se valida (11 caracteres de YouTube) antes de buscar archivos. Corre sin root, así que tampoco puede leer
+  las cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
 
 **Plan B — túnel de Cloudflare:** el túnel que ya corre en este servidor (`finops-tunnel-1`) es de la
 cuenta de **mi hermano**; no sirve con otra cuenta. Si un día se usa Cloudflare (un subdominio en su
@@ -130,7 +159,7 @@ Cada fase funciona por sí sola.
 
 | Fase | Qué | Estado |
 |---|---|---|
-| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + **medir el límite de Funnel** | Pendiente |
+| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + **medir el límite de Funnel** | Servidor hecho; falta Funnel y medir |
 | 2 | **App mínima:** pantalla de búsqueda, play y que suene + actualizador propio | Pendiente |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Pendiente |
@@ -138,16 +167,21 @@ Cada fase funciona por sí sola.
 
 ## 5. Pendiente de mi parte
 
-- Crear la cuenta gratis en **tailscale.com** (Google/GitHub/Microsoft) para activar Funnel. No hace
-  falta para la fase 1.
+- Crear una **clave de autenticación de Tailscale** para el contenedor `musicapp-tailscale` y ponerla en
+  `server/.env` (`TS_AUTHKEY=`).
 - Instalar en el PC **Flutter** y **Android Studio** (con su emulador, o usar el móvil por USB).
-- Crear la carpeta de canciones (necesita `sudo`, se hará en la fase 1).
 
 ## 6. Carpetas
 
 ```
 /home/lainer/MusicApp/
-├── server/       API de música (vacío todavía)
+├── server/
+│   ├── app.py              la API (FastAPI)
+│   ├── Dockerfile
+│   ├── docker-compose.yml  contenedores musicapp-api y musicapp-tailscale (red propia musicapp_default)
+│   ├── funnel.json         qué publica Funnel: https://musicapp.<tailnet>.ts.net -> api:8000
+│   ├── .env                API_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
+│   └── data/               catálogo propio index.json y estado de Tailscale (fuera de git)
 ├── README.md     este documento
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```
