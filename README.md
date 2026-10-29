@@ -59,29 +59,61 @@ cuenta de **mi hermano**; no sirve con otra cuenta. Si un día se usa Cloudflare
 cuenta, o un dominio propio `.com` en Cloudflare Registrar, ~10 $/año sin subidas al renovar), se cambia
 el contenedor `tailscale` por un `cloudflared` y la dirección en los ajustes de la app. La API no cambia.
 
-**Rendimiento esperado:** con 6 personas escuchando a la vez, ~1 Mbps de subida (128–160 kbps cada una)
-y muy poca CPU/RAM. El servidor tiene 4 núcleos y 15 GB de RAM.
+**Límite de velocidad de Funnel (por medir):** Tailscale reconoce que Funnel tiene un límite de ancho de
+banda, no publicado y que no sube pagando. Quien lo ha probado cuenta que el streaming va bien a ~1 Mbps y
+falla a 5 Mbps. Lo que necesita la app:
 
-## 3. Plan por fases
+| Uso | Necesita | ¿Aguanta Funnel? |
+|---|---|---|
+| Órdenes (buscar, cola, login) | Casi nada | Sí |
+| 1 persona escuchando (Opus ~96–128 kbps) | ~0,1 Mbps | Probablemente |
+| 6 personas a la vez | ~1 Mbps | Justo en el límite |
+| Descargar el APK al actualizar (~30–50 MB) | Mucho de golpe | Lento (minutos) |
+
+Antes de construir encima se **mide en la fase 1** (un audio detrás de Funnel, descargado desde dos móviles
+a la vez). Si no aguanta: Cloudflare (plan B de arriba) o Tailscale en modo red privada (conexión directa,
+sin límite, pero cada amigo instala Tailscale). En todo caso, audio en Opus ~96 kbps y la app guarda lo ya
+escuchado para no volver a pedirlo.
+
+Funnel **no pasa la IP real** del cliente de forma directa (no añade cabeceras); para el bloqueo por IP hay
+que probar su opción de protocolo PROXY.
+
+El servidor en sí va sobrado (4 núcleos, 15 GB de RAM): el posible cuello de botella es el túnel.
+
+## 3. Actualizaciones de la app
+
+La app **se actualiza desde dentro**, sin Play Store:
+
+1. Al abrirse, pregunta al servidor si hay versión nueva.
+2. Si la hay: aviso "Hay una versión nueva · Actualizar". Un toque descarga el `.apk` desde nuestro servidor
+   y Android pregunta "¿Instalar?". La primera vez, Android pide permitir instalar apps de esta fuente.
+3. **Todas las versiones se firman con la misma llave.** Si se pierde, Android no deja actualizar y todos
+   tendrían que desinstalar e instalar de nuevo: la llave va con copia de seguridad, fuera de git.
+
+Lo que vive en el servidor (búsqueda, letras, descargas) mejora para todos al instante sin actualizar la
+app, así que se pone en el servidor todo lo que se pueda. Más adelante, si molestan los toques, se puede
+añadir **Shorebird** (cambios de código Dart aplicados solos al abrir la app, sin APK nuevo).
+
+## 4. Plan por fases
 
 Cada fase funciona por sí sola.
 
 | Fase | Qué | Estado |
 |---|---|---|
-| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) | Pendiente |
-| 2 | **App mínima:** pantalla de búsqueda, play y que suene | Pendiente |
+| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + **medir el límite de Funnel** | Pendiente |
+| 2 | **App mínima:** pantalla de búsqueda, play y que suene + actualizador propio | Pendiente |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Pendiente |
 | 5 | Descargas para escuchar sin conexión, ver qué escuchan los amigos, escuchar juntos | Pendiente |
 
-## 4. Pendiente de mi parte
+## 5. Pendiente de mi parte
 
 - Crear la cuenta gratis en **tailscale.com** (Google/GitHub/Microsoft) para activar Funnel. No hace
   falta para la fase 1.
 - Instalar en el PC **Flutter** y **Android Studio** (con su emulador, o usar el móvil por USB).
 - Crear la carpeta de canciones (necesita `sudo`, se hará en la fase 1).
 
-## 5. Carpetas
+## 6. Carpetas
 
 ```
 /home/lainer/MusicApp/
