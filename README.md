@@ -171,8 +171,9 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
 - La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music` y su `data/`.
   El ID o la clave de canción se validan antes de buscar archivos. Corre sin root, así que no puede leer las
   cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
-- **Cookies de YouTube:** si existe `server/data/youtube-cookies.txt` (dueño 1000, permisos 600) yt-dlp las usa,
-  como el bot. Aún no están: copiarlas a mano de `~/MusicBot/data/cookies.txt` (ver "Pendiente de mi parte").
+- **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 1000, permisos 600), copia de las del bot;
+  yt-dlp las usa si existen. Si se renuevan las del bot, volver a copiarlas:
+  `sudo install -o 1000 -g 1000 -m 600 ~/MusicBot/data/cookies.txt ~/MusicApp/server/data/youtube-cookies.txt`.
   Son de una cuenta desechable; si se filtran, se cierra la sesión de esa cuenta en Google.
 - **Rutas del bot** (`/interno`): puerto 8001 al que los túneles no reenvían, más su propia clave. Dentro de la
   red `musicapp_default` sí se alcanza (el bot lo necesita), pero sin la clave da 401.
@@ -231,9 +232,6 @@ Cada fase funciona por sí sola.
 - Instalar en el PC **Flutter** y **Android Studio** (con su emulador, o usar el móvil por USB).
 - Con la app: crear en Google Cloud (proyecto `musicapp`) el **cliente OAuth Android** (nombre de paquete +
   SHA-1 de la llave de firma, que se crea entonces, con copia de seguridad).
-- Copiar las cookies de YouTube del bot a la API (no lo hago yo: son una credencial):
-  `sudo install -o 1000 -g 1000 -m 600 ~/MusicBot/data/cookies.txt ~/MusicApp/server/data/youtube-cookies.txt`
-  y `docker restart musicapp-api`.
 - Probar `musica.yoneapolis.com` desde el móvil con datos; si va bien, apagar Funnel (`musicapp-tailscale`).
 - Decidir si la sesión se renueva sola con el uso (ahora caduca a los 90 días y la app tendría que volver a
   pedir el login a Google, sin que yo apruebe de nuevo).
