@@ -72,9 +72,12 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 ### Repartir la app
 
 La app (Android) se baja desde la misma página de acceso: `https://musica.yoneapolis.com/acceso`. Quien entra con
-Google y **ya está aprobado** ve "⬇️ Descargar la app"; el resto, lo de siempre (pendiente o sin acceso). El enlace
-sirve 10 min y no lleva la sesión dentro: pasarlo a otro solo le da el APK, que sin una cuenta aprobada no
-reproduce nada. Mientras no haya APK, al aprobado le dice "todavía no está lista".
+Google y **ya está aprobado** empieza a bajarla sola, sin ver ningún enlace (por si el navegador bloquea la
+descarga automática hay un "¿No empezó? toca aquí"); el resto, lo de siempre (pendiente o sin acceso). Por
+debajo es un enlace de 10 min sin la sesión dentro. No es de un solo uso a propósito: los navegadores de Android
+a veces piden el archivo dos veces o retoman una descarga cortada, y gastarían el enlace. Tampoco hace falta
+más: lo que protege la música es el login dentro de la app; un APK pasado por WhatsApp no reproduce nada sin una
+cuenta aprobada. Mientras no haya APK, al aprobado le dice "todavía no está lista".
 
 **Publicar una versión:** copiar el APK firmado a `/var/lib/musicapp/app/musica.apk` (montada solo lectura en la
 API como `/app-dist`). Sin reiniciar nada: el siguiente que entre baja la nueva. Solo Android: en iPhone no se
@@ -96,7 +99,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /auth/google` | Cuerpo `{"id_token": "…"}` (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
-| `GET /acceso` | Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le da el botón para bajar la app** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
+| `GET /acceso` | Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |

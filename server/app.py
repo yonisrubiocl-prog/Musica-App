@@ -483,8 +483,6 @@ ACCESS_HTML = """<!doctype html>
   #estado.ok{display:block;background:#3ddc8422;border:1px solid var(--ok)}
   #estado.wait{display:block;background:#ffd23f1f;border:1px solid var(--wait)}
   #estado.no{display:block;background:#ff5c5c1f;border:1px solid var(--no)}
-  .apk{display:inline-block;margin-top:12px;padding:12px 20px;border-radius:999px;background:var(--ok);color:#0d0d0f;
-       font-weight:600;text-decoration:none}
   .nota{display:block;margin-top:10px;font-size:.85rem;color:var(--sub)}
 </style>
 <script src="https://accounts.google.com/gsi/client" async></script></head><body>
@@ -512,10 +510,11 @@ async function entrar(r) {
       fetch('/auth/logout', {method: 'POST', headers: auth});
       if (app.ok) {
         const a = await app.json();
-        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado.<br>' +
-          '<a class="apk" href="' + a.url + '">⬇️ Descargar la app (' + (a.size / 1e6).toFixed(0) + ' MB)</a>' +
-          '<span class="nota">Solo Android. Si pide permiso para "instalar apps desconocidas", acéptalo. ' +
-          'El enlace sirve ' + a.minutes + ' min. Dentro, entra con esta misma cuenta.</span>');
+        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. Bajando la app (' + (a.size / 1e6).toFixed(0) +
+          ' MB)…<span class="nota">Solo Android. Al terminar, ábrela; si pide permiso para "instalar apps ' +
+          'desconocidas", acéptalo. Dentro, entra con esta misma cuenta.<br>' +
+          '¿No empezó? <a href="' + a.url + '" style="color:var(--fg)">toca aquí</a>.</span>');
+        location.href = a.url;   // la descarga empieza sola: el enlace no se enseña
       } else {
         estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. La app todavía no está lista para descargar: ' +
           'vuelve a esta página en unos días y entra con esta misma cuenta.');
