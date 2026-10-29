@@ -113,6 +113,10 @@ para el dueño): quien entra con Google por primera vez queda **pendiente** (má
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. De las
 sesiones solo se guarda su hash. Bloquear cierra sus sesiones al momento.
 
+**Panel** para aprobar rápido (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`. Lista numerada
+(pendientes primero, se actualiza sola); `:1` aprueba al 1, `:1 3 4` a varios, `:B 2` bloquea (pide confirmar),
+`:H` ayuda, `:Q` sale. Los números no se mueven mientras escribes. Por debajo usa `users.py`:
+
 ```bash
 docker exec musicapp-api python users.py                       # lista
 docker exec musicapp-api python users.py aprobar amigo@gmail.com
@@ -222,6 +226,7 @@ Cada fase funciona por sí sola.
 ├── server/
 │   ├── app.py              la API (FastAPI)
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
+│   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
 │   ├── Dockerfile
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000

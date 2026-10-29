@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Panel de usuarios de MusicApp (estilo htop, comandos estilo vim, como el de ProjectV1).
+
+Uso: ~/MusicApp/server/panel.py     Todo se hace escribiendo un comando que empieza por ":" y Enter
+(Esc cancela). :1 aprueba al número 1 de la lista, :H ayuda, :Q sale.
+Lee data/users.json directamente; los cambios los hace `users.py` dentro del contenedor (misma lógica que
+el comando a mano: bloquear también cierra sus sesiones).
+"""
+import curses
+import curses.textpad
+import json
+import locale
+import os
+import subprocess
+import threading
+import time
+from datetime import datetime
+
+D = os.path.dirname(os.path.abspath(__file__))
+USERS = os.path.join(D, "data", "users.json")
+CONT = "musicapp-api"
+ORDEN = {"pendiente": 0, "aprobado": 1, "bloqueado": 2}
+VERDE, AMARILLO, ROJO, CIAN, GRIS = 1, 2, 3, 4, 5
+COLOR = {"pendiente": AMARILLO, "aprobado": VERDE, "bloqueado": ROJO}
+
+AYUDA = [
+    ("Cómo se usa", ""),
+    ("", "Escribe ':' para empezar un comando, luego Enter. Esc cancela; las teclas sueltas no hacen nada."),
+    ("", "Los números no cambian mientras escribes. Las solicitudes nuevas salen al final de las pendientes."),
+    ("Comandos", ""),
+    (":<n>", "Aprobar al número n.  Ej:  :1    Varios:  :1 3 4"),
+    (":B <n>", "Bloquear al número n (pide confirmar). Cierra sus sesiones al momento."),
+    (":H", "Esta ayuda."),
+    (":Q", "Salir del panel (la API sigue igual)."),
+    ("Para pedir acceso", ""),
+    ("", "https://musica.yoneapolis.com/acceso  (entran con Google y quedan pendientes)"),
+    ("Colores", ""),
+    ("", "amarillo = pendiente · verde = aprobado · rojo = bloqueado"),
+]
+
+
+def leer():
+    """Usuarios en orden fijo: pendientes primero (los más antiguos arriba), luego aprobados y bloqueados."""
+    try:
+        with open(USERS, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return []
+    return sorted(data.items(), key=lambda kv: (ORDEN.get(kv[1]["status"], 9), kv[1].get("since", 0)))
+
+
+def fecha(t):
+    return datetime.fromtimestamp(t).strftime("%d/%m %H:%M") if t else "—"
+
+
+def users_py(*args):
+    r = subprocess.run(["docker", "exec", CONT, "python", "users.py", *args],
+                       capture_output=True, text=True, timeout=20)
+    return r.returncode == 0, (r.stdout or r.stderr).strip().splitlines()[-1:] or [""]
+
+
+class UI:
+    def __init__(s, scr):
+        s.scr = scr
+        s.modo_cmd, s.buf = False, ""
+        s.salir, s.ayuda = False, False
+        s.msg, s.msg_color, s.msg_hora = "", 0, 0
+        s.conf = None   # (texto, acción)
+        s.lista = leer()
+
+    def aviso(s, texto, color=0):
+        s.msg, s.msg_color, s.msg_hora = texto, color, time.time()
+
+    # -- dibujo
+    def put(s, y, x, texto, color=0, bold=False):
+        h, w = s.scr.getmaxyx()
+        if y < 0 or y >= h or x >= w:
+            return
+        attr = curses.color_pair(color) | (curses.A_BOLD if bold else 0)
+        try:
+            s.scr.addstr(y, x, texto[: max(0, w - x - (1 if y == h - 1 else 0))], attr)
+        except curses.error:
+            pass
+
+    def caja(s, y, x, h, w, titulo):
+        try:
+            curses.textpad.rectangle(s.scr, y, x, y + h - 1, x + w - 1)
+        except curses.error:
+            pass
+        s.put(y, x + 2, f" {titulo} ", 0, True)
+
+    def dibujar(s):
+        s.scr.erase()
+        H, W = s.scr.getmaxyx()
+        if not s.modo_cmd and not s.conf:   # mientras se escribe, la lista (y sus números) no se mueve
+            s.lista = leer()
+        n = {st: sum(u["status"] == st for _, u in s.lista) for st in ORDEN}
+        s.put(0, 0, " MusicApp · usuarios".ljust(W - 9) + time.strftime("%H:%M:%S"), 0, True)
+        s.scr.chgat(0, 0, W, curses.A_REVERSE | curses.A_BOLD)
+        s.put(1, 1, f"{n['pendiente']} pendientes", AMARILLO, True)
+        s.put(1, 17, f"{n['aprobado']} aprobados", VERDE)
+        s.put(1, 31, f"{n['bloqueado']} bloqueados", ROJO)
+
+        s.caja(2, 0, H - 3, W, "USUARIOS")
+        s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'última vez'}", GRIS, True)
+        if not s.lista:
+            s.put(5, 4, "Nadie ha pedido acceso todavía. Enlace: https://musica.yoneapolis.com/acceso", GRIS)
+        for i, (_, u) in enumerate(s.lista[: max(0, H - 7)], start=1):
+            s.put(3 + i, 2, f"{i:>3}  ", 0, True)
+            s.put(3 + i, 7, f"{u['status']:<10} ", COLOR.get(u["status"], 0), u["status"] == "pendiente")
+            s.put(3 + i, 18, f"{u['email'][:33]:<34} {(u.get('name') or '')[:21]:<22} "
+                             f"{fecha(u.get('since')):<12} {fecha(u.get('seen'))}")
+        if len(s.lista) > H - 7:
+            s.put(H - 2, 4, f"… y {len(s.lista) - (H - 7)} más (agranda la ventana)", GRIS)
+        if s.ayuda:
+            s.dibujar_ayuda(H, W)
+        s.linea_cmd(H, W)
+
+    def linea_cmd(s, H, W):
+        if s.conf:
+            s.put(H - 1, 0, f"{s.conf[0]}   s = sí · n = no", AMARILLO, True)
+        elif s.modo_cmd:
+            s.put(H - 1, 0, ":" + s.buf, 0, True)
+            try:
+                curses.curs_set(1)
+                s.scr.move(H - 1, min(W - 2, 1 + len(s.buf)))
+            except curses.error:
+                pass
+            return
+        elif s.msg and time.time() - s.msg_hora < 8:
+            s.put(H - 1, 0, s.msg, s.msg_color, True)
+        else:
+            s.put(H - 1, 0, ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :H ayuda  ·  :Q salir", GRIS)
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass
+
+    def dibujar_ayuda(s, H, W):
+        w = min(W - 4, 100)
+        h = min(H - 2, len(AYUDA) + 3)
+        y, x = (H - h) // 2, (W - w) // 2
+        for i in range(h):
+            s.put(y + i, x, " " * w)
+        s.caja(y, x, h, w, "AYUDA  (cualquier tecla para cerrar)")
+        for i, (a, b) in enumerate(AYUDA[: h - 3]):
+            if a and not b:
+                s.put(y + 1 + i, x + 2, a, CIAN, True)
+            else:
+                s.put(y + 1 + i, x + 3, a, AMARILLO, True)
+                s.put(y + 1 + i, x + 13, b[: w - 15])
+
+    # -- comandos
+    def elegir(s, texto):
+        """'1 3 4' -> [(sub, usuario)] de la lista que se estaba viendo; None si algún número no existe."""
+        try:
+            nums = [int(t) for t in texto.split()]
+        except ValueError:
+            return None
+        if not nums or any(not 1 <= k <= len(s.lista) for k in nums):
+            return None
+        return [s.lista[k - 1] for k in nums]
+
+    def cambiar(s, accion, elegidos):
+        hechos, fallos = [], []
+        for sub, u in elegidos:
+            ok, salida = users_py(accion, sub)
+            (hechos if ok else fallos).append(u["email"] if ok else f"{u['email']} ({salida[0]})")
+        palabra = "Aprobado" if accion == "aprobar" else "Bloqueado"
+        if fallos:
+            s.aviso(f"Falló: {', '.join(fallos)}", ROJO)
+        else:
+            s.aviso(f"{palabra}: {', '.join(hechos)}", VERDE if accion == "aprobar" else ROJO)
+
+    def ejecutar(s, linea):
+        linea = linea.strip()
+        cmd = linea.upper()
+        if cmd == "Q":
+            s.salir = True
+        elif cmd == "H":
+            s.ayuda = True
+        elif cmd.startswith("B ") or cmd == "B":
+            elegidos = s.elegir(linea[1:])
+            if not elegidos:
+                return s.aviso("Uso: :B <número de la lista>", ROJO)
+            emails = ", ".join(u["email"] for _, u in elegidos)
+            s.conf = (f"¿Bloquear a {emails}?", lambda: s.cambiar("bloquear", elegidos))
+        elif linea[:1].isdigit():
+            elegidos = s.elegir(linea)
+            if not elegidos:
+                return s.aviso(f"No hay número '{linea}' en la lista", ROJO)
+            bloqueados = [u["email"] for _, u in elegidos if u["status"] == "bloqueado"]
+            if bloqueados:   # desbloquear es raro: que no pase por un número mal puesto
+                s.conf = (f"{', '.join(bloqueados)} está bloqueado. ¿Aprobar igual?",
+                          lambda: s.cambiar("aprobar", elegidos))
+            else:
+                s.aviso("Aprobando…", GRIS)
+                threading.Thread(target=s.cambiar, args=("aprobar", elegidos), daemon=True).start()
+        elif linea:
+            s.aviso(f"Comando desconocido: :{linea}   (:H ayuda)", ROJO)
+
+    # -- teclado
+    def tecla(s, k):
+        if s.ayuda:
+            s.ayuda = False
+            return
+        if s.conf:
+            if isinstance(k, str) and k.lower() == "s":
+                accion, s.conf = s.conf[1], None
+                threading.Thread(target=accion, daemon=True).start()
+            elif k in ("n", "N", "\x1b", "\n", "\r"):
+                s.conf = None
+                s.aviso("Cancelado", GRIS)
+            return
+        if not s.modo_cmd:
+            if k == ":":
+                s.modo_cmd, s.buf = True, ""
+            return
+        if k == "\x1b":
+            s.modo_cmd = False
+        elif k in ("\n", "\r", curses.KEY_ENTER):
+            s.modo_cmd = False
+            linea, s.buf = s.buf, ""
+            s.ejecutar(linea)
+        elif k in (curses.KEY_BACKSPACE, "\x7f", "\b"):
+            if s.buf:
+                s.buf = s.buf[:-1]
+            else:
+                s.modo_cmd = False
+        elif isinstance(k, str) and k.isprintable():
+            s.buf += k
+
+
+def main(scr):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    for i, c in enumerate([curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_RED, curses.COLOR_CYAN], start=1):
+        curses.init_pair(i, c, -1)
+    curses.init_pair(GRIS, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)
+    curses.set_escdelay(25)
+    scr.timeout(1000)   # se redibuja cada segundo: las solicitudes nuevas aparecen solas
+    ui = UI(scr)
+    while not ui.salir:
+        ui.dibujar()
+        scr.refresh()
+        try:
+            k = scr.get_wch()
+        except curses.error:
+            continue
+        if k == curses.KEY_RESIZE:
+            curses.update_lines_cols()
+            continue
+        ui.tecla(k)
+
+
+if __name__ == "__main__":
+    locale.setlocale(locale.LC_ALL, "")
+    os.environ.setdefault("ESCDELAY", "25")
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        pass
+    print("Panel cerrado. La API sigue funcionando igual.")
