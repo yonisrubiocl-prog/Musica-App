@@ -1,12 +1,11 @@
 """API de MusicApp: la dueña de la música. La app la usa por internet (login de Google) y el bot por la red
 interna de Docker (rutas /interno, en otro puerto al que los túneles no llegan).
 
-Canciones: una sola biblioteca en /music con su catálogo (ver library.py). Mientras el bot no use la API, lo que
-él baje a su carpeta se copia aquí solo. Ver README.md, sección "Canciones".
+Canciones: una sola biblioteca en /music con su catálogo (ver library.py). El bot lee el catálogo y los archivos
+directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pide aquí. Ver README.md, "Canciones".
 """
 import asyncio
 import hmac
-import json
 import logging
 import os
 import re
@@ -21,16 +20,14 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
 import users
-from library import KEY, Library, artist_of, key_of, music_meta, words
+from library import KEY, Library, artist_of, key_of, music_meta
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("musicapp")
 
 MUSIC_DIR = "/music"                    # la biblioteca (en el servidor: /var/lib/music)
-MUSIC_INDEX = "/data/index.json"        # su catálogo (en ~/MusicApp/server/data)
+MUSIC_INDEX = "/music/index.json"       # su catálogo, junto a la música: el bot lo lee de su montaje
 MUSIC_GB = float(os.environ.get("MUSIC_GB", "15"))
-BOT_CACHE_DIR = "/bot-cache"            # carpeta vieja del bot, solo lectura (/var/lib/musicbot/cache)
-BOT_INDEX = "/bot-data/index.json"      # su catálogo, solo lectura (~/MusicBot/data)
 COOKIES = "/data/youtube-cookies.txt"   # cookies de YouTube (las del bot); solo las lee el usuario 1000
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
@@ -38,11 +35,12 @@ BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")   # cliente OAuth "Aplicación web" (no es secreto)
 PUBLIC_PORT, INTERNAL_PORT = 8000, 8001
 YT_RESULTS = 5
+MAX_PLAYLIST = 5000                     # tope de canciones al leer una lista (el bot pide menos para la cola)
 YT_PAUSE = 15 * 60                      # tras un bloqueo de YouTube no se le pide nada durante este tiempo
 VIDEO_ID = re.compile(r"[\w-]{11}")
 # Lo que el bot necesita de la respuesta de yt-dlp (el resto, como la lista de formatos, pesa mucho).
 INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live", "url", "http_headers",
-               "extractor_key", "uploader", "channel")
+               "extractor_key", "ie_key", "uploader", "channel", "artist", "artists")
 
 LIB = Library(MUSIC_DIR, MUSIC_GB * 1024 ** 3, MUSIC_INDEX)
 
@@ -116,50 +114,6 @@ def youtube_info(vid):
         with ydl() as y:
             return y.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
     return youtube(run)
-
-
-# ---------- transición: lo que el bot baje a su carpeta vieja se copia a la biblioteca ----------
-# Se quita cuando el bot use la API (entonces ya no baja nada él).
-
-def sync_from_bot():
-    try:
-        mtime = os.path.getmtime(BOT_INDEX)
-    except OSError:
-        return
-    if mtime == getattr(sync_from_bot, "mtime", None):
-        return
-    try:
-        with open(BOT_INDEX) as f:
-            bot = json.load(f)
-    except (OSError, ValueError) as e:
-        log.warning("catálogo del bot: no pude leerlo: %s", e)
-        return
-    n = 0
-    for k, e in bot.items():
-        if not isinstance(e, dict) or not KEY.fullmatch(k) or LIB.peek(k):
-            continue
-        src = os.path.join(BOT_CACHE_DIR, e.get("file") or "")
-        if os.path.isfile(src):
-            try:
-                LIB.put(k, src, None, copy=True, entry=e)
-                n += 1
-            except OSError as ex:
-                log.warning("no pude traer %s del bot: %s", k, ex)
-    if n:
-        log.info("traídas %d canciones nuevas del bot", n)
-    sync_from_bot.mtime = mtime
-
-
-def _bot_syncer():
-    while True:
-        try:
-            sync_from_bot()
-        except Exception:
-            log.exception("copiando del bot")
-        time.sleep(60)
-
-
-threading.Thread(target=_bot_syncer, daemon=True).start()
 
 
 # ---------- app (por internet) ----------
@@ -299,6 +253,17 @@ def valid_key(key):
     return key
 
 
+def small_info(info):
+    """Lo que el bot usa de una respuesta de yt-dlp (con 'entries' si es una lista o una búsqueda)."""
+    out = {k: info.get(k) for k in INFO_FIELDS if info.get(k) is not None}
+    thumbs = info.get("thumbnails") or []
+    if thumbs and "thumbnail" not in out:
+        out["thumbnail"] = thumbs[-1].get("url")
+    if "entries" in info:
+        out["entries"] = [small_info(e) if e else None for e in info["entries"] or []]
+    return out
+
+
 def songs(pairs):
     return [{"key": k, **e} for k, e in pairs]
 
@@ -380,12 +345,21 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
         hit.pop("path")
         return {"key": key, "source": "local", "file": hit["file"], "song": hit, "info": None}
     info, path = download(url, by)
-    small = {k: info.get(k) for k in INFO_FIELDS if info.get(k) is not None}
-    small.update(music_meta(info))
+    small = {**small_info(info), **music_meta(info)}
     if not path:
         return {"key": key, "source": "live", "file": None, "song": None, "info": small}
     key = key_of(url, info)
     return {"key": key, "source": "online", "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
+
+
+@internal.post("/interno/resolve")
+def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(100, embed=True, le=MAX_PLAYLIST)):
+    """Buscar en YouTube ('ytsearch5:…' o un nombre) o leer un enlace (video, lista, SoundCloud…) sin bajar nada:
+    título, duración, miniatura y, si es lista o búsqueda, sus 'entries'."""
+    def run():
+        with ydl(extract_flat="in_playlist", playlistend=limit, default_search="ytsearch") as y:
+            return y.extract_info(query, download=False)
+    return small_info(youtube(run, not re.match(r"https?://", query) or is_yt(query)))
 
 
 @internal.post("/interno/ficha/{key}")

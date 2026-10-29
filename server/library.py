@@ -21,7 +21,7 @@ log = logging.getLogger("musicapp.library")
 FLUSH = 30                      # segundos como mucho entre guardados del catálogo por lo que cambia al sonar
 SONG_FILE = re.compile(r"(yt-[\w-]{11}|u-[0-9a-f]{16})\.\w+")   # nombre de una canción guardada
 KEY = re.compile(r"yt-[\w-]{11}|u-[0-9a-f]{16}")
-YT_ID = re.compile(r"youtu.*?(?:[?&]v=|youtu\.be/|/shorts/|/live/)([\w-]{11})")
+YT_ID = re.compile(r"(?:youtu\.be/|youtu.*?(?:[?&]v=|/shorts/|/live/))([\w-]{11})")
 
 # Palabras que no ayudan a distinguir canciones (las mismas que usa el bot).
 NOISE = {"official", "oficial", "video", "videoclip", "clip", "lyrics", "lyric", "letra", "audio", "hd", "hq",

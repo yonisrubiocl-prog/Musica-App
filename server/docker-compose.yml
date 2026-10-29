@@ -15,10 +15,8 @@ services:
       - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor
       - "127.0.0.1:8091:8001"            # rutas del bot (/interno), igual; el bot entra por la red interna
     volumes:
-      - ./data:/data                                 # catálogo (index.json), usuarios, sesiones y cookies de YouTube
-      - /var/lib/music:/music                        # la biblioteca única
-      - /var/lib/musicbot/cache:/bot-cache:ro        # transición: carpeta vieja del bot, solo lectura
-      - /home/lainer/MusicBot/data:/bot-data:ro      # transición: su catálogo, solo lectura (sus cookies no son legibles: uid 1000)
+      - ./data:/data                                 # usuarios, sesiones y cookies de YouTube
+      - /var/lib/music:/music                        # la biblioteca única (canciones + index.json)
     logging:
       driver: json-file
       options: {max-size: "5m", max-file: "2"}

@@ -6,8 +6,8 @@
 > contradicciones. Lo histórico está en git, no aquí.
 
 App de música propia, tipo Spotify: buscas una canción, le das a play y **suena en el móvil o el PC**.
-No es un mando del bot de Discord (`MusicBot`, otro proyecto): solo comparten la música guardada, y el plan es
-que el bot pase a pedírsela a esta API (ver "Canciones").
+No es un mando del bot de Discord (`MusicBot`, otro proyecto): solo comparten la música guardada, que es de esta
+API; el bot se la pide (ver "Canciones").
 
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
@@ -17,9 +17,8 @@ sin publicarlo ni cobrar nada.
 `https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio); Tailscale Funnel
 (`https://musicapp.tail66213e.ts.net`) sigue encendido como respaldo.
 
-**Biblioteca única: la parte de la API está hecha.** Una sola carpeta `/var/lib/music` con un solo catálogo,
-y rutas internas para el bot. **Lo siguiente:** cambiar el bot para que use esas rutas en vez de bajar él
-(sección "Canciones → Falta: el bot"). Después, la app (fase 2).
+**Biblioteca única hecha:** la API es la dueña de la música (`/var/lib/music`) y el bot de Discord es cliente
+suyo. **Lo siguiente: la app** (fase 2).
 
 ---
 
@@ -37,41 +36,35 @@ y rutas internas para el bot. **Lo siguiente:** cambiar el bot para que use esas
 
 | Pieza | Dónde | Qué es |
 |---|---|---|
-| **Servidor** (`server/`) | Este servidor, en Docker | API de música, dueña de la biblioteca. Hoy el bot aún no la usa: si se rompe, el bot sigue (cambia cuando el bot pase a ser su cliente) |
+| **Servidor** (`server/`) | Este servidor, en Docker | API de música, dueña de la biblioteca. Si se cae, el bot sigue tocando lo guardado pero no puede bajar nada nuevo |
 | **App** | PC del usuario | Flutter (Android y PC; iPhone algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador |
 | **Túnel** | Contenedor `cloudflared` aquí + Cloudflare | Da la dirección pública con HTTPS sin abrir puertos. Dominio `yoneapolis.com` (mío, en Cloudflare), pensado para todos mis proyectos con un subdominio cada uno |
 | **Canciones** | `/var/lib/music` (la biblioteca única) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
 
 ### Canciones
 
-La **API es la dueña de la música**: una carpeta `/var/lib/music` (~1.900 canciones, ~7 GB) y un catálogo
-`~/MusicApp/server/data/index.json` (mismo formato que el del bot). Solo la API escribe ahí y solo ella baja
-(yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs `u-<resumen del enlace>`).
-**Tope de 15 GB** (`MUSIC_GB` en `docker-compose.yml`): al pasarlo borra lo que hace más que no suena, contando
-lo que suena en la app y (cuando lo use) en Discord. La lógica (`server/library.py`) es la clase `Cache` del bot
-traída tal cual: índice de palabras, autocompletado, faltas de ortografía, álbumes.
+La **API es la dueña de la música**: una carpeta `/var/lib/music` (~1.900 canciones, ~7 GB) con su catálogo
+`index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
+YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
+`u-<resumen del enlace>`). **Tope de 15 GB** (`MUSIC_GB` en `docker-compose.yml`): al pasarlo borra lo que hace
+más que no suena, contando la app y Discord. La lógica está en `server/library.py`: índice de palabras,
+autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 
 ```
   App ──(internet, sesión de Google, puerto 8000)──►┐
-                                                    ├──► API de música ──► /var/lib/music + index.json
-  Bot ──(red interna Docker, su clave, puerto 8001)─►┘     única que escribe y baja
-   └── lee los archivos directo del disco (solo lectura) para reproducir con FFmpeg
+                                                    ├──► API de música ──► /var/lib/music (canciones + index.json)
+  Bot ──(red interna Docker, su clave, puerto 8001)─►┘     única que escribe y habla con YouTube
+   └── lee index.json y los archivos directo del disco (solo lectura): buscar al instante y FFmpeg
 ```
 
-**Transición (mientras el bot no cambie):** el bot sigue con su carpeta `/var/lib/musicbot/cache` y su
-catálogo, como siempre. La biblioteca se creó con **enlaces duros** a sus archivos (mismo disco: no ocupa el
-doble; los archivos siguen siendo de root, como los crea el bot). Cada minuto la API mira el catálogo del bot
-y **copia** lo nuevo que haya bajado (entre montajes de Docker no se puede enlazar). Lo que borre el bot no se
-borra de la biblioteca. Al terminar con el bot: quitar `sync_from_bot` de `app.py`, los montajes `/bot-cache` y
-`/bot-data`, y la carpeta vieja.
+El bot tiene una copia del catálogo en memoria que relee cuando cambia, así que buscar no espera a la API y lo
+guardado suena aunque esté caída. Lo que cambia algo (bajar, "sonó", olvidar, fichas) y buscar en YouTube se lo
+pide a las rutas `/interno`. Detalle: `~/MusicBot/README.md`, sección 4.
 
-**Falta: el bot** (en `~/MusicBot`, con copia antes con `~/MusicBot/respaldo.sh` y avisando: reiniciar el bot
-corta la música en Discord). `MusicBot/bot.py` (~3.000 líneas) usa su clase `Cache` (instancia `CACHE`) en
-muchos sitios: `fetch_audio`, búsqueda/sugerencias (`CACHE.match`, `suggest`, `search`, `peek`), menú de
-guardadas, olvidar, `stats`, álbumes, `learn_meta`. El plan es sustituir `Cache` por un cliente de las rutas
-`/interno` con la misma interfaz, y en su `docker-compose.yml`: unirse a la red `musicapp_default`, montar
-`/var/lib/music` solo lectura y llevar `BOT_API_KEY` en su `.env`. Pendiente de decidir: si la API está caída,
-que el bot siga tocando lo guardado leyendo `index.json` en solo lectura.
+Restos de antes de juntar las carpetas (se pueden borrar cuando se quiera, con `sudo`):
+`/var/lib/musicbot/cache` (los mismos archivos que la biblioteca, enlazados: borrarla casi no libera espacio
+ni quita canciones), `/var/lib/musicapp/cache`, `~/MusicBot/data/index.json*` y `~/MusicBot/data/cookies.txt`;
+y en `server/data/`, `index.json.antes-biblioteca`.
 
 ### Servidor (`server/`)
 
@@ -89,24 +82,26 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /search?q=…` | Primero lo guardado (todas las palabras en título/artista/álbum, mejor primero), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
 
-**Rutas del bot** (`/interno/…`): en **otro puerto, el 8001**, dentro del mismo proceso (comparten
+**Rutas del bot** (`/interno/…`; el bot lee el catálogo del disco, así que de búsqueda solo usa `resolve`, y el
+resto están para lo que haga falta): en **otro puerto, el 8001**, dentro del mismo proceso (comparten
 biblioteca y candados). Los túneles solo reenvían al 8000, así que desde internet no existen (404). Piden
 `Authorization: Bearer <BOT_API_KEY>` (en `server/.env`; la de la app no vale). Las canciones van por clave
 (`yt-<id>` o `u-<resumen>`); `file` es el nombre del archivo dentro de `/var/lib/music`.
 
-| Ruta | Qué hace (equivale en el bot a) |
+| Ruta | Qué hace |
 |---|---|
-| `GET /interno/match?q=…&fuzzy=1` | La mejor guardada con todas las palabras: `{song, more}` (`CACHE.match`) |
-| `GET /interno/matches?q=…&limit=` | Todas las que tienen todas las palabras (`matches`, menú de `?`) |
-| `GET /interno/suggest?q=…&limit=` | Autocompletado por trozos de palabra; sin texto, las más puestas (`suggest`) |
-| `GET /interno/search?q=…&limit=` | Texto tal cual en título/artista/álbum, recientes primero (`search`) |
-| `GET /interno/albums`, `GET /interno/album?q=…` | Álbumes y sus canciones (`albums`, `album_tracks`) |
-| `GET /interno/stats` | `{songs, bytes, max_bytes}` (`stats`) |
-| `GET /interno/song/<clave>` | Ficha sin contarla como puesta (`peek`) |
-| `POST /interno/played/<clave>` | Sonó: suma una vez puesta y actualiza el último uso (`get`) |
-| `POST /interno/fetch` | `{"url": …, "by": <id de Discord>}`: "dame esta canción". Guardada → `source: local`; si no, la baja → `online`; directos → `live`, sin archivo y con `info.url` para escucharlo (`fetch_audio`) |
-| `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado (`learn_meta`) |
-| `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha (`remove`) |
+| `GET /interno/match?q=…&fuzzy=1` | La mejor guardada con todas las palabras: `{song, more}` |
+| `GET /interno/matches?q=…&limit=` | Todas las que tienen todas las palabras |
+| `GET /interno/suggest?q=…&limit=` | Autocompletado por trozos de palabra; sin texto, las más puestas |
+| `GET /interno/search?q=…&limit=` | Texto tal cual en título/artista/álbum, recientes primero |
+| `GET /interno/albums`, `GET /interno/album?q=…` | Álbumes y sus canciones |
+| `GET /interno/stats` | `{songs, bytes, max_bytes}` |
+| `POST /interno/resolve` | `{"query": …, "limit": n}`: buscar en YouTube (un nombre o `ytsearch5:…`) o leer un enlace (video, lista, SoundCloud…) sin bajar nada. Título, duración, miniatura y `entries` si es lista o búsqueda |
+| `GET /interno/song/<clave>` | Ficha sin contarla como puesta |
+| `POST /interno/played/<clave>` | Sonó: suma una vez puesta y actualiza el último uso |
+| `POST /interno/fetch` | `{"url": …, "by": <id de Discord>}`: "dame esta canción". Guardada → `source: local`; si no, la baja → `online`; directos → `live`, sin archivo y con `info.url` para escucharlo |
+| `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
+| `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
 
 Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
 bloqueo); lo guardado sigue sonando.
@@ -171,10 +166,9 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
 - La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music` y su `data/`.
   El ID o la clave de canción se validan antes de buscar archivos. Corre sin root, así que no puede leer las
   cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
-- **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 1000, permisos 600), copia de las del bot;
-  yt-dlp las usa si existen. Si se renuevan las del bot, volver a copiarlas:
-  `sudo install -o 1000 -g 1000 -m 600 ~/MusicBot/data/cookies.txt ~/MusicApp/server/data/youtube-cookies.txt`.
-  Son de una cuenta desechable; si se filtran, se cierra la sesión de esa cuenta en Google.
+- **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 1000, permisos 600); yt-dlp las usa si
+  existen. Son de una cuenta desechable (si se filtran, se cierra la sesión de esa cuenta en Google). Cómo
+  renovarlas sin que YouTube las rote: `~/MusicBot/README.md`, sección 6.
 - **Rutas del bot** (`/interno`): puerto 8001 al que los túneles no reenvían, más su propia clave. Dentro de la
   red `musicapp_default` sí se alcanza (el bot lo necesita), pero sin la clave da 401.
 
@@ -221,7 +215,7 @@ Cada fase funciona por sí sola.
 |---|---|---|
 | 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + publicarlo y **medir la velocidad del túnel** | Hecho |
 | 1b | **Login con Google** en el servidor (aprobación manual con panel, sesiones de 90 días) | Hecho (falta en la app y el bloqueo automático) |
-| 1c | **Biblioteca única:** la API dueña de la música, el bot cliente suyo (ver "Canciones") | API hecha; falta el bot (siguiente) |
+| 1c | **Biblioteca única:** la API dueña de la música, el bot cliente suyo (ver "Canciones") | Hecho |
 | 2 | **App mínima:** login con Google, búsqueda, play y que suene + actualizador propio. Al tenerla, quitar `API_TOKEN` | Pendiente |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Pendiente |
@@ -242,14 +236,14 @@ Cada fase funciona por sí sola.
 /home/lainer/MusicApp/
 ├── server/
 │   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot
-│   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio)
+│   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
 │   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
 │   ├── Dockerfile
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
-│   └── data/               catálogo index.json (+ .bak y .antes-biblioteca), users.json, sessions.json, cookies de YouTube y estado de Tailscale (fuera de git)
+│   └── data/               users.json, sessions.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── README.md     este documento
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```
