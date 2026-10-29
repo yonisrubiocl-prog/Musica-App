@@ -1,4 +1,4 @@
-"""API de MusicApp (fase 1): buscar una canción y escucharla.
+"""API de MusicApp: buscar una canción y escucharla, con login de Google.
 
 Canciones: se leen de la caché propia (/cache, escribible) y de la del bot (/bot-cache, solo lectura).
 Si no está en ninguna, se baja de YouTube a la propia. Ver README.md, sección "Canciones".
@@ -14,8 +14,12 @@ import time
 import unicodedata
 
 import yt_dlp
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2 import id_token
+
+import users
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("musicapp")
@@ -25,7 +29,8 @@ CACHE_INDEX = "/data/index.json"        # su catálogo (en ~/MusicApp/server/dat
 BOT_CACHE_DIR = "/bot-cache"            # del bot, solo lectura (/var/lib/musicbot/cache)
 BOT_INDEX = "/bot-data/index.json"      # catálogo del bot, solo lectura (~/MusicBot/data)
 TMP = "/tmp/musicapp"
-TOKEN = os.environ.get("API_TOKEN", "")
+TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")   # cliente OAuth "Aplicación web" (no es secreto)
 YT_RESULTS = 5
 YT_PAUSE = 15 * 60                      # tras un bloqueo de YouTube no se le pide nada durante este tiempo
 VIDEO_ID = re.compile(r"[\w-]{11}")
@@ -218,13 +223,21 @@ def entry(key, e, where):
             "duration": e.get("duration"), "thumb": e.get("thumb"), "where": where}
 
 
-def check_token(request: Request):
-    """Fase 1: una clave compartida (API_TOKEN) en 'Authorization: Bearer …' o '?token=…'.
-    Se cambiará por el login con lista de permitidos (fase 2)."""
+def given_key(request: Request):
+    """La clave que manda la app: 'Authorization: Bearer …' o '?token=…' (para el navegador o VLC)."""
     auth = request.headers.get("authorization", "")
-    given = auth[7:] if auth.lower().startswith("bearer ") else request.query_params.get("token", "")
-    if not TOKEN or not hmac.compare_digest(given.encode(), TOKEN.encode()):
+    return auth[7:] if auth.lower().startswith("bearer ") else request.query_params.get("token", "")
+
+
+def check_token(request: Request):
+    """Sesión de un usuario aprobado, o la clave compartida API_TOKEN mientras no haya app."""
+    key = given_key(request)
+    if key and TOKEN and hmac.compare_digest(key.encode(), TOKEN.encode()):
+        return None
+    found = users.user_of(key) if key else None
+    if not found:
         raise HTTPException(401, "no autorizado")
+    return found
 
 
 app = FastAPI(title="MusicApp", docs_url=None, redoc_url=None, openapi_url=None)
@@ -233,6 +246,49 @@ app = FastAPI(title="MusicApp", docs_url=None, redoc_url=None, openapi_url=None)
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.post("/auth/google")
+def auth_google(token: str = Body(embed=True, alias="id_token", max_length=4096)):
+    """La app manda el ID token que le dio Google. Si el usuario está aprobado, recibe su sesión;
+    si es nuevo, queda pendiente hasta que se apruebe en el servidor (ver users.py)."""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(503, "login con Google sin configurar")
+    try:
+        claims = id_token.verify_oauth2_token(token, GoogleRequest(), GOOGLE_CLIENT_ID)
+    except ValueError as e:
+        log.info("token de Google rechazado: %s", e)
+        raise HTTPException(401, "token de Google no válido")
+    if not claims.get("email_verified"):
+        raise HTTPException(401, "la cuenta de Google no tiene el email verificado")
+    try:
+        user, session = users.login(claims)
+    except OverflowError:
+        raise HTTPException(429, "demasiadas solicitudes pendientes; prueba más tarde")
+    log.info("login: %s (%s)", user["email"], user["status"])
+    if not session:
+        raise HTTPException(403, {"status": user["status"], "user": user})
+    return {"status": user["status"], "session": session, "days": users.SESSION_DAYS, "user": user}
+
+
+@app.get("/me")
+def me(found=Depends(check_token)):
+    if not found:
+        return {"user": None, "via": "clave compartida"}
+    return {"user": users.public(*found)}
+
+
+@app.post("/auth/logout")
+def logout(request: Request, found=Depends(check_token)):
+    if found:
+        users.logout(given_key(request))
+    return {"ok": True}
+
+
+@app.get("/prueba-login", response_class=HTMLResponse)
+def login_test_page():
+    """Página para probar el login de Google en el navegador mientras no hay app."""
+    return LOGIN_TEST_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
 @app.get("/search", dependencies=[Depends(check_token)])
@@ -270,3 +326,40 @@ def stream(vid: str, request: Request):
         OWN.played(f"yt-{vid}")   # cuenta al empezar, no en cada trozo que pide el reproductor
     media = "audio/webm" if path.endswith(".webm") else "audio/mp4" if path.endswith(".m4a") else "audio/mpeg"
     return FileResponse(path, media_type=media, headers={"X-Source": where, "Cache-Control": "private, max-age=86400"})
+
+
+LOGIN_TEST_HTML = """<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MusicApp · prueba de login</title>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px;background:#111;color:#eee}
+pre{background:#222;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all}
+input,button{font:inherit;padding:8px}audio{width:100%;margin-top:12px}</style>
+<script src="https://accounts.google.com/gsi/client" async></script></head><body>
+<h1>Prueba de login</h1>
+<div id="g_id_onload" data-client_id="{CLIENT_ID}" data-callback="entrar" data-auto_prompt="false"></div>
+<div class="g_id_signin" data-type="standard" data-theme="filled_black" data-text="signin_with"></div>
+<pre id="out">Inicia sesión con Google.</pre>
+<div id="musica" hidden><input id="q" placeholder="buscar…"> <button onclick="buscar()">Buscar</button>
+<ul id="res"></ul><audio id="audio" controls></audio></div>
+<script>
+let sesion = null;
+const out = t => document.getElementById('out').textContent = typeof t === 'string' ? t : JSON.stringify(t, null, 2);
+async function entrar(r) {
+  const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                           body: JSON.stringify({id_token: r.credential})});
+  const j = await res.json(); out({http: res.status, ...j});
+  if (j.session) { sesion = j.session; document.getElementById('musica').hidden = false; }
+}
+async function buscar() {
+  const q = encodeURIComponent(document.getElementById('q').value);
+  const j = await (await fetch('/search?q=' + q, {headers: {Authorization: 'Bearer ' + sesion}})).json();
+  const ul = document.getElementById('res'); ul.innerHTML = '';
+  for (const c of j.results || []) {
+    const li = document.createElement('li'), a = document.createElement('a');
+    a.href = '#'; a.textContent = c.title + (c.artist ? ' · ' + c.artist : '');
+    a.onclick = e => { e.preventDefault(); const au = document.getElementById('audio');
+                       au.src = '/stream/' + c.id + '?token=' + encodeURIComponent(sesion); au.play(); };
+    li.append(a); ul.append(li);
+  }
+}
+</script></body></html>"""
