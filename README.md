@@ -6,7 +6,8 @@
 > contradicciones. Lo histórico está en git, no aquí.
 
 App de música propia, tipo Spotify: buscas una canción, le das a play y **suena en el móvil o el PC**.
-No tiene nada que ver con Discord (el bot `MusicBot` es otro proyecto y no se toca).
+No es un mando del bot de Discord (`MusicBot`, otro proyecto): solo comparten la música guardada, y el plan es
+que el bot pase a pedírsela a esta API (ver "Canciones").
 
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
@@ -27,7 +28,7 @@ sola carpeta de música y el bot se la pida. Después, la app (fase 2).
  PC / móvil                               Este servidor
  ──────────                               ─────────────────────────────────────────
   App Flutter  ◄── túnel de Cloudflare ──►  API de música (contenedor Docker propio)
-              (https://musica.yoneapolis.com)  ├─ login + lista de permitidos + bloqueos
+              (https://musica.yoneapolis.com)  ├─ login con Google + aprobación manual
                                                ├─ buscar en YouTube (yt-dlp)
                                                ├─ descargar y guardar en caché
                                                └─ enviar el audio a la app
@@ -35,7 +36,7 @@ sola carpeta de música y el bot se la pida. Después, la app (fase 2).
 
 | Pieza | Dónde | Qué es |
 |---|---|---|
-| **Servidor** (`server/`) | Este servidor, en Docker | API de música. Servicio aparte del bot de Discord: si se rompe, el bot sigue |
+| **Servidor** (`server/`) | Este servidor, en Docker | API de música. Hoy es un servicio aparte del bot de Discord: si se rompe, el bot sigue (cambia con la biblioteca única) |
 | **App** | PC del usuario | Flutter (Android y PC; iPhone algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador |
 | **Túnel** | Contenedor `cloudflared` aquí + Cloudflare | Da la dirección pública con HTTPS sin abrir puertos. Dominio `yoneapolis.com` (mío, en Cloudflare), pensado para todos mis proyectos con un subdominio cada uno |
 | **Canciones** | `/var/lib/musicapp/cache` (propias) + `/var/lib/musicbot/cache` (del bot, solo lectura) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
@@ -108,8 +109,7 @@ bloqueo); lo guardado sigue sonando.
 `Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
 (en `server/.env`, fuera de git); se quitará cuando la app tenga login.
 
-**Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, solo de lectura
-para el dueño): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
+**Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 600): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. De las
 sesiones solo se guarda su hash. Bloquear cierra sus sesiones al momento.
 
@@ -122,6 +122,8 @@ docker exec musicapp-api python users.py                       # lista
 docker exec musicapp-api python users.py aprobar amigo@gmail.com
 docker exec musicapp-api python users.py bloquear amigo@gmail.com
 ```
+
+Arrancar y probar desde el servidor:
 
 ```bash
 cd ~/MusicApp/server
@@ -154,10 +156,13 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
   `musicapp`), pero solo entra quien se aprueba. Cliente OAuth **web**
   `76813509622-rpbjrvn23rpjgrkulb051tjgids6f80j.apps.googleusercontent.com` (en `docker-compose.yml`, no es
   secreto; su *client secret* no se usa). Para la app Android hará falta además un cliente **Android**
-  (nombre de paquete + SHA-1 de la llave de firma).
-- **Bloqueo automático** a quien insista: demasiados fallos o peticiones seguidas → bloqueado un tiempo,
-  cada vez más largo. Queda en el registro. Cloudflare pasa la IP real en la cabecera `CF-Connecting-IP`.
-- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de su caché. El ID de canción
+  (nombre de paquete + SHA-1 de la llave de firma). Enlace para que los amigos pidan acceso:
+  `https://musica.yoneapolis.com/acceso` (se aprueban con el panel). Google solo deja usar su botón en
+  orígenes autorizados del cliente web: hoy `https://musica.yoneapolis.com`.
+- **Bloqueo automático (sin hacer):** a quien insista (demasiados fallos o peticiones seguidas) bloquearlo un
+  tiempo, cada vez más largo, y apuntarlo en el registro. Cloudflare pasa la IP real en `CF-Connecting-IP`
+  (por Funnel no llega, otra razón para apagarlo). Hacerlo antes de repartir la app.
+- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de su caché y de su `data/`. El ID de canción
   se valida (11 caracteres de YouTube) antes de buscar archivos. Corre sin root, así que tampoco puede leer
   las cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
 
@@ -203,7 +208,7 @@ Cada fase funciona por sí sola.
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + publicarlo y **medir la velocidad del túnel** | Hecho |
-| 1b | **Login con Google** en el servidor (aprobación manual, sesiones de 90 días) | Hecho (falta en la app) |
+| 1b | **Login con Google** en el servidor (aprobación manual con panel, sesiones de 90 días) | Hecho (falta en la app y el bloqueo automático) |
 | 1c | **Biblioteca única:** la API dueña de la música, el bot cliente suyo (ver "Canciones") | Siguiente |
 | 2 | **App mínima:** login con Google, búsqueda, play y que suene + actualizador propio. Al tenerla, quitar `API_TOKEN` | Pendiente |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
