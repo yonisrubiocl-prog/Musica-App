@@ -11,8 +11,10 @@ No tiene nada que ver con Discord (el bot `MusicBot` es otro proyecto y no se to
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
 
-**Estado actual:** fase 1 a medias. El servidor ya busca y sirve canciones (probado en este servidor con
-`curl`); falta ponerlo detrás de Tailscale Funnel y medir su límite de velocidad.
+**Estado actual:** fase 1 hecha. El servidor busca y sirve canciones y está publicado en
+`https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio), probado con `curl` desde fuera.
+Tailscale Funnel (`https://musicapp.tail66213e.ts.net`) sigue encendido como respaldo mientras se prueba
+el dominio desde móviles. Lo siguiente es la app (fase 2).
 
 ---
 
@@ -21,8 +23,8 @@ sin publicarlo ni cobrar nada.
 ```
  PC / móvil                               Este servidor
  ──────────                               ─────────────────────────────────────────
-  App Flutter  ◄──── Tailscale Funnel ────►  API de música (contenedor Docker propio)
-                     (https://….ts.net)        ├─ login + lista de permitidos + bloqueos
+  App Flutter  ◄── túnel de Cloudflare ──►  API de música (contenedor Docker propio)
+              (https://musica.yoneapolis.com)  ├─ login + lista de permitidos + bloqueos
                                                ├─ buscar en YouTube (yt-dlp)
                                                ├─ descargar y guardar en caché
                                                └─ enviar el audio a la app
@@ -32,7 +34,7 @@ sin publicarlo ni cobrar nada.
 |---|---|---|
 | **Servidor** (`server/`) | Este servidor, en Docker | API de música. Servicio aparte del bot de Discord: si se rompe, el bot sigue |
 | **App** | PC del usuario | Flutter (Android y PC; iPhone algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador |
-| **Túnel** | Contenedor `tailscale` aquí + servidores de Tailscale | Da una dirección pública fija con HTTPS sin abrir puertos ni comprar dominio |
+| **Túnel** | Contenedor `cloudflared` aquí + Cloudflare | Da la dirección pública con HTTPS sin abrir puertos. Dominio `yoneapolis.com` (mío, en Cloudflare), pensado para todos mis proyectos con un subdominio cada uno |
 | **Canciones** | `/var/lib/musicapp/cache` (propias) + `/var/lib/musicbot/cache` (del bot, solo lectura) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
 
 ### Canciones
@@ -96,54 +98,48 @@ curl -H "Authorization: Bearer $T" -o cancion.webm "http://127.0.0.1:8090/stream
 
 ## 2. Acceso y seguridad
 
-**Túnel: Tailscale Funnel** (gratis, sin dominio). El contenedor `tailscale` abre una conexión **de salida**
-hacia Tailscale; quien entra a la dirección `.ts.net` llega por ahí hasta la API. Los amigos no instalan
-nada más que la app.
+**Túnel: Cloudflare**, con el dominio propio `yoneapolis.com` (cuenta de Cloudflare mía; el túnel
+`finops-tunnel-1` de este servidor es de la cuenta de mi hermano y no tiene nada que ver). El contenedor
+`cloudflared` abre una conexión **de salida** hacia Cloudflare; quien entra a `musica.yoneapolis.com` llega
+por ahí hasta la API. Los amigos no instalan nada más que la app. La dirección pública y su destino
+(`http://api:8000`) se configuran en el panel: *Zero Trust → Networks → Tunnels → musicapp*. Su token va en
+`server/.env` (`CF_TUNNEL_TOKEN`); es como una contraseña: si se filtra, se rota desde ese mismo panel.
+El mismo túnel publica también `yoneapolis.com` → `http://yoneapolis-web:80`, una página aparte en
+`~/Yoneapolis/` (página de broma, temporal) cuyo contenedor se une a la red `musicapp_default` solo
+para eso. Cómo quitarla: `~/Yoneapolis/README.md`.
 
-Tailscale **solo reenvía, no filtra**: toda petición llega a la API, así que la API se protege sola:
+El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que la API se protege sola:
 
 - **Solo se expone la API**, no el servidor: desde esa dirección no se llega a nada más (otros proyectos,
-  bases de datos, SSH). El contenedor de Tailscale va aislado.
+  bases de datos, SSH). Los contenedores de los túneles van en la red propia del proyecto y solo ven la API;
+  la API solo recibe su `API_TOKEN`, no las claves de los túneles.
 - **Login con lista de permitidos** por ID (no por nombre, que se puede cambiar). Una cuenta cualquiera
   entra al login pero recibe "no autorizado". Opción por defecto: login con **Discord** (todos lo tienen,
-  no hay contraseñas que guardar); se puede cambiar por usuario/contraseña propios si apetece hacerlo.
+  no hay contraseñas que guardar); se puede cambiar por Google o usuario/contraseña propios.
 - **Bloqueo automático** a quien insista: demasiados fallos o peticiones seguidas → bloqueado un tiempo,
-  cada vez más largo. Queda en el registro. (Pendiente comprobar si Funnel pasa la IP real.)
+  cada vez más largo. Queda en el registro. Cloudflare pasa la IP real en la cabecera `CF-Connecting-IP`.
 - La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de su caché. El ID de canción
   se valida (11 caracteres de YouTube) antes de buscar archivos. Corre sin root, así que tampoco puede leer
   las cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
 
-**Plan B — Tailscale dentro de la app (sin dirección pública):** la librería `tsnet` de Tailscale (Go,
-compilada para Android con gomobile y llamada desde Flutter) mete un nodo de Tailscale dentro de la propia
-app, sin el permiso de VPN ni la app de Tailscale. El servidor deja de ser público y la conexión va directa,
-**sin el límite de Funnel**. Cada móvil entra a la red con una clave metida en el APK (marcado como cliente y
-con permiso solo para la API; quien tenga el APK llega a la API, que sigue pidiendo login) o con el login de
-Tailscale de cada amigo (necesitan cuenta, no la app; mirar el límite de usuarios del plan gratis). Cuesta
-bastante más (Go + Flutter, ~20–30 MB más, segundo plano, iPhone más difícil). Es la opción preferida si
-Funnel no aguanta la velocidad.
+**Velocidad (medida):** desde este servidor contra su propia dirección pública (ida y vuelta por internet),
+con una canción de 3,8 MB (3:42, ~140 kbps):
 
-**Plan C — túnel de Cloudflare:** el túnel que ya corre en este servidor (`finops-tunnel-1`) es de la
-cuenta de **mi hermano**; no sirve con otra cuenta. Si un día se usa Cloudflare (un subdominio en su
-cuenta, o un dominio propio `.com` en Cloudflare Registrar, ~10 $/año sin subidas al renovar), se cambia
-el contenedor `tailscale` por un `cloudflared` y la dirección en los ajustes de la app. La API no cambia.
-
-**Límite de velocidad de Funnel (por medir):** Tailscale reconoce que Funnel tiene un límite de ancho de
-banda, no publicado y que no sube pagando. Quien lo ha probado cuenta que el streaming va bien a ~1 Mbps y
-falla a 5 Mbps. Lo que necesita la app:
-
-| Uso | Necesita | ¿Aguanta Funnel? |
+| Prueba | Cloudflare | Tailscale Funnel |
 |---|---|---|
-| Órdenes (buscar, cola, login) | Casi nada | Sí |
-| 1 persona escuchando (Opus ~96–128 kbps) | ~0,1 Mbps | Probablemente |
-| 6 personas a la vez | ~1 Mbps | Justo en el límite |
-| Descargar el APK al actualizar (~30–50 MB) | Mucho de golpe | Lento (minutos) |
+| Hasta el primer byte del audio | ~0,4–0,5 s | ~1,4 s |
+| 1 descarga | ~1,5 MB/s (~12 Mbps), la canción en 2,5 s | 150–225 KB/s |
+| 6 descargas a la vez | ~256 KB/s cada una, ~12 Mbps en total (~15× lo que dura la canción) | 63–107 KB/s cada una, ~3 Mbps en total |
+| APK al actualizar (~30–50 MB) | ~30 s | ~3–5 min |
 
-Antes de construir encima se **mide en la fase 1** (un audio detrás de Funnel, descargado desde dos móviles
-a la vez). Si no aguanta: Tailscale dentro de la app (plan B de arriba) o Cloudflare (plan C). En todo caso, audio en Opus ~96 kbps y la app guarda lo ya
-escuchado para no volver a pedirlo.
+Con Cloudflare el tope parece ser la subida de internet de casa (~12 Mbps), no el túnel. Falta confirmarlo
+desde móviles fuera de casa. Aun así, audio en Opus ~96 kbps y la app guarda lo ya escuchado para no volver
+a pedirlo.
 
-Funnel **no pasa la IP real** del cliente de forma directa (no añade cabeceras); para el bloqueo por IP hay
-que probar su opción de protocolo PROXY.
+**Respaldo: Tailscale Funnel** (contenedor `musicapp-tailscale`, `https://musicapp.tail66213e.ts.net`).
+Gratis y sin dominio, pero más lento (tabla de arriba) y sin la IP real del cliente. Necesita el permiso
+`funnel` en la política de Tailscale (`nodeAttrs` para `autogroup:member`, cuenta `yonisrubiocl@gmail.com`).
+Se apaga cuando el dominio esté probado desde móviles.
 
 El servidor en sí va sobrado (4 núcleos, 15 GB de RAM): el posible cuello de botella es el túnel.
 
@@ -167,7 +163,7 @@ Cada fase funciona por sí sola.
 
 | Fase | Qué | Estado |
 |---|---|---|
-| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + **medir el límite de Funnel** | Servidor hecho; falta Funnel y medir |
+| 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + publicarlo y **medir la velocidad del túnel** | Hecho |
 | 2 | **App mínima:** pantalla de búsqueda, play y que suene + actualizador propio | Pendiente |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Pendiente |
@@ -175,8 +171,6 @@ Cada fase funciona por sí sola.
 
 ## 5. Pendiente de mi parte
 
-- Crear una **clave de autenticación de Tailscale** para el contenedor `musicapp-tailscale` y ponerla en
-  `server/.env` (`TS_AUTHKEY=`).
 - Instalar en el PC **Flutter** y **Android Studio** (con su emulador, o usar el móvil por USB).
 
 ## 6. Carpetas
@@ -186,9 +180,9 @@ Cada fase funciona por sí sola.
 ├── server/
 │   ├── app.py              la API (FastAPI)
 │   ├── Dockerfile
-│   ├── docker-compose.yml  contenedores musicapp-api y musicapp-tailscale (red propia musicapp_default)
-│   ├── funnel.json         qué publica Funnel: https://musicapp.<tailnet>.ts.net -> api:8000
-│   ├── .env                API_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
+│   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
+│   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
+│   ├── .env                API_TOKEN, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               catálogo propio index.json y estado de Tailscale (fuera de git)
 ├── README.md     este documento
 └── .gitignore    ignora .env, data/ y __pycache__/

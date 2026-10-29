@@ -1,12 +1,13 @@
 name: musicapp
 
-# Red propia: el contenedor de Tailscale solo llega a la API, no al resto del servidor.
+# Red propia: los contenedores de los túneles solo llegan a la API, no al resto del servidor.
 services:
   api:
     build: .
     container_name: musicapp-api
     restart: unless-stopped
-    env_file: .env
+    environment:
+      API_TOKEN: ${API_TOKEN:-}          # solo su clave; las de los túneles se quedan en sus contenedores
     ports:
       - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor
     volumes:
@@ -31,6 +32,18 @@ services:
     volumes:
       - ./data/tailscale:/var/lib/tailscale
       - ./funnel.json:/config/serve.json:ro
+    depends_on: [api]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: musicapp-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run   # la dirección pública y el destino (api:8000) se configuran en el panel de Cloudflare
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
     depends_on: [api]
     logging:
       driver: json-file
