@@ -7,15 +7,18 @@ services:
     container_name: musicapp-api
     restart: unless-stopped
     environment:
-      API_TOKEN: ${API_TOKEN:-}          # solo su clave; las de los túneles se quedan en sus contenedores
+      API_TOKEN: ${API_TOKEN:-}          # solo sus claves; las de los túneles se quedan en sus contenedores
+      BOT_API_KEY: ${BOT_API_KEY:-}      # la del bot para /interno (puerto 8001)
+      MUSIC_GB: "15"                     # tope de la biblioteca: al pasarlo borra lo que hace más que no suena
       GOOGLE_CLIENT_ID: 76813509622-rpbjrvn23rpjgrkulb051tjgids6f80j.apps.googleusercontent.com   # cliente OAuth web (no es secreto)
     ports:
       - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor
+      - "127.0.0.1:8091:8001"            # rutas del bot (/interno), igual; el bot entra por la red interna
     volumes:
-      - ./data:/data                                 # catálogo propio (index.json), usuarios y sesiones
-      - /var/lib/musicapp/cache:/cache               # canciones propias
-      - /var/lib/musicbot/cache:/bot-cache:ro        # canciones del bot, solo lectura
-      - /home/lainer/MusicBot/data:/bot-data:ro      # catálogo del bot, solo lectura (sus cookies no son legibles: uid 1000)
+      - ./data:/data                                 # catálogo (index.json), usuarios, sesiones y cookies de YouTube
+      - /var/lib/music:/music                        # la biblioteca única
+      - /var/lib/musicbot/cache:/bot-cache:ro        # transición: carpeta vieja del bot, solo lectura
+      - /home/lainer/MusicBot/data:/bot-data:ro      # transición: su catálogo, solo lectura (sus cookies no son legibles: uid 1000)
     logging:
       driver: json-file
       options: {max-size: "5m", max-file: "2"}

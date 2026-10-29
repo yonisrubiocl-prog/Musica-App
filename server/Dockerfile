@@ -7,7 +7,7 @@ COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 RUN python -m venv /opt/venv && pip install --no-cache-dir fastapi "uvicorn[standard]" "yt-dlp[default]" google-auth requests \
     && chown -R 1000:1000 /opt/venv
 WORKDIR /app
-COPY app.py users.py ./
+COPY app.py users.py library.py ./
 USER 1000:1000
-# Cada arranque actualiza yt-dlp: YouTube cambia a menudo y lo rompe.
-CMD ["sh", "-c", "pip install -q -U --no-cache-dir 'yt-dlp[default]' || true; exec uvicorn app:app --host 0.0.0.0 --port 8000 --no-access-log"]
+# Cada arranque actualiza yt-dlp: YouTube cambia a menudo y lo rompe. app.py escucha en 8000 (app) y 8001 (bot).
+CMD ["sh", "-c", "pip install -q -U --no-cache-dir 'yt-dlp[default]' || true; exec python app.py"]

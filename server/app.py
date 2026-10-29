@@ -1,18 +1,19 @@
-"""API de MusicApp: buscar una canción y escucharla, con login de Google.
+"""API de MusicApp: la dueña de la música. La app la usa por internet (login de Google) y el bot por la red
+interna de Docker (rutas /interno, en otro puerto al que los túneles no llegan).
 
-Canciones: se leen de la caché propia (/cache, escribible) y de la del bot (/bot-cache, solo lectura).
-Si no está en ninguna, se baja de YouTube a la propia. Ver README.md, sección "Canciones".
+Canciones: una sola biblioteca en /music con su catálogo (ver library.py). Mientras el bot no use la API, lo que
+él baje a su carpeta se copia aquí solo. Ver README.md, sección "Canciones".
 """
+import asyncio
 import hmac
 import json
 import logging
 import os
 import re
-import shutil
 import threading
 import time
-import unicodedata
 
+import uvicorn
 import yt_dlp
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -20,203 +21,148 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
 import users
+from library import KEY, Library, artist_of, key_of, music_meta, words
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("musicapp")
 
-CACHE_DIR = "/cache"                    # propias (en el servidor: /var/lib/musicapp/cache)
-CACHE_INDEX = "/data/index.json"        # su catálogo (en ~/MusicApp/server/data), mismo formato que el del bot
-BOT_CACHE_DIR = "/bot-cache"            # del bot, solo lectura (/var/lib/musicbot/cache)
-BOT_INDEX = "/bot-data/index.json"      # catálogo del bot, solo lectura (~/MusicBot/data)
+MUSIC_DIR = "/music"                    # la biblioteca (en el servidor: /var/lib/music)
+MUSIC_INDEX = "/data/index.json"        # su catálogo (en ~/MusicApp/server/data)
+MUSIC_GB = float(os.environ.get("MUSIC_GB", "15"))
+BOT_CACHE_DIR = "/bot-cache"            # carpeta vieja del bot, solo lectura (/var/lib/musicbot/cache)
+BOT_INDEX = "/bot-data/index.json"      # su catálogo, solo lectura (~/MusicBot/data)
+COOKIES = "/data/youtube-cookies.txt"   # cookies de YouTube (las del bot); solo las lee el usuario 1000
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
+BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")   # cliente OAuth "Aplicación web" (no es secreto)
+PUBLIC_PORT, INTERNAL_PORT = 8000, 8001
 YT_RESULTS = 5
 YT_PAUSE = 15 * 60                      # tras un bloqueo de YouTube no se le pide nada durante este tiempo
 VIDEO_ID = re.compile(r"[\w-]{11}")
+# Lo que el bot necesita de la respuesta de yt-dlp (el resto, como la lista de formatos, pesa mucho).
+INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live", "url", "http_headers",
+               "extractor_key", "uploader", "channel")
 
-# Palabras que no ayudan a distinguir canciones (las mismas que usa el bot).
-NOISE = {"official", "oficial", "video", "videoclip", "clip", "lyrics", "lyric", "letra", "audio", "hd", "hq",
-         "4k", "remaster", "remastered", "visualizer", "music", "musical", "ft", "feat", "featuring",
-         "the", "a", "an", "of", "de", "del", "la", "el", "los", "las", "en", "y", "con", "and", "n"}
-
-
-def words(text):
-    """'Neutro Shorty - Soy Yo [Official Video]' -> {'neutro', 'shorty', 'soy', 'yo'} (sin tildes ni relleno)."""
-    t = unicodedata.normalize("NFKD", (text or "").lower())
-    t = "".join(c for c in t if not unicodedata.combining(c))
-    return {w for w in re.findall(r"[a-z0-9]+", t) if w not in NOISE}
-
-
-def artist_of(info):
-    """Artista según YouTube (misma regla que el bot): ficha musical, o el canal si es '… - Topic' / '…VEVO'."""
-    names = [x.strip() for x in (info.get("artists") or (info.get("artist") or "").split(",")) if x and x.strip()]
-    raw = info.get("uploader") or info.get("channel") or ""
-    ch = re.sub(r"(?i)\s*(?:-\s*topic|vevo)$", "", raw).strip()
-    if names:
-        own = [n for n in names if n.lower() == ch.lower()]
-        return (own or names)[0]
-    if ch and re.search(r"(?i)-\s*topic$|vevo$", raw):
-        return ch
-    return ""
-
-
-def music_meta(info):
-    """Ficha de la canción con los mismos campos que guarda el bot (sale de la misma respuesta de la descarga)."""
-    date = info.get("release_date") or info.get("upload_date") or ""
-    cats = info.get("categories") or []
-    m = re.search(r"℗\s*(?:\d{4}\s*)?([^\n]+)", info.get("description") or "")
-    return {"artist": artist_of(info), "album": (info.get("album") or "").strip(),
-            "track": (info.get("track") or "").strip(),
-            "year": info.get("release_year") or (int(date[:4]) if date[:4].isdigit() else None),
-            "date": date or None, "channel": info.get("channel") or info.get("uploader") or "",
-            "credits": [x for x in (info.get("artists") or []) if x][:10],
-            "label": m.group(1).strip() if m else "", "category": cats[0] if cats else "",
-            "tags": (info.get("tags") or [])[:10], "views": info.get("view_count"), "likes": info.get("like_count"),
-            "language": info.get("language") or "", "age": info.get("age_limit") or 0}
-
-
-class Catalog:
-    """Un index.json con formato del bot: 'yt-<id>' -> {file, title, duration, thumb, artist, album…}.
-    El del bot se relee solo cuando cambia en disco; el propio se escribe aquí."""
-
-    def __init__(self, root, index_file, name):
-        self.root, self.file, self.name = root, index_file, name
-        self.lock = threading.Lock()
-        self.index, self.mtime = {}, None
-        self.reload()
-
-    def reload(self):
-        try:
-            mtime = os.path.getmtime(self.file)
-        except OSError:
-            return
-        if mtime == self.mtime:
-            return
-        try:
-            with open(self.file) as f:
-                data = json.load(f)
-        except (OSError, ValueError) as e:
-            log.warning("%s: no pude leer %s: %s", self.name, self.file, e)   # se queda con lo que tenía
-            return
-        if isinstance(data, dict):
-            with self.lock:
-                self.index, self.mtime = data, mtime
-            log.info("%s: %d canciones en el catálogo", self.name, len(data))
-
-    def path(self, key):
-        """Ruta del audio si la canción está en el catálogo y el archivo sigue ahí."""
-        e = self.index.get(key)
-        if e:
-            p = os.path.join(self.root, e["file"])
-            if os.path.exists(p):
-                return p
-        return None
-
-    def search(self, q, limit):
-        """Canciones con TODAS las palabras buscadas en título, artista o álbum. Mejor primero: la que menos
-        palabras tiene de más; luego la más puesta."""
-        self.reload()
-        hits = []
-        for k, e in list(self.index.items()):
-            ws = words(f"{e.get('title') or ''} {e.get('artist') or ''} {e.get('album') or ''}")
-            if q <= ws:
-                hits.append((len(q) / max(1, len(ws)), e.get("plays", 0), k, e))
-        hits.sort(key=lambda h: h[:2], reverse=True)
-        return [(k, e) for *_, k, e in hits[:limit]]
-
-    def add(self, key, path, info):
-        with self.lock:
-            old = self.index.get(key) or {}
-            self.index[key] = {"file": os.path.basename(path), "url": info.get("webpage_url"),
-                               "title": info.get("title"), "duration": info.get("duration"),
-                               "thumb": info.get("thumbnail"), "size": os.path.getsize(path), "used": time.time(),
-                               "plays": old.get("plays", 0), "by": old.get("by", 0), **music_meta(info)}
-            self._save()
-
-    def played(self, key):
-        with self.lock:
-            e = self.index.get(key)
-            if e:
-                e["used"], e["plays"] = time.time(), e.get("plays", 0) + 1
-                self._save()
-
-    def _save(self):
-        tmp = self.file + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(self.index, f, ensure_ascii=False)
-        os.replace(tmp, self.file)
-        self.mtime = os.path.getmtime(self.file)
-
-
-OWN = Catalog(CACHE_DIR, CACHE_INDEX, "propias")
-BOT = Catalog(BOT_CACHE_DIR, BOT_INDEX, "bot")
+LIB = Library(MUSIC_DIR, MUSIC_GB * 1024 ** 3, MUSIC_INDEX)
 
 _yt_blocked_until = 0.0
-_downloads = {}                         # id -> lock: dos peticiones de la misma canción la bajan una vez
+_downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
 _downloads_lock = threading.Lock()
 
 
 def ydl(**extra):
-    return yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "noprogress": True, **extra})
+    o = {"quiet": True, "no_warnings": True, "noprogress": True}
+    if os.path.exists(COOKIES):
+        o["cookiefile"] = COOKIES
+    return yt_dlp.YoutubeDL({**o, **extra})
 
 
-def youtube(fn):
-    """Llama a YouTube salvo que nos tenga bloqueados (pide 'confirmar que no eres un bot'): insistir lo alarga."""
+def is_yt(url):
+    return "youtu" in url
+
+
+def youtube(fn, yt=True):
+    """Llama a YouTube salvo que nos tenga bloqueados (pide 'confirmar que no eres un bot'): insistir lo alarga.
+    yt=False: es otra web (SoundCloud, una radio…), no cuenta el bloqueo."""
     global _yt_blocked_until
     left = _yt_blocked_until - time.time()
-    if left > 0:
+    if yt and left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
     try:
         return fn()
     except yt_dlp.utils.DownloadError as e:
         t = str(e).lower()
-        if "not a bot" in t or ("429" in t and "too many requests" in t):
+        if yt and ("not a bot" in t or ("429" in t and "too many requests" in t)):
             _yt_blocked_until = time.time() + YT_PAUSE
             log.warning("YouTube nos bloqueó: no le pido nada durante %d min", YT_PAUSE // 60)
-        log.warning("YouTube: %s", e)
+        log.warning("descarga: %s", e)
         raise HTTPException(502, str(e).replace("ERROR: ", "")[:200])
 
 
-def download(vid):
-    """Baja el audio (webm/Opus como el bot) a la caché propia y lo apunta en el catálogo."""
-    def run():
-        os.makedirs(TMP, exist_ok=True)
-        with ydl(format="bestaudio[ext=webm]/bestaudio/best", noplaylist=True,
-                 outtmpl=f"{TMP}/%(id)s.%(ext)s") as y:
-            info = y.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
-            if info.get("is_live") or not info.get("duration"):
-                raise HTTPException(422, "es un directo: no se puede guardar")
-            y.process_info(info)
-            return info, y.prepare_filename(info)
-
-    info, src = youtube(run)
-    dest = os.path.join(CACHE_DIR, f"yt-{vid}{os.path.splitext(src)[1]}")
-    shutil.move(src, dest + ".part")   # copia entre discos: si se corta queda un .part, nunca uno a medias
-    os.replace(dest + ".part", dest)
-    OWN.add(f"yt-{vid}", dest, info)
-    log.info("bajada: %s (%s)", info.get("title"), vid)
-    return dest
-
-
-def audio_path(vid):
-    """De la caché propia, de la del bot, o bajándola (una sola vez aunque la pidan varios a la vez)."""
-    key = f"yt-{vid}"
-    p = OWN.path(key)
-    if p:
-        return p, "app"
-    BOT.reload()
-    p = BOT.path(key)
-    if p:
-        return p, "bot"
+def download(url, by=None):
+    """Baja el audio (webm/Opus si hay) a la biblioteca, una sola vez aunque la pidan varios a la vez.
+    Devuelve (info, ruta); los directos no se guardan: ruta None y en info["url"] el enlace para escucharlo."""
+    key = key_of(url)
     with _downloads_lock:
-        lock = _downloads.setdefault(vid, threading.Lock())
+        lock = _downloads.setdefault(key, threading.Lock())
     with lock:
-        p = OWN.path(key)
+        p = LIB.path(key)
         if p:
-            return p, "app"
-        return download(vid), "youtube"
+            return LIB.peek(key), p
 
+        def run():
+            os.makedirs(TMP, exist_ok=True)
+            with ydl(format="bestaudio[ext=webm]/bestaudio/best", noplaylist=True,
+                     outtmpl=f"{TMP}/%(id)s.%(ext)s") as y:
+                info = y.extract_info(url, download=False)
+                if info.get("entries"):
+                    info = next(e for e in info["entries"] if e)
+                if info.get("is_live") or not info.get("duration"):
+                    return info, None
+                y.process_info(info)
+                return info, y.prepare_filename(info)
+
+        info, src = youtube(run, is_yt(url))
+        if not src:
+            return info, None
+        dest = LIB.put(key_of(url, info), src, info, by)
+        log.info("bajada: %s (%s)", info.get("title"), key_of(url, info))
+        return info, dest
+
+
+def youtube_info(vid):
+    def run():
+        with ydl() as y:
+            return y.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
+    return youtube(run)
+
+
+# ---------- transición: lo que el bot baje a su carpeta vieja se copia a la biblioteca ----------
+# Se quita cuando el bot use la API (entonces ya no baja nada él).
+
+def sync_from_bot():
+    try:
+        mtime = os.path.getmtime(BOT_INDEX)
+    except OSError:
+        return
+    if mtime == getattr(sync_from_bot, "mtime", None):
+        return
+    try:
+        with open(BOT_INDEX) as f:
+            bot = json.load(f)
+    except (OSError, ValueError) as e:
+        log.warning("catálogo del bot: no pude leerlo: %s", e)
+        return
+    n = 0
+    for k, e in bot.items():
+        if not isinstance(e, dict) or not KEY.fullmatch(k) or LIB.peek(k):
+            continue
+        src = os.path.join(BOT_CACHE_DIR, e.get("file") or "")
+        if os.path.isfile(src):
+            try:
+                LIB.put(k, src, None, copy=True, entry=e)
+                n += 1
+            except OSError as ex:
+                log.warning("no pude traer %s del bot: %s", k, ex)
+    if n:
+        log.info("traídas %d canciones nuevas del bot", n)
+    sync_from_bot.mtime = mtime
+
+
+def _bot_syncer():
+    while True:
+        try:
+            sync_from_bot()
+        except Exception:
+            log.exception("copiando del bot")
+        time.sleep(60)
+
+
+threading.Thread(target=_bot_syncer, daemon=True).start()
+
+
+# ---------- app (por internet) ----------
 
 def entry(key, e, where):
     return {"id": key[3:], "title": e.get("title"), "artist": e.get("artist") or "", "album": e.get("album") or "",
@@ -299,15 +245,12 @@ def access_page():
 
 @app.get("/search", dependencies=[Depends(check_token)])
 def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt")):
-    """Primero lo guardado (propio y del bot); luego, si se pide, YouTube. Sin repetir canciones."""
-    ws = words(q)
+    """Primero lo guardado; luego, si se pide, YouTube. Sin repetir canciones."""
     out, seen = [], set()
-    if ws:
-        for cat, where in ((OWN, "app"), (BOT, "bot")):
-            for k, e in cat.search(ws, 10):
-                if k not in seen and cat.path(k):
-                    seen.add(k)
-                    out.append(entry(k, e, where))
+    for k, e in LIB.matches(q, 10):
+        if k.startswith("yt-"):   # /stream solo acepta canciones de YouTube
+            seen.add(k)
+            out.append(entry(k, e, "guardada"))
     if youtube_too:
         def run():
             with ydl(extract_flat="in_playlist") as y:
@@ -327,11 +270,164 @@ def stream(vid: str, request: Request):
     """El audio de la canción (webm/Opus). Admite Range, así el reproductor puede saltar dentro de la canción."""
     if not VIDEO_ID.fullmatch(vid):
         raise HTTPException(400, "id de YouTube no válido")
-    path, where = audio_path(vid)
-    if where == "app" and request.headers.get("range", "bytes=0-").startswith("bytes=0-"):
-        OWN.played(f"yt-{vid}")   # cuenta al empezar, no en cada trozo que pide el reproductor
+    key, where = f"yt-{vid}", "guardada"
+    if request.headers.get("range", "bytes=0-").startswith("bytes=0-"):
+        hit = LIB.get(key)   # cuenta al empezar, no en cada trozo que pide el reproductor
+        path = hit and hit["path"]
+    else:
+        path = LIB.path(key)
+    if not path:
+        _, path = download(f"https://www.youtube.com/watch?v={vid}")
+        where = "youtube"
+        if not path:
+            raise HTTPException(422, "es un directo: no se puede guardar")
     media = "audio/webm" if path.endswith(".webm") else "audio/mp4" if path.endswith(".m4a") else "audio/mpeg"
     return FileResponse(path, media_type=media, headers={"X-Source": where, "Cache-Control": "private, max-age=86400"})
+
+
+# ---------- bot (red interna de Docker, puerto 8001: los túneles solo llegan al 8000) ----------
+
+def check_bot(request: Request):
+    key = given_key(request)
+    if not (BOT_KEY and key and hmac.compare_digest(key.encode(), BOT_KEY.encode())):
+        raise HTTPException(401, "no autorizado")
+
+
+def valid_key(key):
+    if not KEY.fullmatch(key):
+        raise HTTPException(400, "clave de canción no válida")
+    return key
+
+
+def songs(pairs):
+    return [{"key": k, **e} for k, e in pairs]
+
+
+internal = FastAPI(title="MusicApp interno", docs_url=None, redoc_url=None, openapi_url=None,
+                   dependencies=[Depends(check_bot)])
+
+
+@internal.get("/interno/match")
+def i_match(q: str = Query(max_length=300), fuzzy: bool = False):
+    """La mejor guardada con todas las palabras (fuzzy: acepta faltas). {song, more} o {song: null}."""
+    m = LIB.match(q, fuzzy)
+    if not m:
+        return {"song": None, "more": 0}
+    (k, e), more = m
+    return {"song": {"key": k, **e}, "more": more}
+
+
+@internal.get("/interno/matches")
+def i_matches(q: str = Query(max_length=300), limit: int = Query(10, le=100)):
+    return {"songs": songs(LIB.matches(q, limit))}
+
+
+@internal.get("/interno/suggest")
+def i_suggest(q: str = Query("", max_length=300), limit: int = Query(25, le=100)):
+    return {"songs": songs(LIB.suggest(q, limit))}
+
+
+@internal.get("/interno/search")
+def i_search(q: str = Query(max_length=300), limit: int = Query(25, le=500)):
+    return {"songs": songs(LIB.search(q, limit))}
+
+
+@internal.get("/interno/albums")
+def i_albums():
+    return {"albums": [{"name": n, "artist": a, "count": c} for n, a, c in LIB.albums()]}
+
+
+@internal.get("/interno/album")
+def i_album(q: str = Query(max_length=300)):
+    return {"songs": songs(LIB.album_tracks(q))}
+
+
+@internal.get("/interno/stats")
+def i_stats():
+    n, size, cap = LIB.stats()
+    return {"songs": n, "bytes": size, "max_bytes": cap}
+
+
+@internal.get("/interno/song/{key}")
+def i_peek(key: str):
+    """Datos de una guardada sin contarla como puesta."""
+    e = LIB.peek(valid_key(key))
+    if not e:
+        raise HTTPException(404, "no está guardada")
+    return {"key": key, **e}
+
+
+@internal.post("/interno/played/{key}")
+def i_played(key: str):
+    """Sonó en Discord: cuenta para 'las más puestas' y para el tope de espacio."""
+    e = LIB.get(valid_key(key))
+    if not e:
+        raise HTTPException(404, "no está guardada")
+    e.pop("path")
+    return {"key": key, **e}
+
+
+@internal.post("/interno/fetch")
+def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(None, embed=True)):
+    """'Dame esta canción': si está guardada la cuenta como puesta; si no, la baja. Devuelve la ficha y el
+    archivo (relativo a la biblioteca; el bot la lee de su montaje). Directos: file null e info.url para
+    escucharlo. source: local / online / live."""
+    if not re.match(r"https?://", url):
+        raise HTTPException(400, "hace falta un enlace")
+    key = key_of(url)
+    hit = LIB.get(key)
+    if hit:
+        hit.pop("path")
+        return {"key": key, "source": "local", "file": hit["file"], "song": hit, "info": None}
+    info, path = download(url, by)
+    small = {k: info.get(k) for k in INFO_FIELDS if info.get(k) is not None}
+    small.update(music_meta(info))
+    if not path:
+        return {"key": key, "source": "live", "file": None, "song": None, "info": small}
+    key = key_of(url, info)
+    return {"key": key, "source": "online", "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
+
+
+@internal.post("/interno/ficha/{key}")
+def i_learn(key: str):
+    """Completa la ficha (artista, álbum…) de una guardada de antes preguntándole a YouTube. Si YouTube
+    está bloqueado no gasta el reintento (503); si falla por otra cosa, se reintenta una vez más."""
+    valid_key(key)
+    if not key.startswith("yt-"):
+        e = LIB.set_meta(key, music_meta({}))
+    else:
+        try:
+            info = youtube_info(key[3:])
+        except HTTPException as ex:
+            if ex.status_code == 503 or _yt_blocked_until > time.time():
+                raise
+            e = LIB.set_meta(key, None)
+        else:
+            e = LIB.set_meta(key, music_meta(info), info)
+    if e is None:
+        raise HTTPException(404, "no está guardada")
+    return {"key": key, **e}
+
+
+@internal.delete("/interno/song/{key}")
+def i_remove(key: str):
+    """Olvidar una canción: se borra el archivo y su ficha."""
+    e = LIB.remove(valid_key(key))
+    if not e:
+        raise HTTPException(404, "no está guardada")
+    log.info("olvidada: %s (%s)", e.get("title"), key)
+    return {"key": key, **e}
+
+
+async def serve():
+    """Los dos puertos en el mismo proceso (comparten biblioteca y candados). Si uno se para, se paran los dos."""
+    servers = [uvicorn.Server(uvicorn.Config(a, host="0.0.0.0", port=p, access_log=False, log_config=None))
+               for a, p in ((app, PUBLIC_PORT), (internal, INTERNAL_PORT))]
+    tasks = [asyncio.create_task(s.serve()) for s in servers]
+    await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    for s in servers:
+        s.should_exit = True
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 LOGIN_TEST_HTML = """<!doctype html>
@@ -419,3 +515,7 @@ async function entrar(r) {
   } catch (e) { estado('no', 'Sin conexión con el servidor. Prueba otra vez.'); }
 }
 </script></body></html>"""
+
+
+if __name__ == "__main__":
+    asyncio.run(serve())
