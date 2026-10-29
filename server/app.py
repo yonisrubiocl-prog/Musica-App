@@ -7,11 +7,13 @@ directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pid
 import asyncio
 import hmac
 import secrets
+import json
 import logging
 import os
 import re
 import threading
 import time
+import unicodedata
 
 import uvicorn
 import yt_dlp
@@ -32,6 +34,9 @@ MUSIC_GB = float(os.environ.get("MUSIC_GB", "15"))
 COOKIES = "/data/youtube-cookies.txt"   # cookies de YouTube (las del bot); solo las lee el usuario 1000
 APK = "/app-dist/musica.apk"            # la app para Android (en el servidor: /var/lib/musicapp/app/musica.apk)
 APK_LINK_TTL = 10 * 60                  # cuánto sirve un enlace de descarga de la app
+SEARCHES = "/data/youtube-searches.json"   # búsquedas a YouTube ya hechas (ver YouTubeSearches)
+SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
+SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -111,6 +116,62 @@ def download(url, by=None):
         dest = LIB.put(key_of(url, info), src, info, by)
         log.info("bajada: %s (%s)", info.get("title"), key_of(url, info))
         return info, dest
+
+
+class YouTubeSearches:
+    """Búsquedas a YouTube ya hechas -> sus resultados, durante SEARCH_DAYS: la misma búsqueda (de la app o del
+    bot) no vuelve a preguntarle a YouTube. 'Karol G' = 'karol g' = 'karol  g'. Se guarda en disco para que un
+    reinicio no la vacíe."""
+
+    def __init__(self, file):
+        self.file, self.lock = file, threading.Lock()
+        try:
+            with open(file) as f:
+                self.data = json.load(f)
+        except (OSError, ValueError):
+            self.data = {}
+        self.hits = self.misses = 0
+
+    @staticmethod
+    def key(text, n):
+        t = unicodedata.normalize("NFKD", text.lower())
+        t = "".join(c for c in t if not unicodedata.combining(c))
+        return f"{n}:{' '.join(re.findall(r'[a-z0-9]+', t))}"
+
+    def get(self, text, n):
+        """Resultados de buscar 'text' en YouTube (n como mucho), de memoria si se buscó hace poco."""
+        k = self.key(text, n)
+        with self.lock:
+            hit = self.data.get(k)
+            if hit and hit["until"] > time.time():
+                self.hits += 1
+                return hit["info"]
+
+        def run():
+            with ydl(extract_flat="in_playlist") as y:
+                return y.extract_info(f"ytsearch{n}:{text}", download=False)
+        info = small_info(youtube(run))
+        with self.lock:
+            self.misses += 1
+            self.data.pop(k, None)   # al final = la más reciente
+            self.data[k] = {"until": time.time() + SEARCH_DAYS * 86400, "info": info}
+            now = time.time()
+            for old in [x for x, v in self.data.items() if v["until"] < now]:
+                del self.data[old]
+            for old in list(self.data)[:max(0, len(self.data) - SEARCH_MAX)]:
+                del self.data[old]
+            try:
+                with open(self.file + ".tmp", "w") as f:
+                    json.dump(self.data, f, ensure_ascii=False)
+                os.replace(self.file + ".tmp", self.file)
+            except OSError as e:
+                log.warning("no pude guardar las búsquedas: %s", e)
+            log.info("búsqueda en YouTube: %r (de memoria %d, a YouTube %d desde que arrancó)",
+                     text, self.hits, self.misses)
+        return info
+
+
+SEARCHES_YT = YouTubeSearches(SEARCHES)
 
 
 def youtube_info(vid):
@@ -233,16 +294,11 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
             seen.add(k)
             out.append(entry(k, e, "guardada"))
     if youtube_too:
-        def run():
-            with ydl(extract_flat="in_playlist") as y:
-                return y.extract_info(f"ytsearch{YT_RESULTS}:{q}", download=False)
-        for e in youtube(run).get("entries") or []:
+        for e in SEARCHES_YT.get(q, YT_RESULTS).get("entries") or []:
             if e and e.get("id") and f"yt-{e['id']}" not in seen:
                 seen.add(f"yt-{e['id']}")
-                thumbs = e.get("thumbnails") or []
                 out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
-                            "duration": e.get("duration"), "thumb": thumbs[-1]["url"] if thumbs else None,
-                            "where": "youtube"})
+                            "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
     return {"results": out}
 
 
@@ -382,7 +438,13 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
 @internal.post("/interno/resolve")
 def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(100, embed=True, le=MAX_PLAYLIST)):
     """Buscar en YouTube ('ytsearch5:…' o un nombre) o leer un enlace (video, lista, SoundCloud…) sin bajar nada:
-    título, duración, miniatura y, si es lista o búsqueda, sus 'entries'."""
+    título, duración, miniatura y, si es lista o búsqueda, sus 'entries'. Las búsquedas se recuerdan
+    (YouTubeSearches); los enlaces no."""
+    m = re.fullmatch(r"ytsearch(\d*):(.+)", query, re.S)
+    if m or not re.match(r"https?://", query):
+        n, text = (int(m.group(1) or 1), m.group(2)) if m else (1, query)
+        return SEARCHES_YT.get(text, min(n, 50))
+
     def run():
         with ydl(extract_flat="in_playlist", playlistend=limit, default_search="ytsearch") as y:
             return y.extract_info(query, download=False)

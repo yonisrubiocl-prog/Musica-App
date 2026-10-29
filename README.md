@@ -127,8 +127,16 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
 | `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
 
-Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
-bloqueo); lo guardado sigue sonando.
+**Pocas peticiones a YouTube** (para YouTube buscar y bajar son lo mismo: peticiones desde nuestra IP, y muchas
+seguidas parecen un bot):
+
+- La app lista **solo lo guardado** (`/search?…&yt=0`, al instante) y tiene un botón aparte "buscar en YouTube".
+- **Búsquedas recordadas 7 días** (`YouTubeSearches` en `app.py`, en `server/data/youtube-searches.json`, hasta
+  3.000): la misma búsqueda, desde la app o desde el bot, no vuelve a preguntarle a YouTube. Sin distinguir
+  mayúsculas, tildes ni espacios ("Karol G" = "karol g"). El registro dice cuántas salieron de memoria.
+- Una canción se baja **una sola vez** para todos (biblioteca única) y su ficha se pide una sola vez.
+- Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
+  bloqueo); lo guardado sigue sonando.
 
 **Clave:** `/search`, `/stream`, `/me` y `/auth/logout` piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
