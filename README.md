@@ -71,7 +71,8 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 
 ### Repartir la app
 
-La app (Android) se baja desde la misma página de acceso: `https://musica.yoneapolis.com/acceso`. Quien entra con
+La app (Android) se baja desde la página principal: `https://musica.yoneapolis.com/` (también `/acceso`;
+`https://yoneapolis.com` lleva aquí). Quien entra con
 Google y **ya está aprobado** empieza a bajarla sola, sin ver ningún enlace (por si el navegador bloquea la
 descarga automática hay un "¿No empezó? toca aquí"); el resto, lo de siempre (pendiente o sin acceso). Por
 debajo es un enlace de 10 min sin la sesión dentro. No es de un solo uso a propósito: los navegadores de Android
@@ -99,7 +100,8 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /auth/google` | Cuerpo `{"id_token": "…"}` (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
-| `GET /acceso` | Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
+| `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, con el estilo Dark Premium de la app y el logo del perrito). Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
+| `GET /logo.png` | El logo (`server/web/logo.png`, 512×512), también icono de la pestaña. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
@@ -175,7 +177,7 @@ por ahí hasta la API. Los amigos no instalan nada más que la app. La direcció
 (`http://api:8000`) se configuran en el panel: *Zero Trust → Networks → Tunnels → musicapp*. Su token va en
 `server/.env` (`CF_TUNNEL_TOKEN`); es como una contraseña: si se filtra, se rota desde ese mismo panel.
 El mismo túnel publica también `yoneapolis.com` → `http://yoneapolis-web:80`, una página aparte en
-`~/Yoneapolis/` (página de broma, temporal) cuyo contenedor se une a la red `musicapp_default` solo
+`~/Yoneapolis/` (por ahora solo redirige a `https://musica.yoneapolis.com/`) cuyo contenedor se une a la red `musicapp_default` solo
 para eso. Cómo quitarla: `~/Yoneapolis/README.md`.
 
 El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que la API se protege sola:
@@ -270,6 +272,8 @@ Cada fase funciona por sí sola.
 │   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot; también reparte el APK
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
+│   ├── web/                página principal (acceso.html) y logo.png; colores de la app: fondo #080A12,
+│   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
 │   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
 │   ├── Dockerfile
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)

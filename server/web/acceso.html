@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080A12">
+<title>Música</title>
+<link rel="icon" href="/logo.png">
+<link rel="apple-touch-icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Tema de la app (Dark Premium): mismos colores que la app Flutter */
+  :root {
+    --bg: #080A12;
+    --card: #151725;
+    --raised: #202033;
+    --primary: #9B5CFF;
+    --secondary: #F04DBB;
+    --blue: #5268FF;
+    --text: #FFFFFF;
+    --muted: #A3A5B5;
+    --radius: 16px;
+    --gutter: 24px;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    min-height: 100vh; min-height: 100dvh;
+    font-family: Inter, Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column;
+  }
+
+  /* Imagen protagonista: auriculares sobre un brillo violeta/rosa que se funde con el fondo */
+  .hero {
+    position: relative; height: 52vh; min-height: 300px; max-height: 520px;
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -20% 0; width: min(100%, 760px); margin: 0 auto;
+    background:
+      radial-gradient(40% 35% at 35% 45%, rgba(155, 92, 255, .55), transparent 70%),
+      radial-gradient(35% 30% at 68% 40%, rgba(240, 77, 187, .38), transparent 70%),
+      radial-gradient(45% 40% at 55% 75%, rgba(82, 104, 255, .30), transparent 70%);
+    filter: blur(20px);
+    animation: drift 14s ease-in-out infinite alternate;
+  }
+  .hero::after {   /* degradado inferior hacia el fondo */
+    content: ""; position: absolute; inset: auto 0 0 0; height: 55%;
+    background: linear-gradient(to bottom, rgba(8, 10, 18, 0), var(--bg));
+  }
+  @keyframes drift { to { transform: translate3d(0, -3%, 0) scale(1.06); } }
+  /* El PNG trae margen oscuro alrededor del aro: se recorta en círculo y se amplía para que solo quede el aro */
+  .logo, .mini { display: block; border-radius: 50%; overflow: hidden; }
+  .logo img, .mini img { display: block; width: 100%; height: 100%; transform: scale(1.17); }
+  .logo {
+    position: relative; z-index: 1; width: min(60vw, 240px); aspect-ratio: 1;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 80px rgba(155, 92, 255, .25);
+    animation: float 6s ease-in-out infinite alternate;
+  }
+  @keyframes float { to { transform: translateY(-8px); } }
+
+  main {
+    position: relative; z-index: 2; flex: 1;
+    width: 100%; max-width: 440px; margin: -56px auto 0; padding: 0 var(--gutter) 32px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .brand .mini { width: 34px; height: 34px; }
+  .brand span { font-weight: 700; font-size: 1.2rem; letter-spacing: .2px; }
+  h1 { font-size: clamp(1.7rem, 7vw, 2.1rem); line-height: 1.15; font-weight: 800; letter-spacing: -.5px; }
+  .lead { margin-top: 12px; color: var(--muted); line-height: 1.55; font-size: .98rem; }
+
+  .google { margin-top: 28px; min-height: 44px; display: flex; justify-content: center; width: 100%; }
+
+  /* Estado tras entrar: tarjeta de cristal discreta */
+  #estado {
+    width: 100%; margin-top: 20px; padding: 16px 18px; border-radius: var(--radius); text-align: left;
+    background: rgba(21, 23, 37, .72); border: 1px solid rgba(255, 255, 255, .06);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+    line-height: 1.5; font-size: .95rem;
+    opacity: 0; transform: translateY(8px); pointer-events: none;
+    transition: opacity 250ms var(--ease), transform 250ms var(--ease);
+  }
+  #estado.on { opacity: 1; transform: none; pointer-events: auto; }
+  #estado .row { display: flex; gap: 12px; align-items: flex-start; }
+  #estado .dot { flex: none; width: 10px; height: 10px; margin-top: 7px; border-radius: 50%; background: var(--muted); }
+  #estado.ok .dot { background: var(--primary); box-shadow: 0 0 0 4px rgba(155, 92, 255, .18); }
+  #estado.wait .dot { background: var(--blue); box-shadow: 0 0 0 4px rgba(82, 104, 255, .18); }
+  #estado.no .dot { background: var(--secondary); box-shadow: 0 0 0 4px rgba(240, 77, 187, .16); }
+  #estado b { font-weight: 600; }
+  #estado .nota { display: block; margin-top: 8px; color: var(--muted); font-size: .86rem; }
+  #estado a { color: var(--text); font-weight: 600; text-underline-offset: 3px; }
+  .bar { height: 4px; margin-top: 12px; border-radius: 99px; background: var(--raised); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 40%; border-radius: inherit;
+           background: linear-gradient(90deg, var(--primary), var(--secondary));
+           animation: load 1.2s ease-in-out infinite; }
+  @keyframes load { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+  footer { padding: 0 var(--gutter) 24px; text-align: center; color: var(--muted); font-size: .8rem; opacity: .8; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero::before, .logo, .bar i { animation: none; }
+    #estado { transition: none; }
+  }
+</style>
+<script src="https://accounts.google.com/gsi/client" async onload="googleListo()"></script>
+</head>
+<body>
+
+<section class="hero" aria-hidden="true">
+  <div class="logo"><img src="/logo.png" alt="" width="512" height="512"></div>
+</section>
+
+<main>
+  <div class="brand">
+    <span class="mini"><img src="/logo.png" alt="" width="34" height="34"></span>
+    <span>Música</span>
+  </div>
+  <h1>Tu música,<br>sin límites.</h1>
+  <p class="lead">Entra con tu cuenta de Google para pedir acceso. Cuando te aprueben, la app se descarga sola.</p>
+
+  <div class="google" id="google"></div>
+  <div id="estado" role="status" aria-live="polite"></div>
+</main>
+
+<footer>Privada · solo con invitación · app para Android</footer>
+
+<script>
+const CLIENT_ID = '{CLIENT_ID}';
+const caja = document.getElementById('estado');
+
+function estado(cls, html) {
+  caja.className = cls;
+  caja.innerHTML = '<div class="row"><span class="dot"></span><div>' + html + '</div></div>';
+  requestAnimationFrame(() => caja.classList.add('on'));
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
+function googleListo() {
+  google.accounts.id.initialize({client_id: CLIENT_ID, callback: entrar});
+  const ancho = Math.min(360, document.getElementById('google').offsetWidth);
+  google.accounts.id.renderButton(document.getElementById('google'),
+    {theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'es', width: ancho});
+}
+
+async function entrar(r) {
+  estado('wait', 'Comprobando tu cuenta…<div class="bar"><i></i></div>');
+  try {
+    const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                             body: JSON.stringify({id_token: r.credential})});
+    const j = await res.json();
+    const d = j.detail && typeof j.detail === 'object' ? j.detail : j;
+    const nombre = esc((d.user && (d.user.name || d.user.email)) || '');
+    if (j.session) {   // la sesión solo sirve para pedir el enlace de la app: luego se cierra
+      const auth = {Authorization: 'Bearer ' + j.session};
+      const app = await fetch('/app/enlace', {method: 'POST', headers: auth});
+      fetch('/auth/logout', {method: 'POST', headers: auth});
+      if (app.ok) {
+        const a = await app.json();
+        estado('ok', '<b>' + nombre + '</b>, ya estás dentro. Bajando la app (' + (a.size / 1e6).toFixed(0) +
+          ' MB)…<div class="bar"><i></i></div><span class="nota">Al terminar, ábrela; si Android pide permiso ' +
+          'para «instalar apps desconocidas», acéptalo. Dentro, entra con esta misma cuenta.<br>' +
+          '¿No empezó? <a href="' + a.url + '">Toca aquí</a>.</span>');
+        location.href = a.url;   // la descarga empieza sola: el enlace no se enseña
+      } else {
+        estado('ok', '<b>' + nombre + '</b>, ya estás aprobado.<span class="nota">La app todavía no está lista ' +
+          'para descargar. Vuelve en unos días y entra con esta misma cuenta.</span>');
+      }
+    } else if (d.status === 'pendiente') {
+      estado('wait', 'Listo, <b>' + nombre + '</b>. Tu solicitud quedó enviada.' +
+        '<span class="nota">Avisa para que te aprueben y vuelve a entrar aquí.</span>');
+    } else if (d.status === 'bloqueado') {
+      estado('no', 'Esta cuenta no tiene acceso.');
+    } else {
+      estado('no', 'No se pudo comprobar (' + res.status + ').<span class="nota">Prueba otra vez en un rato.</span>');
+    }
+  } catch (e) {
+    estado('no', 'Sin conexión con el servidor.<span class="nota">Prueba otra vez.</span>');
+  }
+}
+</script>
+</body>
+</html>

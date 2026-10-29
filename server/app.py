@@ -37,6 +37,7 @@ APK_LINK_TTL = 10 * 60                  # cuánto sirve un enlace de descarga de
 SEARCHES = "/data/youtube-searches.json"   # búsquedas a YouTube ya hechas (ver YouTubeSearches)
 SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
 SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
+WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")   # página principal y logo
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -256,10 +257,19 @@ def login_test_page():
     return LOGIN_TEST_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
+@app.get("/", response_class=HTMLResponse)
 @app.get("/acceso", response_class=HTMLResponse)
 def access_page():
-    """Página para pasar a los amigos: entran con Google y quedan pendientes de aprobar. No reproduce nada."""
-    return ACCESS_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
+    """La página principal (web/acceso.html, con el estilo de la app): entran con Google; a los pendientes les
+    dice que esperen y a los aprobados les baja la app. No reproduce nada."""
+    with open(os.path.join(WEB, "acceso.html")) as f:
+        return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
+
+
+@app.get("/logo.png")
+def logo():
+    return FileResponse(os.path.join(WEB, "logo.png"), media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.post("/app/enlace")
@@ -530,68 +540,6 @@ async function buscar() {
 }
 </script></body></html>"""
 
-
-ACCESS_HTML = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Música · pedir acceso</title>
-<style>
-  :root{--bg:#0d0d0f;--card:#18181c;--fg:#f2f2f2;--sub:#a0a0a8;--ok:#3ddc84;--wait:#ffd23f;--no:#ff5c5c}
-  *{box-sizing:border-box;margin:0}
-  body{min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--bg);color:var(--fg);
-       font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-  .card{width:100%;max-width:380px;background:var(--card);border-radius:20px;padding:32px 24px;text-align:center}
-  h1{font-size:1.6rem;margin-bottom:.5rem} p{color:var(--sub);line-height:1.5}
-  .g{display:flex;justify-content:center;margin:24px 0 8px;min-height:44px}
-  #estado{margin-top:16px;padding:14px;border-radius:12px;display:none;color:var(--fg);line-height:1.5}
-  #estado.ok{display:block;background:#3ddc8422;border:1px solid var(--ok)}
-  #estado.wait{display:block;background:#ffd23f1f;border:1px solid var(--wait)}
-  #estado.no{display:block;background:#ff5c5c1f;border:1px solid var(--no)}
-  .nota{display:block;margin-top:10px;font-size:.85rem;color:var(--sub)}
-</style>
-<script src="https://accounts.google.com/gsi/client" async></script></head><body>
-<main class="card">
-  <h1>🎵 Música</h1>
-  <p>Entra con tu cuenta de Google para pedir acceso. Cuando te aprueben podrás usar la app.</p>
-  <div id="g_id_onload" data-client_id="{CLIENT_ID}" data-callback="entrar" data-auto_prompt="false"></div>
-  <div class="g"><div class="g_id_signin" data-type="standard" data-theme="filled_black" data-shape="pill"
-       data-text="continue_with" data-locale="es"></div></div>
-  <div id="estado" role="status"></div>
-</main>
-<script>
-const estado = (cls, html) => { const e = document.getElementById('estado'); e.className = cls; e.innerHTML = html; };
-async function entrar(r) {
-  estado('wait', 'Comprobando…');
-  try {
-    const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                             body: JSON.stringify({id_token: r.credential})});
-    const j = await res.json();
-    const d = j.detail && typeof j.detail === 'object' ? j.detail : j;
-    const nombre = (d.user && (d.user.name || d.user.email)) || '';
-    if (j.session) {   // la sesión solo sirve para pedir el enlace de la app: luego se cierra
-      const auth = {Authorization: 'Bearer ' + j.session};
-      const app = await fetch('/app/enlace', {method: 'POST', headers: auth});
-      fetch('/auth/logout', {method: 'POST', headers: auth});
-      if (app.ok) {
-        const a = await app.json();
-        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. Bajando la app (' + (a.size / 1e6).toFixed(0) +
-          ' MB)…<span class="nota">Solo Android. Al terminar, ábrela; si pide permiso para "instalar apps ' +
-          'desconocidas", acéptalo. Dentro, entra con esta misma cuenta.<br>' +
-          '¿No empezó? <a href="' + a.url + '" style="color:var(--fg)">toca aquí</a>.</span>');
-        location.href = a.url;   // la descarga empieza sola: el enlace no se enseña
-      } else {
-        estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. La app todavía no está lista para descargar: ' +
-          'vuelve a esta página en unos días y entra con esta misma cuenta.');
-      }
-    } else if (d.status === 'pendiente') {
-      estado('wait', '⏳ Listo, <b>' + nombre + '</b>. Tu solicitud quedó enviada: avisa para que te aprueben.');
-    } else if (d.status === 'bloqueado') {
-      estado('no', 'Esta cuenta no tiene acceso.');
-    } else {
-      estado('no', 'No se pudo comprobar (' + res.status + '). Prueba otra vez en un rato.');
-    }
-  } catch (e) { estado('no', 'Sin conexión con el servidor. Prueba otra vez.'); }
-}
-</script></body></html>"""
 
 
 if __name__ == "__main__":

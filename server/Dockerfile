@@ -8,6 +8,7 @@ RUN python -m venv /opt/venv && pip install --no-cache-dir fastapi "uvicorn[stan
     && chown -R 1000:1000 /opt/venv
 WORKDIR /app
 COPY app.py users.py library.py ./
+COPY web/ ./web/
 USER 1000:1000
 # Cada arranque actualiza yt-dlp: YouTube cambia a menudo y lo rompe. app.py escucha en 8000 (app) y 8001 (bot).
 CMD ["sh", "-c", "pip install -q -U --no-cache-dir 'yt-dlp[default]' || true; exec python app.py"]
