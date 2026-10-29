@@ -57,9 +57,17 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
    └── lee index.json y los archivos directo del disco (solo lectura): buscar al instante y FFmpeg
 ```
 
-El bot tiene una copia del catálogo en memoria que relee cuando cambia, así que buscar no espera a la API y lo
-guardado suena aunque esté caída. Lo que cambia algo (bajar, "sonó", olvidar, fichas) y buscar en YouTube se lo
-pide a las rutas `/interno`. Detalle: `~/MusicBot/README.md`, sección 4.
+**Quién hace qué con `index.json`:**
+
+- **La API lo controla:** es la única que lo escribe (añadir, borrar, contar veces puesta, completar fichas).
+- **El bot solo lo lee:** lo tiene montado en solo lectura (no podría escribirlo aunque quisiera) y guarda una
+  copia en memoria. Cada 3 s mira si el archivo cambió y, si cambió, lo relee (~0,03 s). Con esa copia busca y
+  reproduce lo guardado sin preguntar a nadie: instantáneo, y sigue sonando aunque la API esté caída. Lo que
+  cambia algo (bajar, "sonó", olvidar, fichas) o busca en YouTube se lo pide a la API por las rutas `/interno`.
+- **La app** no ve el disco (está en el móvil): todo lo consulta a la API por internet (`/search`, `/stream`).
+- **Los dos usan el mismo catálogo y la misma carpeta.** Una canción bajada desde la app la ve el bot en unos
+  segundos y suena en Discord como 💾 Local sin volver a bajarse; una bajada desde Discord la encuentra la app
+  al buscar. Probado el 29-10-2026 (Culpables · KAROL G: primera vez 🌐 Online, la segunda 💾 Local).
 
 Restos de antes de juntar las carpetas (se pueden borrar cuando se quiera, con `sudo`):
 `/var/lib/musicbot/cache` (los mismos archivos que la biblioteca, enlazados: borrarla casi no libera espacio
