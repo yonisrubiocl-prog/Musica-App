@@ -220,6 +220,53 @@ class Library:
             cand = [k for k in set(sets[0]).intersection(*sets[1:]) if self._exists(k)]
             return [(k, dict(self.index[k])) for k in self._rank(cand, q)[:limit]]
 
+    def _variants(self, w):
+        """Palabras guardadas que pueden ser 'w', con su nota: exacta 1; empieza por 'w' (aún escribiendo:
+        'pilot' -> 'pilots') 0.85; 'w' empieza por ella (plurales: 'pilots' -> 'pilot') 0.8; con faltas
+        ('chayane' -> 'chayanne') según lo parecida, como mucho 0.75."""
+        out = {}
+        if w in self.wix:
+            out[w] = 1.0
+        if len(w) >= 2:
+            i = bisect.bisect_left(self.vocab, w)
+            while i < len(self.vocab) and self.vocab[i].startswith(w):
+                out.setdefault(self.vocab[i], 0.85)
+                i += 1
+        for n in range(3, len(w)):
+            if w[:n] in self.wix and len(w) - n <= 2:
+                out.setdefault(w[:n], 0.8)
+        if len(w) >= 4:
+            for c in difflib.get_close_matches(w, self.vocab, n=5, cutoff=0.75):
+                out.setdefault(c, 0.75 * difflib.SequenceMatcher(None, w, c).ratio())
+        return out
+
+    def find(self, query, limit=20):
+        """La búsqueda de la app: todas las palabras escritas tienen que estar en título, artista o álbum, pero
+        cada una vale exacta, a medio escribir, en plural/singular o con faltas (ver _variants). Mejor primero:
+        las que coinciden más exacto, luego las que tienen menos palabras de más, luego las más puestas. Si con
+        3 palabras o más no hay ninguna con todas, valen las que tienen todas menos una."""
+        q = list(dict.fromkeys(words(query)))
+        if not q or not self.wix:
+            return []
+        with self.lock:
+            per_word = [self._variants(w) for w in q]
+            notes = {}   # clave -> nota de cada palabra buscada
+            for i, variants in enumerate(per_word):
+                for v, note in variants.items():
+                    for k in self.wix[v]:
+                        got = notes.setdefault(k, [0.0] * len(q))
+                        got[i] = max(got[i], note)
+            need = len(q)
+            while True:
+                hits = [(sum(n) / len(q), len(q) / max(1, len(self.tw.get(k) or ())),
+                         self.index[k].get("plays", 0), self.index[k].get("used", 0), k)
+                        for k, n in notes.items() if sum(1 for x in n if x) >= need and self._exists(k)]
+                if hits or need <= 2 or need < len(q):
+                    break
+                need -= 1
+            hits.sort(reverse=True)
+            return [(k, dict(self.index[k])) for *_, k in hits[:limit]]
+
     def suggest(self, text, limit=25):
         """Autocompletado: canciones cuyas palabras empiezan por lo escrito ('neut sh' -> Neutro Shorty). Una
         palabra que no empiece así en ninguna se cambia por la más parecida ('chayane' -> 'chayanne'). Sin

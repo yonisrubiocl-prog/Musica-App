@@ -287,9 +287,10 @@ def apk_download(link: str):
 
 @app.get("/search", dependencies=[Depends(check_token)])
 def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt")):
-    """Primero lo guardado; luego, si se pide, YouTube. Sin repetir canciones."""
+    """Primero lo guardado (hasta 20, tolera palabras a medio escribir y faltas: ver Library.find); luego, si se
+    pide, YouTube. Sin repetir canciones."""
     out, seen = [], set()
-    for k, e in LIB.matches(q, 10):
+    for k, e in LIB.find(q, 20):
         if k.startswith("yt-"):   # /stream solo acepta canciones de YouTube
             seen.add(k)
             out.append(entry(k, e, "guardada"))
