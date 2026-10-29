@@ -113,7 +113,16 @@ Tailscale **solo reenvía, no filtra**: toda petición llega a la API, así que 
   se valida (11 caracteres de YouTube) antes de buscar archivos. Corre sin root, así que tampoco puede leer
   las cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
 
-**Plan B — túnel de Cloudflare:** el túnel que ya corre en este servidor (`finops-tunnel-1`) es de la
+**Plan B — Tailscale dentro de la app (sin dirección pública):** la librería `tsnet` de Tailscale (Go,
+compilada para Android con gomobile y llamada desde Flutter) mete un nodo de Tailscale dentro de la propia
+app, sin el permiso de VPN ni la app de Tailscale. El servidor deja de ser público y la conexión va directa,
+**sin el límite de Funnel**. Cada móvil entra a la red con una clave metida en el APK (marcado como cliente y
+con permiso solo para la API; quien tenga el APK llega a la API, que sigue pidiendo login) o con el login de
+Tailscale de cada amigo (necesitan cuenta, no la app; mirar el límite de usuarios del plan gratis). Cuesta
+bastante más (Go + Flutter, ~20–30 MB más, segundo plano, iPhone más difícil). Es la opción preferida si
+Funnel no aguanta la velocidad.
+
+**Plan C — túnel de Cloudflare:** el túnel que ya corre en este servidor (`finops-tunnel-1`) es de la
 cuenta de **mi hermano**; no sirve con otra cuenta. Si un día se usa Cloudflare (un subdominio en su
 cuenta, o un dominio propio `.com` en Cloudflare Registrar, ~10 $/año sin subidas al renovar), se cambia
 el contenedor `tailscale` por un `cloudflared` y la dirección en los ajustes de la app. La API no cambia.
@@ -130,8 +139,7 @@ falla a 5 Mbps. Lo que necesita la app:
 | Descargar el APK al actualizar (~30–50 MB) | Mucho de golpe | Lento (minutos) |
 
 Antes de construir encima se **mide en la fase 1** (un audio detrás de Funnel, descargado desde dos móviles
-a la vez). Si no aguanta: Cloudflare (plan B de arriba) o Tailscale en modo red privada (conexión directa,
-sin límite, pero cada amigo instala Tailscale). En todo caso, audio en Opus ~96 kbps y la app guarda lo ya
+a la vez). Si no aguanta: Tailscale dentro de la app (plan B de arriba) o Cloudflare (plan C). En todo caso, audio en Opus ~96 kbps y la app guarda lo ya
 escuchado para no volver a pedirlo.
 
 Funnel **no pasa la IP real** del cliente de forma directa (no añade cabeceras); para el bloqueo por IP hay
