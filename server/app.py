@@ -291,6 +291,12 @@ def login_test_page():
     return LOGIN_TEST_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
+@app.get("/acceso", response_class=HTMLResponse)
+def access_page():
+    """Página para pasar a los amigos: entran con Google y quedan pendientes de aprobar. No reproduce nada."""
+    return ACCESS_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
+
+
 @app.get("/search", dependencies=[Depends(check_token)])
 def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt")):
     """Primero lo guardado (propio y del bot); luego, si se pide, YouTube. Sin repetir canciones."""
@@ -361,5 +367,55 @@ async function buscar() {
                        au.src = '/stream/' + c.id + '?token=' + encodeURIComponent(sesion); au.play(); };
     li.append(a); ul.append(li);
   }
+}
+</script></body></html>"""
+
+
+ACCESS_HTML = """<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Música · pedir acceso</title>
+<style>
+  :root{--bg:#0d0d0f;--card:#18181c;--fg:#f2f2f2;--sub:#a0a0a8;--ok:#3ddc84;--wait:#ffd23f;--no:#ff5c5c}
+  *{box-sizing:border-box;margin:0}
+  body{min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--bg);color:var(--fg);
+       font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  .card{width:100%;max-width:380px;background:var(--card);border-radius:20px;padding:32px 24px;text-align:center}
+  h1{font-size:1.6rem;margin-bottom:.5rem} p{color:var(--sub);line-height:1.5}
+  .g{display:flex;justify-content:center;margin:24px 0 8px;min-height:44px}
+  #estado{margin-top:16px;padding:14px;border-radius:12px;display:none;color:var(--fg);line-height:1.5}
+  #estado.ok{display:block;background:#3ddc8422;border:1px solid var(--ok)}
+  #estado.wait{display:block;background:#ffd23f1f;border:1px solid var(--wait)}
+  #estado.no{display:block;background:#ff5c5c1f;border:1px solid var(--no)}
+</style>
+<script src="https://accounts.google.com/gsi/client" async></script></head><body>
+<main class="card">
+  <h1>🎵 Música</h1>
+  <p>Entra con tu cuenta de Google para pedir acceso. Cuando te aprueben podrás usar la app.</p>
+  <div id="g_id_onload" data-client_id="{CLIENT_ID}" data-callback="entrar" data-auto_prompt="false"></div>
+  <div class="g"><div class="g_id_signin" data-type="standard" data-theme="filled_black" data-shape="pill"
+       data-text="continue_with" data-locale="es"></div></div>
+  <div id="estado" role="status"></div>
+</main>
+<script>
+const estado = (cls, html) => { const e = document.getElementById('estado'); e.className = cls; e.innerHTML = html; };
+async function entrar(r) {
+  estado('wait', 'Comprobando…');
+  try {
+    const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                             body: JSON.stringify({id_token: r.credential})});
+    const j = await res.json();
+    const d = j.detail && typeof j.detail === 'object' ? j.detail : j;
+    const nombre = (d.user && (d.user.name || d.user.email)) || '';
+    if (j.session) {   // aquí no se usa la sesión: se cierra al momento
+      fetch('/auth/logout', {method: 'POST', headers: {Authorization: 'Bearer ' + j.session}});
+      estado('ok', '✅ <b>' + nombre + '</b>, ya estás aprobado. Cuando tengas la app, entra con esta misma cuenta.');
+    } else if (d.status === 'pendiente') {
+      estado('wait', '⏳ Listo, <b>' + nombre + '</b>. Tu solicitud quedó enviada: avisa para que te aprueben.');
+    } else if (d.status === 'bloqueado') {
+      estado('no', 'Esta cuenta no tiene acceso.');
+    } else {
+      estado('no', 'No se pudo comprobar (' + res.status + '). Prueba otra vez en un rato.');
+    }
+  } catch (e) { estado('no', 'Sin conexión con el servidor. Prueba otra vez.'); }
 }
 </script></body></html>"""
