@@ -136,7 +136,7 @@ const KEY = 'musica_sesion';   // la sesión de la app web (web.html)
 const guardada = (() => { try { return localStorage.getItem(KEY); } catch (e) { return null; } })();
 if (guardada) {   // ya había entrado en este navegador: directo a la app si la sesión sigue valiendo
   fetch('/me', {headers: {Authorization: 'Bearer ' + guardada}})
-    .then(r => { if (r.ok) location.replace('/web'); else try { localStorage.removeItem(KEY); } catch (e) {} });
+    .then(r => { if (r.ok) location.replace('/web/'); else try { localStorage.removeItem(KEY); } catch (e) {} });
 }
 
 function estado(cls, html) {
@@ -169,7 +169,7 @@ async function entrar(r) {
     if (j.session) {   // aprobado: se abre la app web (dentro está la descarga para Android)
       try { localStorage.setItem(KEY, j.session); } catch (e) {}
       estado('ok', '<b>' + nombre + '</b>, ya estás dentro. Abriendo tu música…<div class="bar"><i></i></div>');
-      location.replace('/web');
+      location.replace('/web/');
     } else if (d.status === 'pendiente') {
       estado('wait', 'Listo, <b>' + nombre + '</b>. Tu solicitud quedó enviada.' +
         '<span class="nota">Avisa para que te aprueben y vuelve a entrar aquí.</span>');

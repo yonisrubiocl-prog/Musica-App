@@ -10,6 +10,7 @@ import hmac
 import secrets
 import json
 import logging
+import mimetypes
 import os
 import re
 import threading
@@ -19,7 +20,7 @@ import unicodedata
 import uvicorn
 import yt_dlp
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
@@ -43,6 +44,7 @@ SEARCHES = "/data/youtube-searches.json"   # búsquedas a YouTube ya hechas (ver
 SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
 SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")   # página principal y logo
+WEBAPP = "/web-app"                     # la app web de Flutter (en el servidor: /var/lib/musicapp/web-app)
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -63,7 +65,7 @@ INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live",
                "extractor_key", "ie_key", "uploader", "channel", "artist", "artists")
 
 LIB = Library(MUSIC_DIR, MUSIC_GB * 1024 ** 3, MUSIC_INDEX)
-LIB.keep = lambda: {"yt-" + i for i in userdata.favorite_ids()}   # las favoritas de alguien no se borran por espacio
+LIB.keep = lambda: {"yt-" + i for i in userdata.favorite_ids()}   # favoritas y playlists de alguien: no se borran por espacio
 
 _yt_blocked_until = 0.0
 _downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
@@ -402,12 +404,39 @@ def access_page():
         return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
-@app.get("/web", response_class=HTMLResponse)
-def web_app():
-    """Prototipo de la app en el navegador (web/web.html): biblioteca, búsqueda, artistas, reproductor y la
-    descarga para Android. Usa la sesión que guarda la página principal al entrar."""
+@app.get("/web-prototipo", response_class=HTMLResponse)
+def web_prototype():
+    """El prototipo de la app en el navegador (web/web.html), hecho en el servidor antes de la app web de verdad."""
     with open(os.path.join(WEB, "web.html")) as f:
         return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/web", include_in_schema=False)
+def web_root():
+    return RedirectResponse("/web/")
+
+
+@app.get("/web/{path:path}", include_in_schema=False)
+def web_app(path: str, request: Request):
+    """La app web (Flutter compilada para web, la publica la sesión de la app en /var/lib/musicapp/web-app con
+    tools/publicar_web.ps1). Lo que no sea un archivo devuelve index.html (las rutas de la app). Sin caché larga a
+    propósito: Flutter no pone huella en los nombres (main.dart.js se llama igual en cada versión), así que todo
+    va con 'no-cache' + ETag: el navegador lo guarda pero pregunta si cambió (304 si no). Sin app publicada, el
+    prototipo."""
+    if not os.path.isfile(os.path.join(WEBAPP, "index.html")):
+        return web_prototype()
+    full = os.path.realpath(os.path.join(WEBAPP, path))
+    if not full.startswith(os.path.realpath(WEBAPP) + os.sep) or not os.path.isfile(full):
+        full = os.path.join(WEBAPP, "index.html")
+    st = os.stat(full)
+    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    ext = os.path.splitext(full)[1].lower()
+    media = {".wasm": "application/wasm", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json",
+             ".html": "text/html; charset=utf-8"}.get(ext) or mimetypes.guess_type(full)[0] or "application/octet-stream"
+    return FileResponse(full, media_type=media, headers=headers)
 
 
 @app.get("/logo{rest}", include_in_schema=False)
@@ -609,6 +638,73 @@ def add_favorite(vid: str, found=Depends(check_token), title: str | None = Body(
 @app.delete("/favorites/{vid}")
 def remove_favorite(vid: str, found=Depends(check_token)):
     return {"ok": userdata.remove_favorite(need_user(found), valid_vid(vid))}
+
+
+def known_song(vid):
+    """La ficha de una canción aunque no esté guardada: de la biblioteca, de lo que alguien ya apuntó (favoritas,
+    playlists) o de las búsquedas recientes en YouTube Music. None si no se sabe nada."""
+    s = song_of(vid, userdata.known(vid))
+    if s:
+        return s
+    with SEARCHES_YT.lock:
+        for v in SEARCHES_YT.data.values():
+            info = v["info"]
+            for x in (info if isinstance(info, list) else info.get("songs", []) if isinstance(info, dict) else []):
+                if isinstance(x, dict) and x.get("id") == vid and x.get("title"):
+                    return {k: x.get(k) for k in ("id", "title", "artist", "album", "duration", "thumb")} | {"where": "youtube"}
+    return None
+
+
+@app.get("/playlists")
+def get_playlists(found=Depends(check_token)):
+    """Mis playlists (iguales en la app, la web y otros móviles), la última cambiada primero: {playlists: [{id,
+    name, songs: [canciones como en /search], created, updated}]}. Las canciones que ya no están guardadas salen
+    con where=youtube (al ponerlas se vuelven a bajar)."""
+    out = []
+    for p in userdata.playlists(need_user(found)):
+        p["songs"] = [song_of(s["id"], s) for s in p["songs"]]
+        out.append(p)
+    return {"playlists": out}
+
+
+@app.post("/playlists")
+def create_playlist(found=Depends(check_token), name: str = Body(embed=True, min_length=1, max_length=100)):
+    try:
+        return {"id": userdata.create_playlist(need_user(found), name.strip())}
+    except OverflowError:
+        raise HTTPException(400, f"como mucho {userdata.PLAYLISTS_MAX} playlists")
+
+
+@app.put("/playlists/{pid}")
+def save_playlist(pid: str, found=Depends(check_token), name: str = Body(embed=True, min_length=1, max_length=100),
+                  songs: list = Body(embed=True)):
+    """Guarda la playlist entera de una vez: nombre y canciones en orden (ids; o fichas {id, title, artist…} si es
+    algo que el servidor aún no conoce). Quitar, añadir y reordenar son el mismo cambio."""
+    sub = need_user(found)
+    if len(songs) > userdata.PLAYLIST_SONGS_MAX:
+        raise HTTPException(400, f"como mucho {userdata.PLAYLIST_SONGS_MAX} canciones")
+    fichas, unknown = [], []
+    for s in songs:
+        vid = s.get("id") if isinstance(s, dict) else s
+        if not isinstance(vid, str) or not VIDEO_ID.fullmatch(vid):
+            raise HTTPException(400, f"id de canción no válido: {str(vid)[:20]}")
+        info = known_song(vid) or (s if isinstance(s, dict) and s.get("title") else None)
+        if not info:
+            unknown.append(vid)
+        fichas.append({"id": vid, **(info or {})})
+    if unknown:   # sin título no se podría enseñar: que la app mande la ficha de esas
+        raise HTTPException(400, {"error": "faltan las fichas de estas canciones (mándalas como {id, title, artist…})",
+                                  "ids": unknown})
+    if not userdata.save_playlist(sub, pid, name.strip(), fichas):
+        raise HTTPException(404, "no existe esa playlist")
+    return {"ok": True}
+
+
+@app.delete("/playlists/{pid}")
+def delete_playlist(pid: str, found=Depends(check_token)):
+    if not userdata.delete_playlist(need_user(found), pid):
+        raise HTTPException(404, "no existe esa playlist")
+    return {"ok": True}
 
 
 @app.get("/history")

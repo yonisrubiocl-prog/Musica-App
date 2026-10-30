@@ -19,11 +19,12 @@ sin publicarlo ni cobrar nada.
 - **Biblioteca única** hecha: la API es la dueña de la música (`/var/lib/music`) y el bot de Discord es cliente suyo.
 - **Buscar:** lo guardado tolera faltas y palabras a medio escribir; lo de internet sale de **YouTube Music**
   (20 canciones nuevas siempre, álbumes en orden), con memoria de 7 días y un ritmo máximo con YouTube.
-- **Por usuario:** favoritas e historial (iguales en la app y la web), máximo 3 dispositivos por cuenta.
+- **Por usuario:** favoritas, historial y playlists (iguales en la app y la web), máximo 3 dispositivos por cuenta.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
 - **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.17 (build 18) publicada**, con aviso de
-  actualización propio. **App web** (prototipo) en `/web`, a la que lleva la página principal tras entrar.
+  actualización propio. **App web** (la misma app, compilada para web) en `/web/`, a la que lleva la página
+  principal tras entrar.
 
 **Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
@@ -89,11 +90,13 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 ### Repartir la app y versión web
 
 **Flujo de la página principal** (`https://musica.yoneapolis.com/`; `https://yoneapolis.com` lleva aquí):
-entrar con Google → si está **aprobado**, se abre la **app web** (`/web`); si no, queda pendiente o sin acceso. La
+entrar con Google → si está **aprobado**, se abre la **app web** (`/web/`, la de Flutter); si no, queda pendiente o sin acceso. La
 sesión se guarda en el navegador (`localStorage`): la próxima vez entra directo. Cuenta como uno de los 3
 dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
-**App web** (`server/web/web.html`, **prototipo** hecho en el servidor, con el estilo de la app): tres pestañas
+**App web:** la definitiva es la **app Flutter compilada para web**, servida en `/web/` (ver la tabla de rutas). La
+sesión que guarda la página principal está en `localStorage` con la clave `musica_sesion`. El **prototipo**
+(`server/web/web.html`, en `/web-prototipo`) fue la referencia hecha en el servidor: tres pestañas
 abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
 favoritas", artistas y "Lo más puesto". **Buscar**: solo lo guardado mientras se escribe (botón aparte "Buscar en
 YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
@@ -103,8 +106,7 @@ reproductor y barra de pestañas; el fondo toma los colores de la portada de lo 
 barra violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
 "Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
-La idea es que la definitiva sea la **app Flutter compilada para web** (una sola app que mantener); este
-prototipo sirve de referencia y mientras tanto.
+Se queda como referencia.
 
 **Publicar la app Android:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
 sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).
@@ -133,7 +135,8 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
-| `GET /web` | La app en el navegador (prototipo, `server/web/web.html`). Usa la sesión que guardó la página principal; sin ella, vuelve a `/`. Sin clave (la página en sí no tiene datos) |
+| `GET /web/…` | **La app web** (Flutter compilada para web; la publica la sesión de la app en `/var/lib/musicapp/web-app` con `tools/publicar_web.ps1`). Lo que no sea un archivo devuelve `index.html` (rutas de la app); `.wasm` como `application/wasm`. **Sin caché larga a propósito**: Flutter no pone huella en los nombres (`main.dart.js` se llama igual en cada versión), así que todo va con `no-cache` + ETag: el navegador lo guarda y pregunta si cambió (304 sin reenviarlo si no). Con caché larga se quedaría la versión vieja días, o se mezclaría un `main.dart.js` nuevo con un motor viejo. `/web` → redirige a `/web/`. Sin app publicada, el prototipo. Sin clave |
+| `GET /web-prototipo` | El prototipo de la app en el navegador hecho en el servidor (`server/web/web.html`). Sin clave |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
@@ -146,6 +149,10 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /favorites` | **Mis favoritas** (las mismas en la app y en la web), la última marcada primero: canciones como en `/search` más `added`. Las que ya no están guardadas salen con `where: youtube` (al ponerlas se vuelven a bajar). Pide sesión de un usuario (la clave compartida no tiene: 400) |
 | `PUT /favorites/<id>` | Marcar como favorita. Si está guardada, la ficha sale de la biblioteca; si es un resultado de YouTube, mandar en el cuerpo `{title, artist, album, duration, thumb}` |
 | `DELETE /favorites/<id>` | Quitar de favoritas |
+| `GET /playlists` | **Mis playlists** (iguales en la app, la web y otros móviles), la última cambiada primero: `{playlists: [{id, name, songs: [canciones como en /search], created, updated}]}` |
+| `POST /playlists` | `{name}` → `{id}`. Como mucho 200 playlists |
+| `PUT /playlists/<id>` | `{name, songs: [ids en orden]}`: **guarda la playlist entera** (quitar, añadir y reordenar son el mismo cambio; lo hecho sin conexión se sube igual, gana el último en guardar). Una canción que el servidor no conoce (ni guardada, ni en favoritas o playlists, ni en búsquedas recientes) va como ficha `{id, title, artist, album, duration, thumb}`; si falta, 400 con `{detail: {error, ids}}`. Hasta 2.000 canciones |
+| `DELETE /playlists/<id>` | Borrar una playlist |
 | `GET /history?limit=50` | **Lo último que puse yo** (no lo de todos), lo más reciente primero, con `played`. Se apunta solo al empezar a sonar una canción por `/stream` (los saltos dentro de la canción no cuentan); hasta 200 |
 | `GET /genres` | Géneros de lo guardado: `{genres: [{name, songs}]}`, los que más tienen primero (ver "Género y fichas"). Para filtrar: `/library?genre=…`. Pide sesión |
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
@@ -253,10 +260,10 @@ bajadas quedan con su álbum, año y número de pista (`track_no`). Estado en `s
 `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`. Para pararla: quitar la línea
 `PRECARGA = …` de `app.py`.
 
-**Favoritas e historial** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos 600): por
-cuenta, para que la app y la web se vean igual. De cada favorita se guarda su ficha (título, artista, portada…),
-así sigue saliendo aunque la canción se borre del servidor. **Las favoritas de cualquiera no se borran por el tope
-de espacio** (`Library.keep`).
+**Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
+600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
+artista, portada…), así sigue saliendo aunque la canción se borre del servidor (al ponerla se vuelve a bajar).
+**Las canciones en favoritas o playlists de cualquiera no se borran por el tope de espacio** (`Library.keep`).
 
 **Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 600): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. Bloquear
@@ -409,7 +416,7 @@ Cada fase funciona por sí sola.
 | 1c | **Biblioteca única:** la API dueña de la música, el bot cliente suyo (ver "Canciones") | Hecho |
 | 2 | **App mínima:** login con Google, búsqueda, play y que suene + actualizador propio. Al tenerla, quitar `API_TOKEN` | En marcha (1.0.17 publicada, actualizador hecho) |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
-| 4 | Listas, favoritos, historial, letras y portadas | Favoritas, historial, artistas/álbumes y géneros hechos en el servidor; faltan listas propias y letras |
+| 4 | Listas, favoritos, historial, letras y portadas | Favoritas, historial, playlists, artistas/álbumes y géneros hechos en el servidor; faltan letras |
 | 5 | Descargas para escuchar sin conexión, ver qué escuchan los amigos, escuchar juntos | Pendiente |
 
 ## 5. Pendiente
@@ -461,5 +468,6 @@ responde un momento, una importación da esa canción por fallida (debería espe
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
+(/var/lib/musicapp/web-app/        la app web (Flutter), la publica la sesión de la app; fuera de git)
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```
