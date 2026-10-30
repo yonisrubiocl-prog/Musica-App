@@ -112,7 +112,8 @@ llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, bibliotec
 canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
 lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas las demás mezcladas; **sin
 aleatorio**, depende de dónde: en las **filas del Inicio** (Escuchado recientemente, Tus favoritas, Para ti, Vuelve
-a escuchar) suena **la lista entera** aunque la fila enseñe solo 20 (en orden desde ahí y al final las de antes);
+a escuchar) suena **la lista entera** aunque la fila enseñe solo 20: la elegida y luego la lista en su orden normal
+desde el principio (7, 1, 2, 3…);
 en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. La cola solo enseña lo que
 viene desde la canción actual, así que el número cambia según suena. En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
