@@ -154,6 +154,10 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /playlists` | `{name}` → `{id}`. Como mucho 200 playlists |
 | `PUT /playlists/<id>` | `{name, songs: [ids en orden]}`: **guarda la playlist entera** (quitar, añadir y reordenar son el mismo cambio; lo hecho sin conexión se sube igual, gana el último en guardar). Una canción que el servidor no conoce (ni guardada, ni en favoritas o playlists, ni en búsquedas recientes) va como ficha `{id, title, artist, album, duration, thumb}`; si falta, 400 con `{detail: {error, ids}}`. Hasta 2.000 canciones |
 | `DELETE /playlists/<id>` | Borrar una playlist |
+| `GET /home` | Secciones del Inicio recomendadas: `{secciones: [{id: recientes\|para_ti\|vuelve, titulo, tipo, items}]}` (ver `docs/recomendaciones.md`) |
+| `GET /radio?desde=cancion:<id>\|artista:<nombre>&ya=<ids>&n=20` | Radio infinita: las siguientes `n`, sin repetir lo de `ya` |
+| `POST /eventos` | `{eventos: [{tipo: entera\|salto\|no_me_gusta\|ya_no_me_gusta, id, segundo, duracion, contexto, causa, cuando}]}` en lote ("empezó a sonar" lo apunta `/stream`) |
+| `POST /recomendaciones/opinion`, `GET /recomendaciones/preguntar?contexto=` | "¿Qué te parecieron?" y si toca preguntarlo (una vez por semana) |
 | `GET /history?limit=50` | **Lo último que puse yo** (no lo de todos), lo más reciente primero, con `played`. Se apunta solo al empezar a sonar una canción por `/stream` (los saltos dentro de la canción no cuentan); hasta 200 |
 | `GET /genres` | Géneros de lo guardado: `{genres: [{name, songs}]}`, los que más tienen primero (ver "Género y fichas"). Para filtrar: `/library?genre=…`. Pide sesión |
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
@@ -310,7 +314,8 @@ no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo dem�
 login, enseña **cuándo pidió su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en las
 últimas 24 h**, para ver quién está activo. Arriba, una línea con **la precarga de álbumes**: qué artista y álbum
 está bajando, cuándo baja la siguiente, cuántas lleva, cola y artistas hechos (cian si trabaja, gris si espera a que
-nadie use YouTube, rojo si YouTube avisó y está parada). Sale del historial (`userdata.json`): cuenta la app y la web, no
+nadie use YouTube, rojo si YouTube avisó y está parada). Abajo, **las opiniones sobre las recomendaciones** de los
+últimos 7 días (👍/👎 y lo que más se marca). Sale del historial (`userdata.json`): cuenta la app y la web, no
 Discord, y empezó a apuntarse el 30-10-2026 (antes de eso sale "nunca"). Por debajo usa `users.py`:
 
 ```bash
@@ -436,14 +441,14 @@ Cada fase funciona por sí sola.
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Favoritas, historial, playlists, artistas/álbumes y géneros hechos en el servidor; faltan letras |
 | 5 | Descargas para escuchar sin conexión, ver qué escuchan los amigos, escuchar juntos | Pendiente |
-| 6 | **Recomendaciones:** Radio, Para ti, mixes, descubrir (plan en `docs/recomendaciones.md`) | Planificado, sin empezar |
+| 6 | **Recomendaciones:** Radio, Para ti, mixes, descubrir (plan y estado en `docs/recomendaciones.md`) | Fase 1 hecha en servidor y web; falta en la app |
 
 ## 5. Pendiente
 
 **Del servidor:**
-- **Recomendaciones** (fase 6): plan completo en `docs/recomendaciones.md` (señales, perfil doble, versiones
-  agrupadas, secciones, rutas, coste en rendimiento: pequeño, y cómo apagarlo o quitarlo). La fase 1 necesita que
-  la app mande eventos (saltos, escuchas enteras).
+- **Recomendaciones** (fase 6, `docs/recomendaciones.md`): fase 1 hecha en el servidor y la web; falta que la app
+  Android mande eventos, use `/home` y `/radio`, y tenga "No me gusta" y la tarjeta de opinión. Siguientes fases:
+  afinar con datos y que las opiniones ajusten (3), mixes (4), lo de todos opcional (5), Descubre (6).
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
 - Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
@@ -474,6 +479,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── enrich.py           completa de fondo artista/álbum/año de las canciones viejas (iTunes, YouTube Music)
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
+│   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)
 │   ├── userdata.py         favoritas e historial de cada usuario
@@ -488,9 +494,10 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
 │                           precarga.json, youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── docs/
-│   └── recomendaciones.md   plan del recomendador (sin hacer)
+│   └── recomendaciones.md   plan y estado del recomendador
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
+(/var/lib/musicapp/recomendar/     eventos, opiniones y estado de las recomendaciones; fuera de git)
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```

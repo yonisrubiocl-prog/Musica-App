@@ -1,8 +1,28 @@
 # Recomendaciones: plan de diseño
 
-> **Estado:** plan, sin hacer (30-10-2026). Junta la propuesta de Claude y las correcciones de GPT. Este documento
-> se reescribe según se construya: cada fase hecha pasa a describir cómo funciona de verdad.
+> **Estado (30-10-2026): fase 1 hecha en el servidor y en la web** (`server/recomendar.py`, `server/web/web.html`);
+> **falta en la app Android** (mandar eventos, Inicio con `/home`, radio con `/radio`, "No me gusta", la tarjeta de
+> opinión). Junta la propuesta de Claude y las correcciones de GPT. Este documento se reescribe según se construya.
 > Lo que no sea de recomendaciones va en el `README.md`.
+
+**Cómo está hecha la fase 1 (lo que difiere o concreta el plan):**
+- "Empezó a sonar" **lo apunta el servidor** en cada `/stream` que empieza desde el principio (`fuente: servidor`);
+  la app **no** debe mandar `inicio` (si lo manda, se ignora). Así hay registro aunque la app no mande nada.
+  El historial de `userdata.py` no sirve para "qué suena después" porque guarda cada canción una sola vez.
+- Ya hay perfil doble (sección 3) y versiones agrupadas (sección 4), aunque eran de la fase 2: salían baratos.
+- Radio (`GET /radio?desde=cancion:<id>|artista:<nombre>&ya=<ids>&n=`): candidatas = lo que suena después de la
+  semilla en las escuchas propias + mismo artista + mismo género; se ordenan por parecido + gusto de la persona +
+  algo de azar; variedad (2 por artista cada 10), un 15 % de sorpresa (mismo género, artistas que no escucha) y, si
+  no hay más artistas (p. ej. el único de su género), se relaja la variedad antes que dejarla corta.
+- `GET /home` manda `recientes` (Escuchado recientemente), `para_ti` y `vuelve` (vacía hasta tener 1–3 meses de
+  escuchas; las secciones vacías no se mandan).
+- Saltada estando recomendada: no se recomienda en 5 días. Escuchado en las últimas 24 h: no se recomienda.
+- Opiniones: se guardan y el panel enseña el resumen de 7 días; todavía **no** cambian nada (fase 3).
+- La web: radio del servidor (con la de antes de reserva si no responde), "Iniciar radio" y "No me gusta" en el
+  menú de cada canción, eventos en lote (guardados si no hay conexión), "Para ti" y "Vuelve a escuchar" en el
+  Inicio, y la tarjeta de opinión tras 10 canciones recomendadas seguidas.
+- Rendimiento medido: radio 3–47 ms (la primera vez arma el catálogo), `/home` ~4 ms.
+- Datos en `/var/lib/musicapp/recomendar/` (montado como `/recomendar`). Apagar: `RECOMENDAR: "0"`.
 
 ## 1. Objetivo y principios
 

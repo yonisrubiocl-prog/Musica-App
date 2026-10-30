@@ -9,6 +9,7 @@ services:
     environment:
       API_TOKEN: ${API_TOKEN:-}          # solo sus claves; las de los túneles se quedan en sus contenedores
       BOT_API_KEY: ${BOT_API_KEY:-}      # la del bot para /interno (puerto 8001)
+      RECOMENDAR: "1"                    # 0 = apaga las recomendaciones (rutas 404; las apps enseñan lo de siempre)
       MUSIC_GB: "40"                     # tope de la biblioteca: al pasarlo borra lo que hace más que no suena (las favoritas no)
       GOOGLE_CLIENT_ID: 76813509622-rpbjrvn23rpjgrkulb051tjgids6f80j.apps.googleusercontent.com   # cliente OAuth web (no es secreto)
     ports:
@@ -18,6 +19,7 @@ services:
       - ./data:/data                                 # usuarios, sesiones y cookies de YouTube
       - /var/lib/music:/music                        # la biblioteca única (canciones + index.json)
       - /var/lib/musicapp/app:/app-dist:ro           # la app para Android (musica.apk), la baja /acceso
+      - /var/lib/musicapp/recomendar:/recomendar     # eventos, opiniones y estado de las recomendaciones
     logging:
       driver: json-file
       options: {max-size: "5m", max-file: "2"}

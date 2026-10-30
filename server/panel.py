@@ -20,6 +20,7 @@ D = os.path.dirname(os.path.abspath(__file__))
 USERS = os.path.join(D, "data", "users.json")
 USERDATA = os.path.join(D, "data", "userdata.json")   # historial de cada uno (última canción que pidió)
 PRECARGA = os.path.join(D, "data", "precarga.json")   # cómo va la precarga de álbumes (precarga.py)
+OPINIONES = "/var/lib/musicapp/recomendar/opiniones.jsonl"   # "¿qué te parecieron las recomendaciones?"
 CONT = "musicapp-api"
 ORDEN = {"pendiente": 0, "aprobado": 1, "bloqueado": 2}
 VERDE, AMARILLO, ROJO, CIAN, GRIS = 1, 2, 3, 4, 5
@@ -40,6 +41,8 @@ AYUDA = [
     ("", "amarillo = pendiente · verde = aprobado · rojo = bloqueado"),
     ("Precarga", ""),
     ("", "Arriba: qué artista y álbum está bajando la precarga, cuándo baja la siguiente y cuántas lleva."),
+    ("Abajo", ""),
+    ("", "Opiniones sobre las recomendaciones de los últimos 7 días: 👍/👎 y lo que más se marca."),
     ("Última canción", ""),
     ("", "Cuándo pidió su última canción en la app o la web (no cuenta Discord). Verde: hace menos de 1 h."),
 ]
@@ -88,6 +91,28 @@ def precarga():
     sig = "ahora" if falta < 60 else f"en {int(falta // 60)} min"
     donde = f"{now.get('artist', '')} – {now.get('album', '')}" if now.get("artist") else "buscando álbumes"
     return f"Precarga ({now.get('mode', '?')}): {donde} · siguiente {sig} · {cuentas}", CIAN
+
+
+def opiniones():
+    """Una línea con las opiniones sobre las recomendaciones de los últimos 7 días."""
+    try:
+        with open(OPINIONES, encoding="utf-8") as f:
+            rows = [json.loads(x) for x in f if x.strip()]
+    except (OSError, ValueError):
+        rows = []
+    rows = [r for r in rows if time.time() - r.get("cuando", 0) < 7 * 86400]
+    if not rows:
+        return "Recomendaciones: sin opiniones esta semana", GRIS
+    si = sum(r.get("gusto") == "si" for r in rows)
+    no = sum(r.get("gusto") == "no" for r in rows)
+    ops = {}
+    for r in rows:
+        for o in r.get("opciones") or []:
+            ops[o] = ops.get(o, 0) + 1
+    top = " · ".join(f"{o.replace('_', ' ')} ×{n}" for o, n in sorted(ops.items(), key=lambda x: -x[1])[:3])
+    textos = sum(1 for r in rows if r.get("texto"))
+    return (f"Recomendaciones (7 días): 👍 {si}  👎 {no}" + (f" · {top}" if top else "")
+            + (f" · {textos} comentario(s) en {OPINIONES}" if textos else "")), (VERDE if si >= no else AMARILLO)
 
 
 def hace(t):
@@ -159,12 +184,14 @@ class UI:
         texto, color = precarga()
         s.put(1, 46, "│ " + texto, color)
 
-        s.caja(2, 0, H - 3, W, "USUARIOS")
+        texto, color = opiniones()
+        s.put(H - 2, 2, texto, color)
+        s.caja(2, 0, H - 4, W, "USUARIOS")
         s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'último login':<13} "
                     f"{'última canción':<14} {'24 h'}", GRIS, True)
         if not s.lista:
             s.put(5, 4, "Nadie ha pedido acceso todavía. Enlace: https://musica.yoneapolis.com/acceso", GRIS)
-        for i, (sub, u) in enumerate(s.lista[: max(0, H - 7)], start=1):
+        for i, (sub, u) in enumerate(s.lista[: max(0, H - 8)], start=1):
             s.put(3 + i, 2, f"{i:>3}  ", 0, True)
             s.put(3 + i, 7, f"{u['status']:<10} ", COLOR.get(u["status"], 0), u["status"] == "pendiente")
             s.put(3 + i, 18, f"{u['email'][:33]:<34} {(u.get('name') or '')[:21]:<22} "
@@ -174,8 +201,8 @@ class UI:
             s.put(3 + i, 104, f"{hace(t):<14} ", VERDE if reciente else (GRIS if not t or time.time() - t > 86400 else 0),
                   bool(reciente))
             s.put(3 + i, 119, f"{dia or '—'}", GRIS if not dia else 0)
-        if len(s.lista) > H - 7:
-            s.put(H - 2, 4, f"… y {len(s.lista) - (H - 7)} más (agranda la ventana)", GRIS)
+        if len(s.lista) > H - 8:
+            s.put(H - 4, 4, f"… y {len(s.lista) - (H - 8)} más (agranda la ventana)", GRIS)
         if s.ayuda:
             s.dibujar_ayuda(H, W)
         s.linea_cmd(H, W)

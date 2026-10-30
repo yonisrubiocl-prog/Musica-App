@@ -27,6 +27,7 @@ import userdata
 from enrich import Enricher
 from genres import Genres
 from precarga import Precarga
+from recomendar import Recomendar
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
 
@@ -267,6 +268,8 @@ def ytm(fn, cost=COST_ALBUM):
 ENRICH = Enricher(LIB, ytm, lambda: len(_yt_recent))   # fichas de las viejas, de fondo (enrich.py)
 GENRES = Genres(LIB)                                   # género por artista (genres.py)
 LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
+# Recomendaciones (recomendar.py, plan en docs/recomendaciones.md). RECOMENDAR=0 las apaga: rutas 404.
+REC = Recomendar(LIB, userdata) if os.environ.get("RECOMENDAR", "1") == "1" else None
 PRECARGA = Precarga(LIB, ytm, download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
                     lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
 
@@ -679,6 +682,73 @@ def delete_playlist(pid: str, found=Depends(check_token)):
     return {"ok": True}
 
 
+def rec_on():
+    if not REC:
+        raise HTTPException(404, "recomendaciones apagadas")
+    return REC
+
+
+def rec_songs(keys):
+    return [s for s in (song_of(k[3:]) for k in keys) if s]
+
+
+@app.post("/eventos")
+def eventos(found=Depends(check_token), items: list = Body(embed=True, alias="eventos", max_length=500)):
+    """Lo que hace el usuario, en lote (también lo guardado sin conexión): [{tipo: entera|salto|no_me_gusta|
+    ya_no_me_gusta, id, segundo, duracion, contexto, causa, cuando}]. "Empezó a sonar" no hace falta: lo apunta
+    /stream. Ver docs/recomendaciones.md, secciones 2 y 9."""
+    return {"guardados": rec_on().add_events(need_user(found), [x for x in items if isinstance(x, dict)])}
+
+
+@app.get("/home")
+def home(found=Depends(check_token)):
+    """Las secciones del Inicio, en orden: {secciones: [{id, titulo, tipo: canciones, items}]}. Las que salen vacías
+    no se mandan."""
+    rec, sub = rec_on(), need_user(found)
+    out = []
+    for sid, title, keys in (("recientes", "Escuchado recientemente", rec.recent(sub)),
+                             ("para_ti", "Para ti", rec.para_ti(sub)),
+                             ("vuelve", "Vuelve a escuchar", rec.vuelve(sub))):
+        items = rec_songs(keys)
+        if items:
+            out.append({"id": sid, "titulo": title, "tipo": "canciones", "items": items})
+    return {"secciones": out}
+
+
+@app.get("/radio")
+def radio(found=Depends(check_token), desde: str = Query(max_length=200), ya: str = Query("", max_length=20000),
+          n: int = Query(20, ge=1, le=50)):
+    """Radio infinita: desde=cancion:<id> o artista:<nombre>; ya = ids ya puestos (separados por comas), para no
+    repetir. Volver a pedir al acercarse al final."""
+    rec, sub = rec_on(), need_user(found)
+    kind, _, value = desde.partition(":")
+    if kind == "cancion" and VIDEO_ID.fullmatch(value):
+        seed = ("cancion", f"yt-{value}")
+    elif kind == "artista" and value.strip():
+        seed = ("artista", value.strip())
+    else:
+        raise HTTPException(400, "desde=cancion:<id> o desde=artista:<nombre>")
+    exclude = [f"yt-{i}" for i in ya.split(",") if VIDEO_ID.fullmatch(i)]
+    songs = rec_songs(rec.radio(sub, seed, exclude, n))
+    if not songs and seed[0] == "cancion" and not LIB.peek(seed[1]):
+        raise HTTPException(404, "esa canción no está guardada: ponla primero")
+    return {"songs": songs}
+
+
+@app.post("/recomendaciones/opinion")
+def opinion(found=Depends(check_token), body: dict = Body(...)):
+    """"¿Qué te parecieron?": {contexto, semilla, gusto: si|no, opciones: [...], texto, canciones}."""
+    rec_on().add_opinion(need_user(found), body)
+    return {"ok": True}
+
+
+@app.get("/recomendaciones/preguntar")
+def preguntar(found=Depends(check_token), contexto: str = Query(max_length=20)):
+    """¿Toca enseñar ahora la tarjeta "¿Qué te parecieron?"? (como mucho una vez por semana). Si dice que sí, ya
+    cuenta como preguntado."""
+    return {"preguntar": rec_on().should_ask(need_user(found), contexto)}
+
+
 @app.get("/history")
 def history(found=Depends(check_token), limit: int = Query(50, ge=1, le=userdata.HISTORY_MAX)):
     """Lo último que puse yo (no lo de todos), lo más reciente primero: canciones con 'played' (cuándo)."""
@@ -704,6 +774,8 @@ def stream(vid: str, request: Request, found=Depends(check_token)):
         path = hit and hit["path"]
         if found:
             userdata.played(found[0], vid)   # mi historial
+            if REC:
+                REC.add_events(found[0], [{"tipo": "inicio", "id": vid}], source="servidor")
     else:
         path = LIB.path(key)
     if not path:
