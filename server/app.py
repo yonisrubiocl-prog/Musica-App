@@ -50,8 +50,10 @@ YT_RESULTS = 5
 MAX_PLAYLIST = 5000                     # tope de canciones al leer una lista (el bot pide menos para la cola)
 YT_PAUSE = 15 * 60                      # tras un bloqueo de YouTube no se le pide nada durante este tiempo
 # Ritmo con YouTube (ver yt_turn): lo que hace saltar su "no eres un bot" son las ráfagas, no el uso normal.
-YT_GAP = 4                              # segundos como mínimo entre dos peticiones a YouTube
-YT_PER_HOUR = 120                       # peticiones como mucho en una hora
+YT_GAP = 4                              # segundos como mínimo entre dos operaciones con YouTube
+YT_PER_HOUR = 300                       # peticiones REALES como mucho en una hora (cada operación cuenta lo que cuesta)
+# Lo que cuesta cada operación en peticiones reales (medido el 30-10-2026)
+COST_DOWNLOAD, COST_SEARCH, COST_INFO, COST_ALBUM = 4, 2, 2, 1
 YT_MAX_WAIT = 45                        # si el turno tarda más que esto, se contesta "espera" (429) en vez de colgar
 VIDEO_ID = re.compile(r"[\w-]{11}")
 # Lo que el bot necesita de la respuesta de yt-dlp (el resto, como la lista de formatos, pesa mucho).
@@ -83,30 +85,31 @@ _yt_next = 0.0                          # cuándo puede salir la siguiente petic
 _yt_recent = collections.deque()        # cuándo salieron las de la última hora
 
 
-def yt_turn():
-    """Espera su turno para pedirle algo a YouTube: una cada YT_GAP s y como mucho YT_PER_HOUR por hora, venga
-    de la app, del bot o de una importación. Lo recordado (búsquedas, canciones guardadas) no pasa por aquí."""
+def yt_turn(cost=1):
+    """Espera su turno para pedirle algo a YouTube: una operación cada YT_GAP s y como mucho YT_PER_HOUR peticiones
+    reales por hora (cost = las que hace esta operación), venga de la app, del bot o de una importación. Lo
+    recordado (búsquedas, canciones guardadas) no pasa por aquí."""
     global _yt_next
     with _yt_turns:
         now = time.time()
         while _yt_recent and _yt_recent[0] < now - 3600:
             _yt_recent.popleft()
         start = max(now, _yt_next)
-        if len(_yt_recent) >= YT_PER_HOUR:
-            start = max(start, _yt_recent[-YT_PER_HOUR] + 3600)
+        if len(_yt_recent) + cost > YT_PER_HOUR:
+            start = max(start, _yt_recent[min(len(_yt_recent), YT_PER_HOUR) - YT_PER_HOUR + cost - 1] + 3600)
         wait = start - now
         if wait > YT_MAX_WAIT:
             log.warning("ritmo con YouTube: %d en la última hora; la siguiente tendría que esperar %d s", len(_yt_recent), wait)
             raise HTTPException(429, f"muchas peticiones a YouTube seguidas; prueba en ~{max(1, round(wait / 60))} min")
         _yt_next = start + YT_GAP
-        _yt_recent.append(start)
+        _yt_recent.extend([start] * cost)
     if wait > 0:
         if wait > 10:
             log.info("ritmo con YouTube: espero %d s", wait)
         time.sleep(wait)
 
 
-def youtube(fn, yt=True):
+def youtube(fn, yt=True, cost=COST_INFO):
     """Llama a YouTube salvo que nos tenga bloqueados (pide 'confirmar que no eres un bot'): insistir lo alarga.
     yt=False: es otra web (SoundCloud, una radio…), no cuenta el bloqueo."""
     global _yt_blocked_until
@@ -114,7 +117,7 @@ def youtube(fn, yt=True):
     if yt and left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
     if yt:
-        yt_turn()
+        yt_turn(cost)
     try:
         return fn()
     except yt_dlp.utils.DownloadError as e:
@@ -149,7 +152,7 @@ def download(url, by=None):
                 y.process_info(info)
                 return info, y.prepare_filename(info)
 
-        info, src = youtube(run, is_yt(url))
+        info, src = youtube(run, is_yt(url), COST_DOWNLOAD)
         if not src:
             return info, None
         dest = LIB.put(key_of(url, info), src, info, by)
@@ -196,7 +199,7 @@ class YouTubeSearches:
         def run():
             with ydl(extract_flat="in_playlist") as y:
                 return y.extract_info(f"ytsearch{n}:{text}", download=False)
-        info = small_info(youtube(run))
+        info = small_info(youtube(run, cost=COST_SEARCH))
         self.store(k, info, text)
         return info
 
@@ -233,13 +236,13 @@ ALBUM_ID = re.compile(r"MPREb_[\w-]{5,40}")
 _ytm = None
 
 
-def ytm(fn):
+def ytm(fn, cost=COST_ALBUM):
     """Llama a YouTube Music con el mismo cuidado que a YouTube: bloqueo, turno (yt_turn) y errores."""
     global _ytm, _yt_blocked_until
     left = _yt_blocked_until - time.time()
     if left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
-    yt_turn()
+    yt_turn(cost)
     try:
         if _ytm is None:
             from ytmusicapi import YTMusic
@@ -278,7 +281,8 @@ def ytm_songs(text, limit):
     k = "ytm-songs:" + YouTubeSearches.key(text, limit)
     hit = SEARCHES_YT.recall(k)
     if hit is None:
-        hit = [ytm_song(s) for s in ytm(lambda y: y.search(text, filter="songs", limit=limit)) if s.get("videoId")]
+        hit = [ytm_song(s) for s in ytm(lambda y: y.search(text, filter="songs", limit=limit), 1 + -(-limit // 20))
+               if s.get("videoId")]
         SEARCHES_YT.store(k, hit, f"{text} (YouTube Music, {limit})")
     return hit
 
@@ -292,7 +296,7 @@ def new_songs(text, skip):
         fresh = [s for s in songs if f"yt-{s['id']}" not in skip]
         if len(fresh) >= YTM_NEW or len(songs) < limit or limit >= YTM_MAX:
             return fresh[:YTM_NEW]
-        limit = min(YTM_MAX, limit + 2 * (YTM_NEW - len(fresh)))
+        limit = YTM_MAX   # el segundo intento ya pide el máximo: dos búsquedas como mucho (peor caso ~8 peticiones)
 
 
 def youtube_info(vid):
@@ -759,7 +763,8 @@ def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(
     def run():
         with ydl(extract_flat="in_playlist", playlistend=limit, default_search="ytsearch") as y:
             return y.extract_info(query, download=False)
-    return small_info(youtube(run, not re.match(r"https?://", query) or is_yt(query)))
+    # una lista larga son varias páginas (~100 por página)
+    return small_info(youtube(run, not re.match(r"https?://", query) or is_yt(query), COST_SEARCH + limit // 100))
 
 
 @internal.post("/interno/ficha/{key}")
