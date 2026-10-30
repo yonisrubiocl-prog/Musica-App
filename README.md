@@ -323,8 +323,8 @@ bajadas quedan con **título limpio** ("City Walls", no "Twenty One Pilots - Cit
 Para pararla: quitar la línea `PRECARGA = …` de `app.py`. **Saltar un álbum** (o uno que ya
 esté bajando): añadir una línea `Artista | Álbum` a `server/data/precarga-saltar.txt` (sin distinguir mayúsculas
 ni tildes); se lee en cada paso, sin reiniciar, y lo que ya estaba en cola de ese álbum sale al momento. Lo que ya
-se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltado el 30-10-2026: Rawayana |
-ASTROPICAL. **Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que
+se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltados el 30-10-2026: Rawayana |
+ASTROPICAL; Milo j | 166 y Milo j | 111 (el resto de Milo j). **Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que
 los demás (en el orden del archivo) en cuanto acabe el álbum que esté bajando, sin reiniciar. Pedido el 30-10-2026:
 Maná.
 
