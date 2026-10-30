@@ -12,13 +12,18 @@ API; el bot se la pide (ver "Canciones").
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
 
-**Estado actual:**
+**Estado actual** (30-10-2026):
 - **Servidor** hecho y publicado en `https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio;
   `https://yoneapolis.com` lleva aquí). Tailscale Funnel (`https://musicapp.tail66213e.ts.net`) sigue encendido
-  como respaldo. Login con Google con aprobación manual, búsqueda tolerante a faltas, búsquedas a YouTube
-  recordadas, y la página principal que reparte la app a los aprobados.
+  como respaldo. 7 usuarios. ~2.200 canciones (8,4 GB; tope 40 GB).
 - **Biblioteca única** hecha: la API es la dueña de la música (`/var/lib/music`) y el bot de Discord es cliente suyo.
-- **App** (fase 2) en marcha: **1.0.2 (build 3) publicada**, con aviso de actualización propio (`/app/version`).
+- **Buscar:** lo guardado tolera faltas y palabras a medio escribir; lo de internet sale de **YouTube Music**
+  (20 canciones nuevas siempre, álbumes en orden), con memoria de 7 días y un ritmo máximo con YouTube.
+- **Por usuario:** favoritas e historial (iguales en la app y la web), máximo 3 dispositivos por cuenta.
+- **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
+  fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
+- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.17 (build 18) publicada**, con aviso de
+  actualización propio. **App web** (prototipo) en `/web`, a la que lleva la página principal tras entrar.
 
 **Quién hace qué:** el servidor (este repo) se trabaja en una sesión de Claude en este servidor. La **app
 Flutter** se trabaja en otra sesión de Claude **en el PC**, con su propio proyecto: desde el servidor no se
@@ -34,22 +39,24 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
  PC / móvil                               Este servidor
  ──────────                               ─────────────────────────────────────────
   App Flutter  ◄── túnel de Cloudflare ──►  API de música (contenedor Docker propio)
-              (https://musica.yoneapolis.com)  ├─ login con Google + aprobación manual
-                                               ├─ buscar en YouTube (yt-dlp)
-                                               ├─ descargar y guardar en caché
-                                               └─ enviar el audio a la app
+  App web       (https://musica.yoneapolis.com)  ├─ login con Google + aprobación manual
+  (navegador)                                    ├─ buscar: lo guardado y YouTube Music
+                                                 ├─ bajar con yt-dlp y guardar en la biblioteca
+                                                 ├─ enviar el audio a la app
+                                                 └─ favoritas, historial, artistas, álbumes, géneros
+  Bot de Discord ── red interna de Docker ──►   (rutas /interno, puerto 8001)
 ```
 
 | Pieza | Dónde | Qué es |
 |---|---|---|
 | **Servidor** (`server/`) | Este servidor, en Docker | API de música, dueña de la biblioteca. Si se cae, el bot sigue tocando lo guardado pero no puede bajar nada nuevo |
-| **App** | PC del usuario | Flutter (Android y PC; iPhone algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador |
+| **App** | PC del usuario | Flutter (Android; la web y el PC algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador. La **app web** prototipo vive en el servidor (`server/web/web.html`) |
 | **Túnel** | Contenedor `cloudflared` aquí + Cloudflare | Da la dirección pública con HTTPS sin abrir puertos. Dominio `yoneapolis.com` (mío, en Cloudflare), pensado para todos mis proyectos con un subdominio cada uno |
 | **Canciones** | `/var/lib/music` (la biblioteca única) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
 
 ### Canciones
 
-La **API es la dueña de la música**: una carpeta `/var/lib/music` (~1.900 canciones, ~7 GB) con su catálogo
+La **API es la dueña de la música**: una carpeta `/var/lib/music` (~2.200 canciones, 8,4 GB el 30-10-2026) con su catálogo
 `index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
 YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
 `u-<resumen del enlace>`). **Tope de 40 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió para la precarga de álbumes): al pasarlo borra lo que hace
@@ -125,7 +132,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /web` | La app en el navegador (prototipo, `server/web/web.html`). Usa la sesión que guardó la página principal; sin ella, vuelve a `/`. Sin clave (la página en sí no tiene datos) |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
-| `GET /app/version` | Versión publicada de la app (`version.json` junto al APK: `{"build": 3, "version": "1.0.2"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
+| `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más y **solo si sin ellas no sale nada**. Ver `Library.find`). Con `&yt=1` (por defecto) añade **20 canciones de internet que no estén en el servidor**, de **YouTube Music** (oficiales, con artista, álbum y duración): pide 20; si muchas ya están guardadas, pide más (hasta 100) para juntar 20 nuevas, salvo que YouTube no tenga más. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
@@ -139,7 +146,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /genres` | Géneros de lo guardado: `{genres: [{name, songs}]}`, los que más tienen primero (ver "Género y fichas"). Para filtrar: `/library?genre=…`. Pide sesión |
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum]}`; álbumes del más nuevo al más viejo. 404 si no hay. Pide sesión |
-| `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista). 404 si no hay. Pide sesión |
+| `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
 
 **Rutas del bot** (`/interno/…`; el bot lee el catálogo del disco, así que de búsqueda solo usa `resolve`, y el
@@ -203,9 +210,10 @@ seguidas parecen un bot):
 - Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
   bloqueo); lo guardado sigue sonando.
 
-**Clave:** `/search`, `/stream`, `/me` y `/auth/logout` piden una **sesión** de un usuario aprobado como
-`Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
-(en `server/.env`, fuera de git); se quitará cuando la app tenga login.
+**Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
+`Authorization: Bearer …` o `?token=…`. También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
+git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
+cuando nada la use.
 
 **Género** (`genres.py`): **por artista** (todas sus canciones el mismo), de una lista corta en español
 (Vallenato, Salsa, Bachata, Merengue, Cumbia, Reguetón, Regional mexicano, Trap, Urbano latino, Rock en español,
@@ -287,7 +295,7 @@ Arrancar y probar desde el servidor:
 
 ```bash
 cd ~/MusicApp/server
-docker compose up -d --build api        # arrancar / actualizar tras cambiar app.py o library.py
+docker compose up -d --build api        # arrancar / actualizar tras cambiar cualquier .py o web/ (corta unos segundos)
 T=$(grep API_TOKEN .env | cut -d= -f2)
 curl -H "Authorization: Bearer $T" "http://127.0.0.1:8090/search?q=daft+punk+one+more+time"
 curl -H "Authorization: Bearer $T" -o cancion.webm "http://127.0.0.1:8090/stream/FGBhQbmPwH8"
@@ -322,9 +330,8 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
 - **Bloqueo automático (sin hacer):** a quien insista (demasiados fallos o peticiones seguidas) bloquearlo un
   tiempo, cada vez más largo, y apuntarlo en el registro. Cloudflare pasa la IP real en `CF-Connecting-IP`
   (por Funnel no llega, otra razón para apagarlo). Hacerlo antes de repartir la app.
-- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music` y su `data/`.
-  El ID o la clave de canción se validan antes de buscar archivos. Corre sin root, así que no puede leer las
-  cookies del bot aunque su carpeta `data/` esté montada (solo lectura, para su `index.json`).
+- La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music`, su `data/`
+  y el APK (solo lectura). El ID o la clave de canción se validan antes de buscar archivos. Corre sin root.
 - **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 1000, permisos 600); yt-dlp las usa si
   existen. Son de una cuenta desechable (si se filtran, se cierra la sesión de esa cuenta en Google). Cómo
   renovarlas sin que YouTube las rote: `~/MusicBot/README.md`, sección 6.
@@ -394,29 +401,46 @@ Cada fase funciona por sí sola.
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | **Servidor mínimo:** buscar una canción y escucharla (probado sin app) + publicarlo y **medir la velocidad del túnel** | Hecho |
-| 1b | **Login con Google** en el servidor (aprobación manual con panel, sesiones de 90 días) | Hecho (falta en la app y el bloqueo automático) |
+| 1b | **Login con Google** (aprobación manual con panel, sesiones de 90 días, máximo 3 dispositivos) | Hecho (falta el bloqueo automático) |
 | 1c | **Biblioteca única:** la API dueña de la música, el bot cliente suyo (ver "Canciones") | Hecho |
-| 2 | **App mínima:** login con Google, búsqueda, play y que suene + actualizador propio. Al tenerla, quitar `API_TOKEN` | En marcha (1.0.2 publicada, actualizador hecho) |
+| 2 | **App mínima:** login con Google, búsqueda, play y que suene + actualizador propio. Al tenerla, quitar `API_TOKEN` | En marcha (1.0.17 publicada, actualizador hecho) |
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
-| 4 | Listas, favoritos, historial, letras y portadas | Pendiente |
+| 4 | Listas, favoritos, historial, letras y portadas | Favoritas, historial, artistas/álbumes y géneros hechos en el servidor; faltan listas propias y letras |
 | 5 | Descargas para escuchar sin conexión, ver qué escuchan los amigos, escuchar juntos | Pendiente |
 
 ## 5. Pendiente
 
-- Con la app: crear en Google Cloud (proyecto `musicapp`) el **cliente OAuth Android** si la app lo necesita
-  (nombre de paquete + SHA-1 de la llave de firma, con copia de seguridad).
-- Probar `musica.yoneapolis.com` desde el móvil con datos; si va bien, apagar Funnel (`musicapp-tailscale`).
+**Del servidor:**
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
-- Quitar `API_TOKEN` cuando la app no lo use (ni `/prueba-login`).
+- **Repositorio remoto (GitHub)** para este repo: hoy solo está en el servidor. Hace falta crear el repo y una
+  llave de despliegue (ver el final de esta sección).
+- Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
+- Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
+  reciente). Propuesta, sin hacer.
+- Que la web se actualice sola si cambian las favoritas en otro dispositivo (ahora: al cambiar de pestaña o
+  recargar).
+- Quitar `API_TOKEN` cuando nada lo use (ni `/prueba-login`).
 - Decidir si la sesión se renueva sola con el uso (ahora caduca a los 90 días y la app tendría que volver a
   pedir el login a Google, sin que yo apruebe de nuevo).
+- Borrar los restos de antes de la biblioteca única (sección "Canciones") y el contenedor `musicapp-prueba`
+  (imagen de la API con `data/` en solo lectura, encendido sin uso aparente).
 - **Prueba a ciegas de calidad** (sección 3b) antes de pensar en Premium.
-- Repositorio remoto (GitHub) para este repo: hoy solo está en el servidor.
-- Borrar los restos de antes de la biblioteca única (sección "Canciones").
-- La búsqueda tolerante (`Library.find`) aún no está en el bot de Discord.
-- El contenedor `musicapp-prueba` (imagen de la API con `data/` en solo lectura) sigue encendido sin uso aparente.
-- `/home` tiene poco sitio (2,8 GB libres de 20 el 29-10-2026; `ProjectV1` ocupa 11 GB): lo que crece
-  (música, APK) ya está en `/var`.
+- Ideas sin hacer: generador de PO tokens, Cloudflare WARP o el móvil con datos (Tailscale como nodo de salida)
+  como salida de reserva hacia YouTube.
+
+**Del bot de Discord** (`~/MusicBot`): la búsqueda tolerante (`Library.find`) aún no está allí; si la API no
+responde un momento, una importación da esa canción por fallida (debería esperar y reintentar).
+
+**Del servidor en general:** `/home` tiene poco sitio (2,8 GB libres de 20 el 30-10-2026; `ProjectV1` ocupa
+11 GB): lo que crece (música, APK) ya está en `/var` (71 GB libres).
+
+**Subir este repo a GitHub** (lo hace el dueño; desde el servidor no se crean llaves nuevas sin permiso):
+1. En GitHub, crear un repo **privado** vacío, p. ej. `yonisrubiocl-prog/MusicApp`.
+2. En el servidor: `ssh-keygen -t ed25519 -N "" -C musicapp-servidor -f ~/.ssh/github_musicapp` y añadir a
+   `~/.ssh/config` un `Host github-musicapp` con `HostName github.com`, `IdentityFile ~/.ssh/github_musicapp`
+   e `IdentitiesOnly yes` (como los del bot).
+3. En el repo: *Settings → Deploy keys → Add*, pegar `~/.ssh/github_musicapp.pub` y marcar **Allow write access**.
+4. `cd ~/MusicApp && git remote add origin git@github-musicapp:yonisrubiocl-prog/MusicApp.git && git push -u origin main`
 
 ## 6. Carpetas
 
@@ -428,8 +452,9 @@ Cada fase funciona por sí sola.
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
-│   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
-│   ├── web/                página principal (acceso.html) y el logo (logo.png original; logo-480.webp y
+│   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)
+│   ├── userdata.py         favoritas e historial de cada usuario
+│   ├── web/                página principal (acceso.html), app web (web.html) y el logo (logo.png original; logo-480.webp y
 │   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,
 │   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
 │   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
@@ -437,8 +462,10 @@ Cada fase funciona por sí sola.
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
-│   └── data/               users.json, sessions.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
+│   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
+│                           precarga.json, youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── README.md     este documento
-(/var/lib/musicapp/app/musica.apk   la app para repartir, fuera de git; ver "Repartir la app")
+(/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
+(/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```
