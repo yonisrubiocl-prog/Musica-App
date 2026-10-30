@@ -51,6 +51,9 @@
      entera** aunque la fila enseñe 20: **la elegida pasa al primer puesto y detrás la lista en su orden normal
      desde el principio, sin repetirla** (10 canciones, tocando la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9, 10). Nada de
      "desde la elegida hacia abajo".
+   - **Si ya suena esa misma lista** (mismas canciones, mismo sitio), no rehacer la cola: la tocada se saca de donde
+     esté en la cola y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya sonaron). "▶ Reproducir"
+     sí empieza de cero.
    - **Con aleatorio**, siempre: la elegida primero y el resto mezclado.
    - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última).
 2. **Menú de cada canción**: "📻 Iniciar radio", "👎 No me gusta" (evento `no_me_gusta`; si es la que suena, pasar a

@@ -978,7 +978,7 @@ wrap.addEventListener('click', e => {
     if (l.kind === 'radio') return playOne(s);
     const all = l.full || l.songs;   // la lista entera, aunque la fila enseñe menos
     return playList(all, Math.max(0, all.findIndex(x => x.id === s.id)), l.orden); }
-  if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.full || lists.view.songs, 0, lists.view.orden);
+  if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.full || lists.view.songs, 0, lists.view.orden, true);
   const pl = e.target.closest('[data-pl]'); if (pl) return showPlaylist(pls[+pl.dataset.pl]);
   const g = e.target.closest('[data-genre]'); if (g) return showGenre(g.dataset.genre);
   const t = e.target.closest('[data-artist]'); if (t) return showArtist(t.dataset.artist);
@@ -998,11 +998,21 @@ let cur = null, queue = [], qi = -1, isRadio = false;
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
 const shuffleNow = () => fromArtist ? shuffleArt : shuffleOn;
 let repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
-function playOne(s) { isRadio = true; fromArtist = false; queue = [s]; qi = 0; start(); fillRadio(); }
+function playOne(s) { isRadio = true; fromArtist = false; queueSig = ''; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista tocando la canción i (cualquier lista: Inicio, Me gusta, playlist, álbum, artista): esa primero
 // y luego, sin aleatorio, la lista entera en su orden desde el principio, sin repetirla (tocar la 5.ª: 5, 1, 2, 3,
 // 4, 6…); con aleatorio, todas las demás mezcladas. orden (página de un artista): usa el aleatorio del artista.
-function playList(songs, i, orden = false) {
+// Si ya suena esa misma lista, no se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue igual
+// (no vuelven las que ya pasaron). nueva (botón Reproducir): siempre desde cero.
+let queueSig = '';
+function playList(songs, i, orden = false, nueva = false) {
+  const sig = songs.map(x => x.id).join(',');
+  if (!nueva && !isRadio && sig === queueSig && fromArtist === orden) {
+    const j = queue.findIndex(x => x.id === songs[i].id);
+    if (j === qi) return;   // ya está sonando
+    if (j >= 0) { const [s] = queue.splice(j, 1); if (j < qi) qi--; queue.splice(qi + 1, 0, s); qi++; return start(); }
+  }
+  queueSig = sig;
   isRadio = false; radioRecs = 0;
   fromArtist = orden;
   if (shuffleNow() && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
