@@ -100,8 +100,9 @@ como un emulador, ~10 MB, no se comporta como una web). Para el navegador, mejor
 vive en la API y la web solo la enseña. Idea pendiente: diseño de escritorio (menú lateral, cuadrícula,
 reproductor a lo ancho abajo). Tiene tres pestañas
 abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
-favoritas", artistas y "Lo más puesto". **Buscar**: solo lo guardado mientras se escribe (botón aparte "Buscar en
-YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
+favoritas", artistas y "Lo más puesto". **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
+"Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
+escribe); los resultados completos salen con Enter (botón aparte "Buscar en YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
 artista). **Biblioteca**: Favoritas, Historial y Artistas → álbumes → canciones. ♡ en cada canción y en el
 reproductor (`/favorites`, sincronizado con la app). Cristal (fondo translúcido con desenfoque) en tarjetas,
 reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Minirreproductor con

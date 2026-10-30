@@ -122,7 +122,17 @@
   /* Arriba solo flota la caja, redondeada y de cristal como la barra de abajo (sin franja detrás) */
   .search { position: sticky; top: 12px; z-index: 20; margin-top: 12px; }
   .search .chips { padding-bottom: 6px; }
-  .sugg .chip small { color: var(--muted); font-size: .8rem; }   /* sugerencias mientras se escribe */
+  /* Sugerencias mientras se escribe: un cuadro flotante bajo el buscador (como Spotify); la lista de abajo no cambia */
+  .search .sugg { position: absolute; left: 0; right: 0; top: 56px; z-index: 30; max-height: 60vh; overflow-y: auto;
+                  padding: 6px; border-radius: 16px; background: rgba(23,24,42,.97); border: 1px solid var(--line);
+                  box-shadow: 0 18px 50px rgba(0,0,0,.55); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .sugg button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px; border-radius: 10px; text-align: left; }
+  .sugg button:hover, .sugg button.sel { background: rgba(255,255,255,.07); }
+  .sugg img, .sugg .ic { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--raised);
+                         display: grid; place-items: center; }
+  .sugg .artista img { border-radius: 50%; }
+  .sugg .tx { flex: 1; min-width: 0; } .sugg .tx b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sugg .tx small { color: var(--muted); font-size: .8rem; }
   .search .chip { background: rgba(28,29,46,.94); border-color: rgba(255,255,255,.12); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
   .search .chip.on { background: var(--primary); }
   .search .chip.genre.on { background: var(--secondary); }
@@ -590,22 +600,26 @@ async function buscar() {
   wrap.innerHTML = `<div class="search"><label class="field">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3A5B5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Canciones, artistas o álbumes…" autocomplete="off"></label>
-    <div class="chips sugg" id="sugg" hidden></div>
+    <div class="sugg" id="sugg" hidden></div>
     <div id="filters">${genresCache.length ? `<div class="chips" id="genres">${genresCache.map(g =>
         `<button class="chip glass genre" data-g="${esc(g.name)}">${esc(g.name)}</button>`).join('')}</div>` : ''}
     <div class="chips" id="chips"><button class="chip glass" data-v="recientes">Recientes</button><button class="chip glass" data-v="populares">Populares</button>
       <button class="chip glass" data-v="nombre">A–Z</button><button class="chip glass" data-v="artista">Por artista</button></div></div></div>
     <div id="res" class="fade"></div>`;
-  $('q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(search, 300);
-    clearTimeout(suggTimer); suggTimer = setTimeout(sugerir, 120); });
-  $('sugg').onclick = e => {   // tocar una sugerencia: abrir el artista o el álbum, o buscar la canción
-    const b = e.target.closest('[data-s]'); if (!b) return;
-    const s = suggs[+b.dataset.s]; $('sugg').hidden = true;
-    if (s.tipo === 'artista') return showArtist(s.texto);
-    if (s.tipo === 'album') return showAlbum(s.artista || '', s.texto);
-    $('q').value = s.texto; clearTimeout(qTimer); search();
-  };
-  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(qTimer); search(); } });
+  // Escribir solo abre el cuadro de sugerencias; los resultados salen con Enter o al elegir "Buscar «…»".
+  $('q').addEventListener('input', () => { clearTimeout(suggTimer); suggTimer = setTimeout(sugerir, 120);
+    if (!$('q').value.trim()) { $('sugg').hidden = true; showAll(); } });
+  $('q').addEventListener('focus', () => { if ($('q').value.trim() && suggs.length) $('sugg').hidden = false; });
+  $('q').addEventListener('blur', () => setTimeout(() => $('sugg') && ($('sugg').hidden = true), 180));
+  $('sugg').onmousedown = e => e.preventDefault();   // que el clic no cierre el cuadro antes de tiempo
+  $('sugg').onclick = e => { const b = e.target.closest('[data-s]'); if (b) elegirSug(+b.dataset.s); };
+  $('q').addEventListener('keydown', e => {
+    const n = $('sugg').hidden ? 0 : suggSel.length;
+    if (e.key === 'ArrowDown' && n) { e.preventDefault(); suggIdx = (suggIdx + 1) % n; pintaSel(); }
+    else if (e.key === 'ArrowUp' && n) { e.preventDefault(); suggIdx = (suggIdx - 1 + n) % n; pintaSel(); }
+    else if (e.key === 'Escape') { $('sugg').hidden = true; }
+    else if (e.key === 'Enter') { e.preventDefault(); elegirSug(suggIdx >= 0 && n ? suggIdx : 0); }
+  });
   $('chips').onclick = e => { const c = e.target.closest('.chip'); if (c) { libSort = c.dataset.v; showAll(); } };
   if ($('genres')) $('genres').onclick = e => { const c = e.target.closest('.chip'); if (c) { libGenre = libGenre === c.dataset.g ? null : c.dataset.g; showAll(); } };
   showAll();
@@ -637,20 +651,32 @@ async function morePage() {
 window.addEventListener('scroll', () => { if (innerHeight + scrollY > document.body.scrollHeight - 900) morePage(); }, {passive: true});
 
 // Búsqueda en lo guardado, por secciones: artistas, canciones (5 y "Ver todas") y álbumes.
-// Sugerencias mientras se escribe (/suggest: de lo guardado, sin YouTube)
-let suggTimer, suggs = [];
+// Sugerencias mientras se escribe (/suggest: de lo guardado, sin YouTube), en un cuadro flotante. La primera
+// opción siempre es "Buscar «…»" (lo mismo que Enter); flechas para moverse.
+let suggTimer, suggs = [], suggSel = [], suggIdx = -1;
 async function sugerir() {
   const q = $('q') ? $('q').value.trim() : '';
   if (!q) { $('sugg').hidden = true; return; }
-  try {
-    const j = await api('/suggest?q=' + encodeURIComponent(q));
-    if (!$('q') || $('q').value.trim() !== q) return;
-    suggs = j.sugerencias;
-    const ico = {artista: '👤', album: '💿', cancion: '🎵'};
-    $('sugg').innerHTML = suggs.map((s, i) => `<button class="chip glass" data-s="${i}">${ico[s.tipo]} ${esc(s.texto)}${
-      s.canciones ? ` <small>· ${s.canciones}</small>` : s.artista && s.tipo !== 'artista' ? ` <small>· ${esc(s.artista)}</small>` : ''}</button>`).join('');
-    $('sugg').hidden = !suggs.length;
-  } catch (e) {}
+  let j = {sugerencias: []};
+  try { j = await api('/suggest?q=' + encodeURIComponent(q)); } catch (e) {}
+  if (!$('q') || $('q').value.trim() !== q || document.activeElement !== $('q')) return;
+  suggs = j.sugerencias;
+  suggSel = [{tipo: 'buscar', texto: q}, ...suggs]; suggIdx = -1;
+  const tipo = {artista: 'Artista', album: 'Álbum', cancion: 'Canción'};
+  $('sugg').innerHTML = suggSel.map((s, i) => s.tipo === 'buscar'
+    ? `<button data-s="${i}"><span class="ic">🔎</span><span class="tx"><b>Buscar «${esc(q)}»</b><small>Ver todos los resultados</small></span></button>`
+    : `<button class="${s.tipo}" data-s="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : '<span class="ic">🎵</span>'}
+       <span class="tx"><b>${esc(s.texto)}</b><small>${tipo[s.tipo]}${s.tipo === 'artista' ? (s.canciones ? ` · ${s.canciones} canciones` : '')
+       : s.artista ? ` · ${esc(s.artista)}` : ''}</small></span></button>`).join('');
+  $('sugg').hidden = false;
+}
+function pintaSel() { $('sugg').querySelectorAll('[data-s]').forEach(b => b.classList.toggle('sel', +b.dataset.s === suggIdx)); }
+function elegirSug(i) {
+  const s = suggSel[i] || {tipo: 'buscar'}; $('sugg').hidden = true; $('q').blur();
+  if (s.tipo === 'artista') return showArtist(s.texto);
+  if (s.tipo === 'album') return showAlbum(s.artista || '', s.texto);
+  if (s.tipo === 'cancion') { listCtx = 'busqueda'; return playOne({id: s.id, title: s.texto, artist: s.artista, thumb: s.thumb, where: 'guardada'}); }
+  search();   // "Buscar «…»" o Enter: los resultados completos
 }
 
 async function search() {
