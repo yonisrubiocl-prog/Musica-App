@@ -222,8 +222,9 @@ class Library:
 
     def _variants(self, w):
         """Palabras guardadas que pueden ser 'w', con su nota: exacta 1; empieza por 'w' (aún escribiendo:
-        'pilot' -> 'pilots') 0.85; 'w' empieza por ella (plurales: 'pilots' -> 'pilot') 0.8; con faltas
-        ('chayane' -> 'chayanne') según lo parecida, como mucho 0.75."""
+        'pilot' -> 'pilots') 0.85; su singular (solo si 'w' acaba en s/es: 'pilots' -> 'pilot') 0.8; con faltas
+        ('chayane' -> 'chayanne') según lo parecida, como mucho 0.75. Las faltas solo en palabras de 5 letras o
+        más: en las cortas casi todo se parece ('hope' ~ 'hype', 'open', 'nope')."""
         out = {}
         if w in self.wix:
             out[w] = 1.0
@@ -232,17 +233,18 @@ class Library:
             while i < len(self.vocab) and self.vocab[i].startswith(w):
                 out.setdefault(self.vocab[i], 0.85)
                 i += 1
-        for n in range(3, len(w)):
-            if w[:n] in self.wix and len(w) - n <= 2:
-                out.setdefault(w[:n], 0.8)
-        if len(w) >= 4:
-            for c in difflib.get_close_matches(w, self.vocab, n=5, cutoff=0.75):
+        for stem in ([w[:-1]] if w.endswith("s") else []) + ([w[:-2]] if w.endswith("es") else []):
+            if len(stem) >= 3 and stem in self.wix:
+                out.setdefault(stem, 0.8)
+        if len(w) >= 5:
+            for c in difflib.get_close_matches(w, self.vocab, n=5, cutoff=0.8):
                 out.setdefault(c, 0.75 * difflib.SequenceMatcher(None, w, c).ratio())
         return out
 
     def find(self, query, limit=20):
         """La búsqueda de la app: todas las palabras escritas tienen que estar en título, artista o álbum, pero
-        cada una vale exacta, a medio escribir, en plural/singular o con faltas (ver _variants). Mejor primero:
+        cada una vale exacta, a medio escribir, en plural/singular o con faltas (ver _variants). Las de con
+        faltas solo salen si no hay ninguna sin faltas (si no, 'hope' traería 'hype' y 'open'). Mejor primero:
         las que coinciden más exacto, luego las que tienen menos palabras de más, luego las más puestas. Si con
         3 palabras o más no hay ninguna con todas, valen las que tienen todas menos una."""
         q = list(dict.fromkeys(words(query)))
@@ -258,9 +260,11 @@ class Library:
                         got[i] = max(got[i], note)
             need = len(q)
             while True:
+                ok = [(k, n) for k, n in notes.items() if sum(1 for x in n if x) >= need and self._exists(k)]
+                clean = [(k, n) for k, n in ok if all(x == 0 or x >= 0.8 for x in n)]   # sin palabras con faltas
                 hits = [(sum(n) / len(q), len(q) / max(1, len(self.tw.get(k) or ())),
                          self.index[k].get("plays", 0), self.index[k].get("used", 0), k)
-                        for k, n in notes.items() if sum(1 for x in n if x) >= need and self._exists(k)]
+                        for k, n in (clean or ok)]
                 if hits or need <= 2 or need < len(q):
                     break
                 need -= 1
