@@ -25,6 +25,10 @@ sin publicarlo ni cobrar nada.
 - **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.17 (build 18) publicada**, con aviso de
   actualización propio. **App web** (prototipo) en `/web`, a la que lleva la página principal tras entrar.
 
+**Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
+El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
+`github-musicapp` en `~/.ssh/config`): `git push` desde `~/MusicApp`. Al terminar cada cambio: commit y push.
+
 **Quién hace qué:** el servidor (este repo) se trabaja en una sesión de Claude en este servidor. La **app
 Flutter** se trabaja en otra sesión de Claude **en el PC**, con su propio proyecto: desde el servidor no se
 puede hablar con ella (no sale en la lista de sesiones), así que los avisos de cambios de la API que le afecten
@@ -412,8 +416,6 @@ Cada fase funciona por sí sola.
 
 **Del servidor:**
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
-- **Repositorio remoto (GitHub)** para este repo: hoy solo está en el servidor. Hace falta crear el repo y una
-  llave de despliegue (ver el final de esta sección).
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
 - Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
   reciente). Propuesta, sin hacer.
@@ -433,14 +435,6 @@ responde un momento, una importación da esa canción por fallida (debería espe
 
 **Del servidor en general:** `/home` tiene poco sitio (2,8 GB libres de 20 el 30-10-2026; `ProjectV1` ocupa
 11 GB): lo que crece (música, APK) ya está en `/var` (71 GB libres).
-
-**Subir este repo a GitHub** (lo hace el dueño; desde el servidor no se crean llaves nuevas sin permiso):
-1. En GitHub, crear un repo **privado** vacío, p. ej. `yonisrubiocl-prog/MusicApp`.
-2. En el servidor: `ssh-keygen -t ed25519 -N "" -C musicapp-servidor -f ~/.ssh/github_musicapp` y añadir a
-   `~/.ssh/config` un `Host github-musicapp` con `HostName github.com`, `IdentityFile ~/.ssh/github_musicapp`
-   e `IdentitiesOnly yes` (como los del bot).
-3. En el repo: *Settings → Deploy keys → Add*, pegar `~/.ssh/github_musicapp.pub` y marcar **Allow write access**.
-4. `cd ~/MusicApp && git remote add origin git@github-musicapp:yonisrubiocl-prog/MusicApp.git && git push -u origin main`
 
 ## 6. Carpetas
 
