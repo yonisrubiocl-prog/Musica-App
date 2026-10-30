@@ -9,7 +9,7 @@ services:
     environment:
       API_TOKEN: ${API_TOKEN:-}          # solo sus claves; las de los túneles se quedan en sus contenedores
       BOT_API_KEY: ${BOT_API_KEY:-}      # la del bot para /interno (puerto 8001)
-      MUSIC_GB: "15"                     # tope de la biblioteca: al pasarlo borra lo que hace más que no suena
+      MUSIC_GB: "40"                     # tope de la biblioteca: al pasarlo borra lo que hace más que no suena (las favoritas no)
       GOOGLE_CLIENT_ID: 76813509622-rpbjrvn23rpjgrkulb051tjgids6f80j.apps.googleusercontent.com   # cliente OAuth web (no es secreto)
     ports:
       - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor

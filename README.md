@@ -52,7 +52,7 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
 La **API es la dueña de la música**: una carpeta `/var/lib/music` (~1.900 canciones, ~7 GB) con su catálogo
 `index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
 YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
-`u-<resumen del enlace>`). **Tope de 15 GB** (`MUSIC_GB` en `docker-compose.yml`): al pasarlo borra lo que hace
+`u-<resumen del enlace>`). **Tope de 40 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió para la precarga de álbumes): al pasarlo borra lo que hace
 más que no suena, contando la app y Discord. La lógica está en `server/library.py`: índice de palabras,
 autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 
@@ -155,6 +155,7 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `GET /interno/suggest?q=…&limit=` | Autocompletado por trozos de palabra; sin texto, las más puestas |
 | `GET /interno/search?q=…&limit=` | Texto tal cual en título/artista/álbum, recientes primero |
 | `GET /interno/albums`, `GET /interno/album?q=…` | Álbumes y sus canciones |
+| `GET /interno/precarga` | Cómo va la precarga de álbumes: artistas hechos, cola, bajadas, saltadas, fallidas |
 | `GET /interno/stats` | `{songs, bytes, max_bytes}` |
 | `POST /interno/resolve` | `{"query": …, "limit": n}`: buscar un nombre (`ytsearch5:…` o el nombre a secas: **YouTube Music**; con `yt:` delante o si no hay nada, YouTube normal) o leer un enlace (video, lista, SoundCloud…) sin bajar nada. Título, duración, miniatura, artista y `entries` si es lista o búsqueda |
 | `GET /interno/song/<clave>` | Ficha sin contarla como puesta |
@@ -206,16 +207,39 @@ seguidas parecen un bot):
 `Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
 (en `server/.env`, fuera de git); se quitará cuando la app tenga login.
 
-**Género y fichas** (`enrich.py`, de fondo y solo): YouTube no da géneros, así que se sacan de **iTunes**
-(Apple, gratis, sin registro y **sin tocar YouTube**): tienda de Chile (géneros en español: "Salsa y tropical",
-"Pop en español", "Urbano latino", "Hard rock"…) y, si no está, la de EE. UU. Solo se acepta si artista y título
-coinciden de verdad (en un ensayo con 20 canciones iTunes devolvía a veces otra canción: Justin Bieber por
-Neutro Shorty); sin artista conocido no se intenta. Títulos al revés ("Beat It - Michael Jackson") se prueban
-también dados la vuelta. Además rellena **artista, álbum y año** de las canciones viejas que no los tenían. Las
-que iTunes no conoce y siguen sin artista: **YouTube Music** por el vídeo exacto (1 petición cada 2 min, solo de
-03:00 a 08:00 de Chile y si YouTube no va cargado). A las que se quedan sin género se les pone el más común de su
-artista (`genre_src: artista`). **Nunca cambia el título ni pisa un dato que ya esté.** La primera pasada
-(~2.000 canciones) tarda unas 4–5 horas; luego cada canción nueva se completa en la siguiente vuelta (cada 5 min).
+**Género** (`genres.py`): **por artista** (todas sus canciones el mismo), de una lista corta en español
+(Vallenato, Salsa, Bachata, Merengue, Cumbia, Reguetón, Regional mexicano, Trap, Urbano latino, Rock en español,
+Baladas, Pop latino, Metal, Rap, R&B, Reggae, Electrónica, Alternativo, Rock, Pop…). De dónde sale, por orden:
+1. **A mano**: `docker exec musicapp-api python genres.py "Rawayana" "Pop latino"` (sin argumentos lista todos con
+   su género y de dónde salió; `-` como género quita la corrección). Manda siempre.
+2. **MusicBrainz** (enciclopedia libre, ~1 consulta/s, sin tocar YouTube): conoce vallenato, bachata, salsa,
+   corridos… (Diomedes Díaz → Vallenato, Romeo Santos → Bachata, Peso Pluma → Regional mexicano). No conoce a
+   todos (Rawayana, Neutro Shorty, Chayanne no tienen géneros allí).
+3. **iTunes** por mayoría entre las canciones del artista. Es lo peor: iTunes pone el género por disco según la
+   distribuidora y no tiene "vallenato" (el 30-10-2026 puso a Diomedes Díaz como "Salsa y tropical", "Pop" y
+   "Música mexicana" a la vez); por eso solo es el último recurso.
+4. Si nada sirve, sin género.
+
+Se guarda en `server/data/generos.json`. Los artistas nuevos se calculan solos cada 30 min.
+
+**Fichas de las canciones viejas** (`enrich.py`, de fondo): rellena **artista, álbum y año** de las canciones que
+no los tenían, con iTunes (solo si artista y título coinciden de verdad; títulos al revés, "Beat It - Michael
+Jackson", se prueban dados la vuelta) y, las que sigan sin artista, con **YouTube Music** por el vídeo exacto (1
+petición cada 2 min, de 03:00 a 08:00 de Chile). Nunca cambia el título ni pisa un dato que ya esté. El género
+que da iTunes se guarda aparte (`itunes_genre`) solo como pista para el paso 3.
+
+**Artistas con colaboraciones**: "Diomedes Díaz & Juancho Rois" cuenta para Diomedes Díaz si él tiene canciones a
+su nombre (un dúo de verdad, "Simon & Garfunkel", no se parte).
+
+**Precarga de álbumes** (`precarga.py`): baja poco a poco los **álbumes de estudio** de los artistas con **5 o más
+canciones guardadas** (98 el 30-10-2026; ~6.000 canciones, ~27 GB, 2–3 semanas). Muy despacio: de madrugada
+(03:00–08:00 de Chile) una operación cada 90 s; de día una cada 4 min y solo si nadie ha usado YouTube en los
+últimos 10 min. Si YouTube avisa de bloqueo, para 24 h. Se salta directos, instrumentales, karaokes,
+recopilatorios y ediciones repetidas (por el título del álbum) y las canciones que ya están, también si es otra
+versión del mismo artista y título (ensayo con Rawayana: 7 álbumes de estudio, 78 nuevas, 28 que ya estaban). Las
+bajadas quedan con su álbum, año y número de pista (`track_no`). Estado en `server/data/precarga.json`; cómo va:
+`curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`. Para pararla: quitar la línea
+`PRECARGA = …` de `app.py`.
 
 **Favoritas e historial** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos 600): por
 cuenta, para que la app y la web se vean igual. De cada favorita se guarda su ficha (título, artista, portada…),
@@ -400,7 +424,9 @@ Cada fase funciona por sí sola.
 /home/lainer/MusicApp/
 ├── server/
 │   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot; también reparte el APK
-│   ├── enrich.py           completa de fondo género (iTunes) y artista/álbum de las canciones viejas
+│   ├── enrich.py           completa de fondo artista/álbum/año de las canciones viejas (iTunes, YouTube Music)
+│   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
+│   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
 │   ├── web/                página principal (acceso.html) y el logo (logo.png original; logo-480.webp y

@@ -82,6 +82,9 @@ class Library:
     def __init__(self, root, max_bytes, index_file):
         self.root, self.max, self.file = root, max_bytes, index_file
         self.keep = lambda: set()   # claves que el tope de espacio no borra (las favoritas: lo pone app.py)
+        self.genre_of_artist = lambda name: ""   # género de un artista (genres.py: lo pone app.py)
+        self.genre_stamp = lambda: None          # cambia cuando cambian los géneros (para no recalcular)
+        self._ver, self._groups, self._kg = 0, (None, None), (None, None)
         self.lock = threading.Lock()
         self.index = {}   # clave -> {file, url, title, duration, thumb, size, used, plays, by, artist, album…}
         self.wix, self.tw, self.vocab = {}, {}, []
@@ -150,6 +153,7 @@ class Library:
     # por trozos ("neut" -> "neutro") con bisect. self.tw: clave -> sus palabras.
 
     def _index_add(self, key, title):
+        self._ver += 1
         self._index_del(key)
         ws = set(words(title))
         self.tw[key] = ws
@@ -346,16 +350,47 @@ class Library:
             a = e["title"].split(" - ", 1)[0].strip()
         return a
 
+    JOINT = re.compile(r"\s*(?:,|&|\+|\bfeat\.?|\bft\.?|\bx\b|\by\b|\bwith\b|\bcon\b)\s*", re.I)
+
     def _by_artist(self):
-        """clave normalizada -> (nombre a enseñar, [(clave de canción, datos)])."""
+        """clave normalizada -> (nombre a enseñar, [(clave de canción, datos)]). "Diomedes Díaz & Juancho Rois"
+        cuenta para Diomedes Díaz si él tiene canciones a su nombre (así un dúo de verdad, "Simon & Garfunkel",
+        no se parte). Se recalcula solo cuando cambia algo."""
+        if self._groups[0] == (self._ver, len(self.index)):
+            return self._groups[1]
+        raw = {k: self.artist_name(e) for k, e in self.index.items()}
+        solo = {self._norm(a) for a in raw.values() if a and not self.JOINT.search(a)}
         groups, names = {}, {}
         for k, e in self.index.items():
-            a = self.artist_name(e)
+            a = raw[k]
+            first = self.JOINT.split(a, 1)[0] if a else ""
+            if first and first != a and self._norm(first) in solo:
+                a = first
             n = self._norm(a)
             if n and self._exists(k):
                 groups.setdefault(n, []).append((k, e))
                 names.setdefault(n, collections.Counter())[a] += 1
-        return {n: (names[n].most_common(1)[0][0], songs) for n, songs in groups.items()}
+        out = {n: (names[n].most_common(1)[0][0], songs) for n, songs in groups.items()}
+        self._groups = ((self._ver, len(self.index)), out)
+        return out
+
+    def _key_genres(self):
+        """clave de canción -> género (el de su artista, genres.py). Se recalcula solo cuando cambia algo."""
+        stamp = (self._ver, len(self.index), self.genre_stamp())
+        if self._kg[0] == stamp:
+            return self._kg[1]
+        out = {}
+        for shown, songs in self._by_artist().values():
+            g = self.genre_of_artist(shown)
+            if g:
+                for k, _ in songs:
+                    out[k] = g
+        self._kg = (stamp, out)
+        return out
+
+    def genre_of(self, key):
+        """Género de una canción: el de su artista."""
+        return self._key_genres().get(key, "")
 
     def artists(self):
         """Todos los artistas: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
@@ -415,8 +450,9 @@ class Library:
         }
         with self.lock:
             g = self._norm(genre) if genre else None
+            kg = self._key_genres() if g else {}
             songs = sorted(((k, e) for k, e in self.index.items() if k.startswith("yt-")
-                            and (not g or self._norm(e.get("genre")) == g)), key=keys[sort])
+                            and (not g or self._norm(kg.get(k)) == g)), key=keys[sort])
             return len(songs), [(k, dict(e)) for k, e in songs[offset:offset + limit]]
 
     def stats(self):
@@ -499,7 +535,7 @@ class Library:
     def genres(self):
         """[{name, songs}] de los géneros que hay, los que más canciones tienen primero."""
         with self.lock:
-            c = collections.Counter(e["genre"] for k, e in self.index.items() if e.get("genre") and k.startswith("yt-"))
+            c = collections.Counter(g for k, g in self._key_genres().items() if k.startswith("yt-"))
         return [{"name": g, "songs": n} for g, n in c.most_common()]
 
     def remove(self, key):

@@ -25,6 +25,8 @@ from google.oauth2 import id_token
 
 import userdata
 from enrich import Enricher
+from genres import Genres
+from precarga import Precarga
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
 
@@ -83,13 +85,17 @@ def is_yt(url):
 _yt_turns = threading.Lock()
 _yt_next = 0.0                          # cuándo puede salir la siguiente petición
 _yt_recent = collections.deque()        # cuándo salieron las de la última hora
+_yt_last_user = 0.0                     # última vez que alguien (no la precarga ni las fichas) usó YouTube
+BACKGROUND = {"precarga", "enrich"}     # hilos de fondo: no cuentan como uso de alguien
 
 
 def yt_turn(cost=1):
     """Espera su turno para pedirle algo a YouTube: una operación cada YT_GAP s y como mucho YT_PER_HOUR peticiones
     reales por hora (cost = las que hace esta operación), venga de la app, del bot o de una importación. Lo
     recordado (búsquedas, canciones guardadas) no pasa por aquí."""
-    global _yt_next
+    global _yt_next, _yt_last_user
+    if threading.current_thread().name not in BACKGROUND:
+        _yt_last_user = time.time()
     with _yt_turns:
         now = time.time()
         while _yt_recent and _yt_recent[0] < now - 3600:
@@ -258,7 +264,11 @@ def ytm(fn, cost=COST_ALBUM):
         raise HTTPException(502, f"YouTube Music: {str(e)[:150]}")
 
 
-ENRICH = Enricher(LIB, ytm, lambda: len(_yt_recent))   # género y fichas de las viejas, de fondo (enrich.py)
+ENRICH = Enricher(LIB, ytm, lambda: len(_yt_recent))   # fichas de las viejas, de fondo (enrich.py)
+GENRES = Genres(LIB)                                   # género por artista (genres.py)
+LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
+PRECARGA = Precarga(LIB, ytm, download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
+                    lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
 
 
 def ytm_thumb(x):
@@ -310,7 +320,7 @@ def youtube_info(vid):
 
 def entry(key, e, where):
     return {"id": key[3:], "title": e.get("title"), "artist": e.get("artist") or "", "album": e.get("album") or "",
-            "duration": e.get("duration"), "thumb": e.get("thumb"), "genre": e.get("genre") or "", "where": where}
+            "duration": e.get("duration"), "thumb": e.get("thumb"), "genre": LIB.genre_of(key), "where": where}
 
 
 def given_key(request: Request):
@@ -703,6 +713,12 @@ def i_albums():
 @internal.get("/interno/album")
 def i_album(q: str = Query(max_length=300)):
     return {"songs": songs(LIB.album_tracks(q))}
+
+
+@internal.get("/interno/precarga")
+def i_precarga():
+    """Cómo va la precarga de álbumes (precarga.py)."""
+    return PRECARGA.status()
 
 
 @internal.get("/interno/stats")

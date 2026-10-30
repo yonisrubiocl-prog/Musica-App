@@ -38,7 +38,8 @@ class Enricher:
     def __init__(self, lib, ytm, yt_busy):
         self.lib, self.ytm, self.yt_busy = lib, ytm, yt_busy   # yt_busy(): peticiones a YouTube en la última hora
         self.done = collections.Counter()
-        threading.Thread(target=self._run, daemon=True).start()
+        self._move_old_genres()
+        threading.Thread(target=self._run, daemon=True, name="enrich").start()
 
     # ---------- qué hace falta ----------
 
@@ -50,7 +51,7 @@ class Enricher:
             tried = e.get("enriched") or []
             if step in tried:
                 continue
-            if step == "itunes" and (not e.get("genre") or not e.get("artist")):
+            if step == "itunes" and (not e.get("itunes_genre") or not e.get("artist")):
                 out.append((k, e))
             elif step == "ytm" and k.startswith("yt-") and not e.get("artist"):
                 out.append((k, e))
@@ -112,7 +113,7 @@ class Enricher:
                 return False   # sin conexión con iTunes: se reintenta en la siguiente vuelta
             fields = {}
             if x:
-                fields = {"genre": x.get("primaryGenreName") or "", "artist": x.get("artistName"),
+                fields = {"itunes_genre": x.get("primaryGenreName") or "", "artist": x.get("artistName"),
                           "album": x.get("collectionName"), "year": int(x["releaseDate"][:4]) if x.get("releaseDate") else None}
                 self.done["itunes"] += 1
             self._mark(k, "itunes", fields)
@@ -142,7 +143,23 @@ class Enricher:
             self._mark(k, "ytm", fields)
             time.sleep(YTM_GAP)
 
-    # ---------- 3. género por artista ----------
+    def _move_old_genres(self):
+        """Los géneros que iTunes puso por canción el 30-10-2026 eran malos (Diomedes Díaz como "música
+        mexicana"): se apartan como pista (itunes_genre). El género ahora es por artista (genres.py)."""
+        n = 0
+        with self.lib.lock:
+            for e in self.lib.index.values():
+                if "genre" in e:
+                    if e.get("genre") and e.get("genre_src") != "artista":
+                        e.setdefault("itunes_genre", e["genre"])
+                    e.pop("genre", None)
+                    e.pop("genre_src", None)
+                    n += 1
+            self.lib.dirty = self.lib.dirty or n > 0
+        if n:
+            log.info("géneros por canción apartados: %d (ahora van por artista)", n)
+
+    # ---------- (ya no se usa: el género va por artista, ver genres.py) ----------
 
     def _artist_genres(self):
         with self.lib.lock:
@@ -167,7 +184,6 @@ class Enricher:
             try:
                 before = dict(self.done)
                 ok = self._itunes_step()
-                self._artist_genres()
                 self._ytm_step()
                 if dict(self.done) != before:
                     log.info("fichas completadas hasta ahora: %s", dict(self.done))
