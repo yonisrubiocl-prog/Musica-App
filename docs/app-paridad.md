@@ -57,6 +57,10 @@
      sonaron; si toca la que suena, nada). "▶ Reproducir" o una canción de otra lista sí empiezan de cero.
      Ejemplo, cola A, B, Religión, Cucú, Bendita, Pop1: toca Religión → Religión, A, B, Cucú, Bendita, Pop1; pasa a
      A; toca Bendita → Bendita, B, Cucú, Pop1.
+   - **"⏭ Reproducir a continuación"** en el menú de cada canción (si suena algo y no es esa): la mete justo detrás
+     de la que suena **solo en la cola de ahora**, sin tocar la playlist, Me gusta ni la lista de origen. Varias
+     seguidas suenan en el orden en que se añadieron (cada una detrás de las otras añadidas); si ya estaba más
+     adelante en la cola, se mueve (nunca dos veces). En la cola, marcada "Añadida". Sin nada sonando, suena ya.
    - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última). Sin él, la cola
      termina.
    - **Ninguna canción puede estar dos veces** en la cola (lo que añade la radio tampoco repite ids).

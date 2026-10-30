@@ -162,6 +162,7 @@
   .row:hover { background: rgba(255,255,255,.045); }
   .row.playing .t { color: var(--primary); }
   .row.past { opacity: .45; } .row.past:hover { opacity: .8; }
+  .row .tag { color: var(--primary); font-weight: 600; font-size: .78em; }
   [data-qrow] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   [data-qrow] .grip { display: none; padding: 10px 8px; font-size: 1.25rem; line-height: 1; color: var(--muted);
     cursor: grab; touch-action: none; }   /* sin touch-action el móvil lo tomaría por scroll */
@@ -579,6 +580,7 @@ function songMenu(s, extra = []) {
   const opts = [
     ...(s.artist ? [{icon: '👤', label: 'Ir al artista', sub: s.artist, run: () => { closeNp(); showArtist(s.artist); }}] : []),
     ...(s.album && s.where !== 'youtube' ? [{icon: '💿', label: 'Ir al álbum', sub: s.album, run: () => { closeNp(); showAlbum(s.artist || '', s.album); }}] : []),
+    ...(cur && cur.id !== s.id ? [{icon: '⏭', label: 'Reproducir a continuación', sub: 'Solo en lo que suena ahora', run: () => playNext(s)}] : []),
     {icon: '➕', label: 'Añadir a playlist', run: () => pickPl(s)},
     {icon: on ? '💔' : '♡', label: on ? 'Quitar de Me gusta' : 'Me gusta', run: () => toggleFav(s)},
     ...(s.where !== 'youtube' ? [{icon: '📻', label: 'Iniciar radio', sub: 'Esta canción y detrás parecidas', run: () => { listCtx = 'radio'; playOne(s); }}] : []),
@@ -1005,6 +1007,18 @@ let cur = null, queue = [], qi = -1, isRadio = false;
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
 const shuffleNow = () => fromArtist ? shuffleArt : shuffleOn;
 let repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
+// "Reproducir a continuación": la mete justo después de la que suena, solo en la cola de ahora (no toca la playlist,
+// Me gusta ni la lista de donde vino). Varias seguidas suenan en el orden en que se añadieron (detrás de las otras
+// añadidas). Si ya estaba más adelante, se mueve (nunca dos veces). Sin nada sonando, suena ya.
+function playNext(s) {
+  if (!cur) { listCtx = 'busqueda'; return playOne(s); }
+  if (queue[qi]?.id === s.id) return toast('Ya está sonando');
+  const j = queue.findIndex((x, k) => k > qi && x.id === s.id);
+  if (j >= 0) queue.splice(j, 1);
+  let at = qi + 1; while (at < queue.length && queue[at]._cola) at++;
+  queue.splice(at, 0, {...s, _cola: true});
+  qVer++; paintQueue(); toast('Sonará a continuación');
+}
 function playOne(s) { isRadio = true; fromArtist = false; queueSig = ''; qVer++; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista tocando la canción i (cualquier lista: Inicio, Me gusta, playlist, álbum, artista): esa primero
 // y luego, sin aleatorio, la lista entera en su orden desde el principio, sin repetirla (tocar la 5.ª: 5, 1, 2, 3,
@@ -1296,7 +1310,7 @@ function paintQueue() {
       : `<div class="radio"><span>📻</span><div>Seguir con canciones parecidas<small>Al acabarse la lista</small></div><button class="switch${follow ? ' on' : ''}" id="npFollow" aria-label="Seguir con parecidas"></button></div>`;
     dest.innerHTML = top + `<div class="list">${queue.map((s, i) =>
       `<div class="row" data-qrow="${i}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
-      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button><span class="grip" aria-label="Arrastrar para mover">≡</span></div>`).join('')}</div>`;
+      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${s._cola ? '<span class="tag">Añadida</span> ' : ''}${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button><span class="grip" aria-label="Arrastrar para mover">≡</span></div>`).join('')}</div>`;
     if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
     markQueue(dest, !qKeepScroll); qKeepScroll = false;
   } else markQueue(dest, false);

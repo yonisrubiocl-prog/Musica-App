@@ -128,6 +128,9 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     7, 1, 2, 3, 4, 5, 6, 8, 9…). Con aleatorio: la elegida y el resto mezclado.
   - **Si ya suena esa misma lista**, no se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue
     igual (no vuelven las que ya sonaron). "▶ Reproducir" sí empieza de cero.
+  - **"⏭ Reproducir a continuación"** (menú ⋮ de cualquier canción): entra justo detrás de la que suena **solo en la
+    cola de ahora** (no toca la playlist, Me gusta ni la lista de origen); varias, en el orden en que se añadieron;
+    si ya estaba más adelante, se mueve. Sale marcada "Añadida" en la cola. Sin nada sonando, suena ya.
   - Al acabarse una lista, interruptor **"Seguir con canciones parecidas"** (radio de la última). Nunca entra una
     canción dos veces.
 - **La cola en pantalla es una lista fija:** enseña también las que ya sonaron (en gris; al abrirla, las 5
@@ -593,7 +596,8 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   └── app-paridad.md       lo que la app Android tiene que usar y copiar de la web (para igualarlas)
 ├── tools/
 │   ├── probar-web.sh        prueba la web en un Chromium de verdad (Playwright en Docker, contra la API local)
-│   └── prueba-cola.js       la prueba de la cola: arrastrar con ratón y con dedo (PC y móvil)
+│   ├── prueba-cola.js       la prueba de la cola: arrastrar con ratón y con dedo (PC y móvil)
+│   └── prueba-siguiente.js  la prueba de "Reproducir a continuación" (tools/probar-web.sh prueba-siguiente.js)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
