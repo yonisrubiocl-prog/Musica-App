@@ -24,6 +24,7 @@ from versiones import LIVE, OTHER, TAGS, VIDEO
 log = logging.getLogger("musicapp.duplicadas")
 
 LOG = "/data/duplicadas.jsonl"
+ALIAS = "/data/alias.json"              # vídeo pedido -> la canción guardada que es la misma (no se bajó)
 HOUR_UTC = 8                            # cada noche, a las 05:00 de Chile
 # etiquetas de vídeo/letra entre paréntesis o tras "|": "(Lyrics)", "[4K]", "(Vídeo Animación)", "| Un Verano Sin Ti"
 TAG_VIDEO = re.compile(r"video|v[ií]deo|lyric|letra|\b4k\b|\bhd\b|\bhq\b|clip|visuali[sz]er|animaci[oó]n|official|"
@@ -38,6 +39,11 @@ class Duplicadas:
         self.lib, self.ud = lib, ud
         self.lock = threading.Lock()
         self._saved = (None, {})
+        try:
+            with open(ALIAS) as f:
+                self.aliases = json.load(f)
+        except (OSError, ValueError):
+            self.aliases = {}
         threading.Thread(target=self._run, daemon=True, name="duplicadas").start()
 
     # ---------- qué es igual a qué ----------
@@ -141,6 +147,44 @@ class Duplicadas:
                     return k
         return None
 
+    # ---------- no bajar lo que ya está ----------
+
+    def real_key(self, key):
+        """La canción guardada que es `key` (si se apodó al pedirla), o la misma `key`."""
+        k = self.aliases.get(key)
+        return k if k and self.lib.peek(k) else key
+
+    def _save_aliases(self):
+        tmp = ALIAS + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(self.aliases, f)
+        os.replace(tmp, ALIAS)
+
+    def same_as_saved(self, key, info):
+        """Antes de bajar `key` (con la ficha de yt-dlp `info`): la clave de la guardada que es la misma canción, o
+        None. Si lo pedido es la versión del disco y lo guardado un vídeo, None (mejor bajar la buena; la noche junta).
+        Si la hay, se apunta el apodo para la próxima vez."""
+        title = info.get("title") or ""
+        artists = [info.get("artist"), info.get("creator"),
+                   re.sub(r"\s*-\s*topic$", "", self.lib.CHANNEL.sub("", info.get("channel") or info.get("uploader") or ""), flags=re.I)]
+        if self.lib.DASH.search(title):
+            artists += self.lib.DASH.split(title, 1)
+        artists = [x for a in artists if a for x in self.lib.JOINT.split(a) if x.strip()]
+        saved = self.is_saved(title, artists) or (info.get("track") and self.is_saved(info["track"], artists))
+        e = self.lib.peek(saved) if saved else None
+        if not e:
+            return None
+        asked = {"title": title, "duration": info.get("duration")}
+        if not (self._close(asked, e) or self._close(e, asked)):
+            return None
+        if not self.tagged(title) and self.tagged(e.get("title")):
+            return None
+        with self.lock:
+            self.aliases[key] = saved
+            self._save_aliases()
+        log.info("duplicadas: %s ya está guardada como %s (%s): no se baja", title, e.get("title"), saved)
+        return saved
+
     # ---------- juntar ----------
 
     def merge(self):
@@ -155,12 +199,20 @@ class Duplicadas:
                 for k, e in rest:
                     self.ud.replace_everywhere(k[3:], bk[3:], info)
                     plays += e.get("plays", 0)
+                    for a, t in self.aliases.items():
+                        if t == k:
+                            self.aliases[a] = bk
                     if self.lib.remove(k):
                         done += 1
                         with open(LOG, "a") as f:
                             f.write(json.dumps({"cuando": int(time.time()), "borrada": k, "titulo": e.get("title"),
                                                 "queda": bk, "queda_titulo": be.get("title")}, ensure_ascii=False) + "\n")
                 self.lib.set_fields(bk, {"plays": plays})
+            for a, t in list(self.aliases.items()):   # lo que alguien guardó con el vídeo apodado
+                e = self.lib.peek(t)
+                if e:
+                    self.ud.replace_everywhere(a[3:], t[3:], {k: e.get(k) for k in ("title", "artist", "album", "duration", "thumb")})
+            self._save_aliases()
             if done:
                 log.info("duplicadas: %d copias de canciones repetidas juntadas", done)
             return done

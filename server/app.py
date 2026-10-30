@@ -188,16 +188,20 @@ def youtube(fn, yt=True, cost=COST_INFO):
         raise HTTPException(502, str(e).replace("ERROR: ", "")[:200])
 
 
-def download(url, by=None):
+def download(url, by=None, dedupe=True):
     """Baja el audio (webm/Opus si hay) a la biblioteca, una sola vez aunque la pidan varios a la vez.
-    Devuelve (info, ruta); los directos no se guardan: ruta None y en info["url"] el enlace para escucharlo."""
+    Devuelve (info, ruta); los directos no se guardan: ruta None y en info["url"] el enlace para escucharlo.
+    dedupe: si ya está guardada la misma canción con otro título ("Numb (Official Video)" y "Numb"), no se baja: se
+    da la guardada y se apunta el apodo (duplicadas.py). La precarga y versiones.py lo apagan: eligen a propósito."""
     key = key_of(url)
     with _downloads_lock:
         lock = _downloads.setdefault(key, threading.Lock())
     with lock:
-        p = LIB.path(key)
+        real = DUPLICADAS.real_key(key)
+        p = LIB.path(real)
         if p:
-            return LIB.peek(key), p
+            return LIB.peek(real), p
+        same = []
 
         def run():
             os.makedirs(TMP, exist_ok=True)
@@ -208,10 +212,15 @@ def download(url, by=None):
                     info = next(e for e in info["entries"] if e)
                 if info.get("is_live") or not info.get("duration"):
                     return info, None
+                if dedupe and (k := DUPLICADAS.same_as_saved(key, info)):   # ya está con otro título
+                    same.append(k)
+                    return info, None
                 y.process_info(info)
                 return info, y.prepare_filename(info)
 
         info, src = youtube(run, is_yt(url), COST_DOWNLOAD)
+        if same:
+            return LIB.peek(same[0]), LIB.path(same[0])
         if not src:
             return info, None
         dest = LIB.put(key_of(url, info), src, info, by)
@@ -321,10 +330,10 @@ GENRES = Genres(LIB)                                   # género por artista (ge
 LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
 # Recomendaciones (recomendar.py, plan en docs/recomendaciones.md). RECOMENDAR=0 las apaga: rutas 404.
 REC = Recomendar(LIB, userdata) if os.environ.get("RECOMENDAR", "1") == "1" else None
-PRECARGA = Precarga(LIB, ytm, download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
+PRECARGA = Precarga(LIB, ytm, lambda u: download(u, dedupe=False), lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
                     lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
 DUPLICADAS = Duplicadas(LIB, userdata)   # la misma canción guardada varias veces: se juntan (duplicadas.py)
-VERSIONES = Versiones(LIB, ytm, download, userdata, lambda: _yt_blocked_until > time.time(),   # vídeo -> disco
+VERSIONES = Versiones(LIB, ytm, lambda u: download(u, dedupe=False), userdata, lambda: _yt_blocked_until > time.time(),   # vídeo -> disco
                       lambda s: time.time() - _yt_last_user > s)                               # (versiones.py)
 
 
@@ -918,7 +927,7 @@ def stream(vid: str, request: Request, found=Depends(check_token)):
     """El audio de la canción (webm/Opus). Admite Range, así el reproductor puede saltar dentro de la canción."""
     if not VIDEO_ID.fullmatch(vid):
         raise HTTPException(400, "id de YouTube no válido")
-    key, where = f"yt-{vid}", "guardada"
+    key, where = DUPLICADAS.real_key(f"yt-{vid}"), "guardada"
     first = request.headers.get("range", "bytes=0-").startswith("bytes=0-")   # al empezar, no en cada trozo
     if first:
         hit = LIB.get(key)
@@ -1084,7 +1093,7 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
     escucharlo. source: local / online / live."""
     if not re.match(r"https?://", url):
         raise HTTPException(400, "hace falta un enlace")
-    key = key_of(url)
+    key = DUPLICADAS.real_key(key_of(url))
     hit = LIB.get(key)
     if hit:
         hit.pop("path")
@@ -1093,7 +1102,7 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
     small = {**small_info(info), **music_meta(info)}
     if not path:
         return {"key": key, "source": "live", "file": None, "song": None, "info": small}
-    key = key_of(url, info)
+    key = DUPLICADAS.real_key(key_of(url, info))
     return {"key": key, "source": "online", "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
 
 

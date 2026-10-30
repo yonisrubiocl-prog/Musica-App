@@ -356,8 +356,14 @@ una sola.
 - **Se queda la del disco** (sin etiquetas de vídeo o letra, con álbum y pista) o, si no hay, la más puesta. Antes de
   borrar las demás, las favoritas, playlists e historial de **todos** pasan a la que queda (mismo sitio, sin
   repetirse) y se le suman sus reproducciones. Cada borrado queda en `server/data/duplicadas.jsonl`.
-- **Cada noche** (05:00 de Chile) se juntan las nuevas, y **"Buscar en YouTube" no enseña** copias de lo ya guardado
-  (`Duplicadas.is_saved` en `new_songs`).
+- **Para que no entren:** "Buscar en YouTube" **no enseña** copias de lo ya guardado (`Duplicadas.is_saved` en
+  `new_songs`), y **antes de bajar nada** (`download`, para la app, la web y el bot, también con enlaces y `yt:`)
+  se mira la ficha del vídeo: si es la misma canción que una guardada, **no se baja**, suena la guardada y se apunta
+  el apodo en `server/data/alias.json` (la próxima vez ni se pregunta a YouTube). Excepción: si lo pedido es la
+  versión del disco y lo guardado un vídeo, se baja (es mejor; la noche junta). La precarga y `versiones.py` bajan
+  siempre lo que eligen (`dedupe=False`).
+- **Cada noche** (05:00 de Chile) se juntan las que se hayan colado, y las favoritas, playlists e historial que
+  apunten a un vídeo apodado pasan a la canción guardada.
 - A mano: `GET /interno/duplicadas` (ver, sin tocar) y `POST /interno/duplicadas` (juntar ya), con `BOT_API_KEY`
   en el puerto 8091. El 30-10-2026 se juntaron 190 copias (~700 MB); respaldos de antes en
   `server/data/index.antes-duplicadas.json` y `userdata.antes-duplicadas.json`.
