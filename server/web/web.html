@@ -929,8 +929,14 @@ async function showLib() {
     setList('lib', (await api('/history?limit=100').catch(() => ({songs: []}))).songs, 'lista');
     box.innerHTML = lists.lib.songs.length ? `<h2>Lo último que pusiste</h2><div class="list">${rows('lib')}</div>` : '<div class="empty">Todavía no has puesto nada.</div>';
   } else {
-    const j = await api('/artists?orden=tuyos'); artistsCache = j.artists;   // los que más escuchas primero
-    box.innerHTML = `<h2>Artistas <small>${j.artists.length}</small></h2><div class="grid">${artistCards(j.artists.slice(0, 400))}</div>`;
+    // Como en Spotify: solo los tuyos (los que escuchas o tienes en Me gusta / playlists), los que más primero
+    const j = await api('/artists?orden=tuyos'); artistsCache = j.artists;
+    const mios = j.artists.filter(x => x.tuyo);
+    const todos = () => { box.innerHTML = `<h2>Todos los artistas <small>${j.artists.length}</small></h2><div class="grid">${artistCards(j.artists.slice(0, 400))}</div>`; };
+    if (!mios.length) return todos();
+    box.innerHTML = `<h2>Tus artistas <small>${mios.length}</small></h2><div class="grid">${artistCards(mios)}</div>
+      <div class="more"><button class="pill glass" id="artTodos">Ver todos los artistas (${j.artists.length})</button></div>`;
+    $('artTodos').onclick = () => { todos(); scrollTo({top: 0}); };
   }
 }
 

@@ -20,8 +20,9 @@
    `GET /search/album/<id>` (canciones en orden, `track`, y `where` para marcar las guardadas).
 4. **Biblioteca** — `GET /library?sort=recientes|populares|nombre|artista&offset=&limit=&genre=` (scroll infinito),
    `GET /genres`, `GET /artists`, `GET /artist?name=`, `GET /album?artist=&name=`. Las canciones traen `genre`.
-   **Artistas como en Spotify**: `GET /artists?orden=tuyos` (los que más escuchas primero, `tuyo: true`) para la
-   Biblioteca → Artistas; en `/artist`, `tuyas` (sección "Tus canciones" arriba) y `todas` (la cola al reproducir).
+   **Artistas como en Spotify**: `GET /artists?orden=tuyos` para la Biblioteca → Artistas: **enseñar solo los
+   que traen `tuyo: true`** (ya vienen de más a menos escuchados) y al final "Ver todos los artistas (N)"; si no hay
+   ninguno `tuyo`, todos; en `/artist`, `tuyas` (sección "Tus canciones" arriba) y `todas` (la cola al reproducir).
    **No agrupar artistas en la app**: usar `/artist` tal cual (cuenta colaboraciones, "feat." del título y
    canciones sin artista con el nombre en el título; las colaboraciones vienen en `loose` aunque tengan álbum).
 5. **Favoritas** — `GET /favorites`, `PUT /favorites/<id>` (si no está guardada, en el cuerpo `{title, artist, album,

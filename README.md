@@ -119,8 +119,9 @@ aleatorio**, depende de dónde: en las **filas del Inicio** (Escuchado recientem
 a escuchar) suena **la lista entera** aunque la fila enseñe solo 20: la elegida y luego la lista en su orden normal
 desde el principio (7, 1, 2, 3…);
 en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. **Artistas
-como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas los pone
-primero; la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),
+como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
+(los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien
+no tiene ninguno ve todos); la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),
 luego **"Populares"** (las más puestas, sin repetir las tuyas: 10 y "Ver todas") y **al final los álbumes**; y "▶ Reproducir" o tocar cualquiera de sus canciones suena **en orden y sin aleatorio** (lo apaga; se
 puede volver a encender): primero las tuyas y luego las demás, las más puestas primero. La cola solo enseña lo que
 viene desde la canción actual, así que el número cambia según suena. En el móvil, como
