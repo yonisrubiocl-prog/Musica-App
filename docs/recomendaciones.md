@@ -14,13 +14,13 @@ y **Para ti** primero; después mixes y descubrir cosas nuevas. Para unas 7–15
 2. **Primero lo que ya está guardado:** gratis, al instante, sin YouTube. YouTube solo para descubrir (lo último).
 3. **Cada uno aprende de lo suyo.** Usar lo de los demás es opcional y está apagado por defecto (con 7 personas,
    incluso lo agregado puede delatar gustos de alguien).
-4. **Se puede apagar y quitar** sin romper nada (sección 10).
+4. **Se puede apagar y quitar** sin romper nada (sección 11).
 5. **Empezar pequeño:** Radio y Para ti deciden si se siente inteligente o aleatorio; el resto viene después.
 
 ## 2. Señales (qué aprende)
 
 Solo la **app** sabe si una canción se escuchó entera o se quitó (el servidor solo ve cuándo empieza a sonar), así
-que la app manda **eventos** (sección 8). Pesos iniciales, para ajustar con datos (constantes en el código):
+que la app manda **eventos** (sección 9). Pesos iniciales, para ajustar con datos (constantes en el código):
 
 | Señal | Peso | Notas |
 |---|---|---|
@@ -93,7 +93,46 @@ todo con todo: solo con **candidatas** (mismo artista, mismo género, canciones 
   defecto). Hasta entonces, fijo: ~85 % conocido, ~15 % sorpresa.
 - Usuario nuevo: lo más escuchado en el servidor + elegir 3 artistas o géneros; en 5–10 canciones ya se adapta.
 
-## 7. Cómo lo usan las apps (Android y web)
+## 7. "¿Qué te parecieron las recomendaciones?" (opinión del usuario)
+
+Además de lo que se deduce de saltos y favoritas, la app **pregunta de vez en cuando** y deja opinar cuando uno
+quiera. Es la señal más directa de si el algoritmo acierta, y cada respuesta **cambia algo concreto** solo para
+esa persona.
+
+**Cuándo pregunta** (sin ser pesada):
+- Tras una radio o un mix de **10 canciones o más**, al pararla o al acabar.
+- Como mucho **una vez por semana** por persona y nunca dos veces seguidas en el mismo tipo (radio, Para ti, mix).
+- Siempre se puede cerrar sin contestar ("Ahora no" no cuenta como opinión).
+- Y en cualquier momento desde el menú de Radio, Para ti o un mix: **"Opinar sobre estas recomendaciones"**.
+
+**Cómo pregunta:** una tarjeta pequeña, sin salir de la música: **"¿Qué te parecieron?"** con 👍 / 👎 y, si toca
+👎 (o quiere afinar), varias opciones marcables y un texto libre opcional:
+
+| Opción | Qué cambia para esa persona |
+|---|---|
+| 👍 **Me gustaron** | nada; confirma que va bien (y cuenta en las medidas) |
+| **Muy repetitivas** (los mismos artistas o canciones) | más variedad: como mucho 1 del mismo artista cada 10, no repetir lo recomendado en 7 días en vez de 1, algo más de descubrimiento |
+| **No me gustaron las canciones** | menos sorpresa y más de su gusto de siempre (perfil histórico); lo de todos pesa menos |
+| **Ya las conozco todas, quiero cosas nuevas** | más descubrimiento (sube el % nuevo) y más peso a artistas que apenas ha escuchado |
+| **Muy raras / nada que ver conmigo** | menos descubrimiento; solo artistas y géneros que ya escucha |
+| **Mezcla géneros que no pegan** | la radio se queda más cerca del género de la canción de partida |
+| **Quiero más de lo que escucho últimamente** | más peso al perfil reciente |
+| **Salen canciones repetidas o versiones raras** (directos, letra, otra versión) | aviso para revisar la agrupación de versiones (sección 4); prefiere la versión de estudio |
+| ✍️ **Otra cosa** (texto) | se guarda para leerlo a mano; no cambia nada solo |
+
+**Reglas de los ajustes:**
+- Cada respuesta mueve el ajuste **un paso**, con tope (no puede llegar a "0 % de descubrimiento" por una sola
+  respuesta), y **vuelve poco a poco** a lo normal en ~1 mes si no se repite. Así una mala tarde no deja el
+  recomendador estropeado para siempre.
+- Se guarda **con lo que se recomendó** en ese momento (qué sección, desde qué canción y qué canciones salieron),
+  para poder ver después qué falló.
+- Es de cada uno: no cambia las recomendaciones de los demás.
+
+**Para el dueño:** el panel (`panel.py`) enseña un resumen: 👍 frente a 👎 de la última semana y qué opciones se
+marcan más ("muy repetitivas" ×4…), y los textos libres. Es la forma más rápida de saber qué ajustar. También van
+en las medidas de la sección 12.
+
+## 8. Cómo lo usan las apps (Android y web)
 
 El servidor manda **qué secciones hay y qué llevan** (`/home`); las apps las dibujan como carrusel o lista, sin
 lógica propia. Si una ruta no existe (404) o falla, la app enseña lo de siempre (biblioteca, recientes): así se
@@ -103,11 +142,13 @@ puede apagar el recomendador sin romper las apps.
 - **"Iniciar radio"** en el reproductor y en el menú de cada canción y artista.
 - **Al acabarse la cola, sigue sola** con la radio de la última canción (se puede apagar en ajustes).
 - **"No me gusta"** en el menú de cada canción y en el reproductor.
-- **Eventos** (sección 8): al empezar, al terminar entera y al cambiar antes de tiempo. Sin conexión se guardan y
+- **La tarjeta "¿Qué te parecieron?"** (sección 7) y **"Opinar sobre estas recomendaciones"** en el menú de cada
+  sección recomendada.
+- **Eventos** (sección 9): al empezar, al terminar entera y al cambiar antes de tiempo. Sin conexión se guardan y
   se mandan después (como ya hace la app con favoritas y playlists).
 - Web: lo mismo; los eventos salen del reproductor del navegador (`ended`, cambio antes de tiempo).
 
-## 8. Rutas (contrato con las apps)
+## 9. Rutas (contrato con las apps)
 
 Todas piden la sesión como siempre.
 
@@ -116,10 +157,12 @@ Todas piden la sesión como siempre.
 | `POST /eventos` | `{eventos: [{tipo, id, segundo, duracion, contexto, causa, cuando}]}` en lote. `tipo`: `inicio`, `entera`, `salto`, `no_me_gusta`, `ya_no_me_gusta`. `contexto`: `radio`, `para_ti`, `mix`, `busqueda`, `biblioteca`, `playlist`, `favoritas`. `causa` (si se cortó): `usuario`, `error`, `dispositivo`, `interrupcion`. `cuando`: hora real (para lo mandado sin conexión) | 1 |
 | `GET /home` | `{secciones: [{id, titulo, tipo: canciones\|artistas\|mixes, items}]}` en el orden a enseñar | 1 |
 | `GET /radio?desde=cancion:<id>` o `artista:<nombre>` `&ya=<ids puestos>&n=20` | las siguientes `n`; volver a pedir al acercarse al final | 1 |
+| `POST /recomendaciones/opinion` | `{contexto: radio\|para_ti\|mix, semilla, gusto: si\|no, opciones: [repetitivas, no_me_gustaron, quiero_nuevas, muy_raras, generos_no_pegan, mas_reciente, versiones_raras], texto, canciones: [ids que se mostraron], cuando}` (sección 7) | 1 (guardar) y 3 (aplicar) |
+| `GET /recomendaciones/preguntar?contexto=…` | `{preguntar: bool}`: si toca enseñar la tarjeta ahora (lleva la cuenta de "una vez por semana") | 1 |
 | `GET /mixes`, `GET /mix/<id>` | los mixes del usuario | 4 |
 | `PUT /ajustes/recomendaciones` | `{descubrir: 0–100, usar_lo_de_todos: bool, radio_al_acabar: bool}` | 4–5 |
 
-## 9. Cuánto cuesta en rendimiento
+## 10. Cuánto cuesta en rendimiento
 
 Con lo de hoy (~2.200 canciones, 7 usuarios) y pensando en ~10.000 canciones y ~20 usuarios. El servidor tiene 4
 núcleos y 15 GB de RAM y ahora mismo está casi parado.
@@ -139,24 +182,25 @@ núcleos y 15 GB de RAM y ahora mismo está casi parado.
 aparte (si no, durante ese minuto la API podría ir a tirones). Los riesgos reales no son de rendimiento sino de
 calidad (que recomiende mal) y, en la fase 6, de YouTube.
 
-## 10. Cómo ajustarlo, apagarlo o quitarlo
+## 11. Cómo ajustarlo, apagarlo o quitarlo
 
 - **Todo en un módulo aparte** (`server/recomendar.py`) y sus datos en archivos propios (`eventos`, `perfiles`,
   `parecidos` en `/var/lib/musicapp/recomendar/`). No toca la biblioteca ni las favoritas.
-- **Ajustar:** los pesos de la sección 2, las vidas medias de la sección 3, las mezclas de la 5 y las reglas de
-  la 6 son constantes con nombre al principio del módulo.
+- **Ajustar:** los pesos de la sección 2, las vidas medias de la sección 3, las mezclas de la 5, las reglas de la
+  6 y lo que mueve cada opinión (sección 7) son constantes con nombre al principio del módulo.
+- **Las opiniones** se guardan aparte (`opiniones` en la misma carpeta): se pueden borrar sin tocar lo demás.
 - **Apagar:** `RECOMENDAR: "0"` en `docker-compose.yml`: las rutas responden 404 y las apps enseñan lo de siempre.
   Los eventos se pueden seguir guardando o no.
 - **Quitar:** borrar el módulo, sus rutas en `app.py`, la línea de compose y la carpeta de datos. Nada más depende
   de él.
 
-## 11. Fases y cómo saber si funciona
+## 12. Fases y cómo saber si funciona
 
 | Fase | Qué | Hecha cuando… |
 |---|---|---|
-| 1 | Eventos (app y web) + botón "No me gusta" + `/radio` y `/home` (Para ti, Vuelve a escuchar) por parecido y "qué suena después" propio | la radio no repite, no pone duplicados y sigue sola al acabar la cola |
+| 1 | Eventos (app y web) + botón "No me gusta" + `/radio` y `/home` (Para ti, Vuelve a escuchar) por parecido y "qué suena después" propio + **la tarjeta de opinión** (se guarda y se ve en el panel) | la radio no repite, no pone duplicados y sigue sola al acabar la cola |
 | 2 | Perfil doble (histórico + reciente) y versiones agrupadas | lo reciente se nota en días; lo de siempre no desaparece |
-| 3 | Afinar con datos | ver la tabla de abajo |
+| 3 | Afinar con datos + **las opiniones ya cambian el recomendador de cada uno** (sección 7) | ver la tabla de abajo |
 | 4 | Mixes diarios + regulador de descubrimiento | |
 | 5 | Lo de todos, **opcional** (apagado por defecto) | |
 | 6 | Descubre con YouTube Music, bajando de noche | |
@@ -165,8 +209,9 @@ calidad (que recomiende mal) y, en la fase 6, de YouTube.
 - % de canciones recomendadas escuchadas enteras frente a las puestas a mano (meta: parecido o mejor).
 - % de saltos en la radio (meta: bajar con el tiempo).
 - Cuántas recomendaciones acaban en ♡ o en una playlist.
+- 👍 frente a 👎 en la tarjeta de opinión, y qué opciones se repiten más (sección 7).
 
-## 12. Riesgos
+## 13. Riesgos
 
 - **Que recomiende mal al principio:** pocos datos. Por eso empieza con lo seguro (parecido y lo propio) y se
   ajusta con las medidas.
