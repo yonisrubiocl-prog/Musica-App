@@ -262,7 +262,14 @@
   .np .ctls { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
   .np .ctls .ctl svg { width: 28px; height: 28px; }
   .np .ctls .ctl.main { width: 68px; height: 68px; } .np .ctls .ctl.main svg { width: 34px; height: 34px; }
-  .np .tabs { display: flex; margin-top: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .np .tabs { display: flex; margin-top: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+              /* pegada arriba al bajar: la letra pasa por debajo y "ocultar letra" (o "Siguiente") siempre a la vista */
+              position: sticky; z-index: 3; top: calc(-1 * var(--np-pad)); border-top: 0;
+              padding: var(--np-pad) var(--np-x) 0; margin: calc(18px - var(--np-pad)) calc(-1 * var(--np-x)) 0;
+              background: var(--np-bg); }
+  .np .tabs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 34px; pointer-events: none;
+                     background: linear-gradient(var(--np-bg), transparent); }   /* la letra se desvanece al pasar por debajo */
+  .np .in { --np-pad: 14px; --np-x: 22px; --np-bg: #0f0f1b; }
   .np .tabs button { flex: 1; padding: 14px 0; color: var(--muted); font-weight: 600; position: relative; }
   .np .tabs button.on { color: var(--primary); }
   .np .tabs button.on::after { content: ""; position: absolute; left: 35%; right: 35%; bottom: -1px; height: 3px; border-radius: 3px; background: var(--primary); }
@@ -297,7 +304,7 @@
     .np::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
                  background: radial-gradient(120% 60% at 50% 0%, rgba(155,92,255,.16), transparent 60%); }
     .np .tint { position: absolute; inset: -25%; opacity: .55; }
-    .np .in { position: relative; z-index: 1; height: 100%; overflow-y: auto; padding: 20px 26px 28px; }
+    .np .in { position: relative; z-index: 1; height: 100%; overflow-y: auto; padding: 20px 26px 28px; --np-pad: 20px; --np-x: 26px; --np-bg: #15132a; }
     .np .top .back { visibility: hidden; }
     .np .cover { width: 100%; margin-top: 14px; border-radius: 22px;
                  box-shadow: 0 26px 60px rgba(0,0,0,.55), 0 0 60px rgba(155,92,255,.18); }

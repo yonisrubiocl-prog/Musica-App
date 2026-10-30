@@ -107,7 +107,8 @@ mientras suena); sin canción enseña "Aquí
 sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). Márgenes simétricos (sin
 hueco entre el contenido y el panel). **En pantallas muy anchas (≥1500 px)**, tres tarjetas iguales: **la cola
 ("Siguiente") a la izquierda**, siempre a la vista, el contenido en medio y el reproductor a la derecha (que
-entonces solo tiene la letra, con un interruptor "Letra · ocultar" / "Mostrar letra" que se recuerda). **Cómo se
+entonces solo tiene la letra, con un interruptor "Letra · ocultar" / "Mostrar letra" que se recuerda y se queda
+pegado arriba del panel mientras la letra baja). **Cómo se
 llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, biblioteca, género) es **modo radio**: esa
 canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
 lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas las demás mezcladas; **sin
