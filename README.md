@@ -80,9 +80,12 @@ a veces piden el archivo dos veces o retoman una descarga cortada, y gastarían 
 más: lo que protege la música es el login dentro de la app; un APK pasado por WhatsApp no reproduce nada sin una
 cuenta aprobada. Mientras no haya APK, al aprobado le dice "todavía no está lista".
 
-**Publicar una versión:** copiar el APK firmado a `/var/lib/musicapp/app/musica.apk` (montada solo lectura en la
-API como `/app-dist`). Sin reiniciar nada: el siguiente que entre baja la nueva. Solo Android: en iPhone no se
-pueden instalar apps fuera de la tienda. El actualizador propio de la fase 2 puede usar este mismo archivo.
+**Publicar una versión:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
+sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).
+La carpeta está montada solo lectura en la API como `/app-dist`. Sin reiniciar nada: el siguiente que entre en
+la página baja la nueva, y la app instalada lo ve en `/app/version` y avisa. **No hacer pruebas en esa carpeta**
+(una prueba ya borró un APK publicado): probar con otro nombre de archivo. Solo Android: en iPhone no se
+pueden instalar apps fuera de la tienda. El actualizador de la app usa este mismo archivo.
 
 Restos de antes de juntar las carpetas (se pueden borrar cuando se quiera, con `sudo`):
 `/var/lib/musicbot/cache` (los mismos archivos que la biblioteca, enlazados: borrarla casi no libera espacio
@@ -103,6 +106,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, con el estilo Dark Premium de la app y el logo del perrito). Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
 | `GET /logo.png` | El logo (`server/web/logo.png`, 512×512), también icono de la pestaña. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
+| `GET /app/version` | Versión publicada de la app (`version.json` junto al APK: `{"build": 3, "version": "1.0.2"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir, en plural/singular o con faltas: "one pilot", "chayane", "stresed out" encuentran lo suyo; las exactas primero. Ver `Library.find`), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado |

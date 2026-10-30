@@ -288,6 +288,17 @@ def apk_link(found=Depends(check_token)):
             "size": os.path.getsize(APK), "date": int(os.path.getmtime(APK))}
 
 
+@app.get("/app/version")
+def app_version(found=Depends(check_token)):
+    """Versión publicada de la app (la escribe tools/publicar.ps1 de la app junto al APK, como version.json):
+    la app avisa si es mayor que la suya y se actualiza con /app/enlace."""
+    try:
+        with open(os.path.join(os.path.dirname(APK), "version.json")) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):   # ValueError: se está escribiendo justo ahora
+        raise HTTPException(404, "sin versión publicada")
+
+
 @app.get("/app/descargar/{link}")
 def apk_download(link: str):
     if _apk_links.get(link, 0) < time.time() or not os.path.isfile(APK):
