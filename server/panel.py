@@ -18,6 +18,7 @@ from datetime import datetime
 
 D = os.path.dirname(os.path.abspath(__file__))
 USERS = os.path.join(D, "data", "users.json")
+USERDATA = os.path.join(D, "data", "userdata.json")   # historial de cada uno (última canción que pidió)
 CONT = "musicapp-api"
 ORDEN = {"pendiente": 0, "aprobado": 1, "bloqueado": 2}
 VERDE, AMARILLO, ROJO, CIAN, GRIS = 1, 2, 3, 4, 5
@@ -36,6 +37,8 @@ AYUDA = [
     ("", "https://musica.yoneapolis.com/acceso  (entran con Google y quedan pendientes)"),
     ("Colores", ""),
     ("", "amarillo = pendiente · verde = aprobado · rojo = bloqueado"),
+    ("Última canción", ""),
+    ("", "Cuándo pidió su última canción en la app o la web (no cuenta Discord). Verde: hace menos de 1 h."),
 ]
 
 
@@ -47,6 +50,32 @@ def leer():
     except (OSError, ValueError):
         return []
     return sorted(data.items(), key=lambda kv: (ORDEN.get(kv[1]["status"], 9), kv[1].get("since", 0)))
+
+
+def ultimas():
+    """sub -> (cuándo pidió su última canción, cuántas en las últimas 24 h)."""
+    try:
+        with open(USERDATA, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    ahora = time.time()
+    return {sub: (h[0][1], sum(1 for _, t in h if ahora - t < 86400))
+            for sub, d in data.items() if (h := d.get("history"))}
+
+
+def hace(t):
+    """'ahora', 'hace 12 min', 'hace 3 h', 'ayer', 'hace 5 días'."""
+    if not t:
+        return "nunca"
+    s = time.time() - t
+    if s < 120:
+        return "ahora"
+    if s < 3600:
+        return f"hace {int(s // 60)} min"
+    if s < 86400:
+        return f"hace {int(s // 3600)} h"
+    return "ayer" if s < 2 * 86400 else f"hace {int(s // 86400)} días"
 
 
 def fecha(t):
@@ -94,6 +123,7 @@ class UI:
         H, W = s.scr.getmaxyx()
         if not s.modo_cmd and not s.conf:   # mientras se escribe, la lista (y sus números) no se mueve
             s.lista = leer()
+        act = ultimas()
         n = {st: sum(u["status"] == st for _, u in s.lista) for st in ORDEN}
         s.put(0, 0, " MusicApp · usuarios".ljust(W - 9) + time.strftime("%H:%M:%S"), 0, True)
         s.scr.chgat(0, 0, W, curses.A_REVERSE | curses.A_BOLD)
@@ -102,14 +132,20 @@ class UI:
         s.put(1, 31, f"{n['bloqueado']} bloqueados", ROJO)
 
         s.caja(2, 0, H - 3, W, "USUARIOS")
-        s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'última vez'}", GRIS, True)
+        s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'último login':<13} "
+                    f"{'última canción':<14} {'24 h'}", GRIS, True)
         if not s.lista:
             s.put(5, 4, "Nadie ha pedido acceso todavía. Enlace: https://musica.yoneapolis.com/acceso", GRIS)
-        for i, (_, u) in enumerate(s.lista[: max(0, H - 7)], start=1):
+        for i, (sub, u) in enumerate(s.lista[: max(0, H - 7)], start=1):
             s.put(3 + i, 2, f"{i:>3}  ", 0, True)
             s.put(3 + i, 7, f"{u['status']:<10} ", COLOR.get(u["status"], 0), u["status"] == "pendiente")
             s.put(3 + i, 18, f"{u['email'][:33]:<34} {(u.get('name') or '')[:21]:<22} "
-                             f"{fecha(u.get('since')):<12} {fecha(u.get('seen'))}")
+                             f"{fecha(u.get('since')):<12} {fecha(u.get('seen')):<13} ")
+            t, dia = act.get(sub, (0, 0))
+            reciente = t and time.time() - t < 3600
+            s.put(3 + i, 104, f"{hace(t):<14} ", VERDE if reciente else (GRIS if not t or time.time() - t > 86400 else 0),
+                  bool(reciente))
+            s.put(3 + i, 119, f"{dia or '—'}", GRIS if not dia else 0)
         if len(s.lista) > H - 7:
             s.put(H - 2, 4, f"… y {len(s.lista) - (H - 7)} más (agranda la ventana)", GRIS)
         if s.ayuda:
