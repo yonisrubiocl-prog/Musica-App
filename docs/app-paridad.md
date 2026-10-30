@@ -20,6 +20,8 @@
    `GET /search/album/<id>` (canciones en orden, `track`, y `where` para marcar las guardadas).
 4. **Biblioteca** — `GET /library?sort=recientes|populares|nombre|artista&offset=&limit=&genre=` (scroll infinito),
    `GET /genres`, `GET /artists`, `GET /artist?name=`, `GET /album?artist=&name=`. Las canciones traen `genre`.
+   **Artistas como en Spotify**: `GET /artists?orden=tuyos` (los que más escuchas primero, `tuyo: true`) para la
+   Biblioteca → Artistas; en `/artist`, `tuyas` (sección "Tus canciones" arriba) y `todas` (la cola al reproducir).
    **No agrupar artistas en la app**: usar `/artist` tal cual (cuenta colaboraciones, "feat." del título y
    canciones sin artista con el nombre en el título; las colaboraciones vienen en `loose` aunque tengan álbum).
 5. **Favoritas** — `GET /favorites`, `PUT /favorites/<id>` (si no está guardada, en el cuerpo `{title, artist, album,
@@ -55,13 +57,17 @@
 3. **"¿Qué te parecieron?"**: tras 10 recomendadas seguidas, si `/recomendaciones/preguntar` dice que sí: 👍/👎,
    opciones `repetitivas`, `no_me_gustaron`, `quiero_nuevas`, `muy_raras`, `generos_no_pegan`, `mas_reciente`,
    `versiones_raras`, texto libre y "Ahora no".
-4. **Inicio**: las secciones de `/home` (Para ti, Vuelve a escuchar) junto a las de siempre.
-5. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
+4. **Inicio**: las secciones de `/home` (Para ti, Vuelve a escuchar) junto a las de siempre, y **"Tus artistas"**
+   (`id: artistas`, `tipo: artistas`, items como `/artists`) en vez de la fila de todos los artistas.
+5. **Página de un artista**: arriba **"Tus canciones"** (`tuyas`, si hay); "▶ Reproducir" y tocar cualquiera de sus
+   canciones usan **`todas`** desde esa canción hacia abajo, **en orden y apagando el aleatorio** (se puede volver a
+   encender mientras suena).
+6. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
    fondo desenfocado "respira" (9 s). Solo mientras suena; sin animación si el sistema pide reducir movimiento.
    (En Flutter: `ClipRRect` + `Transform` con un `AnimationController` de 24 s `repeat(reverse: true)`; fondo con
    `ImageFilter.blur` ~80 y opacidad 0,4–0,65.)
-6. **Letra**: si se puede ocultar, que se recuerde; y que la barra de pestañas (Siguiente/Letra) **se quede pegada
+7. **Letra**: si se puede ocultar, que se recuerde; y que la barra de pestañas (Siguiente/Letra) **se quede pegada
    arriba** al bajar por la letra.
-7. **Eventos para las recomendaciones**: al cambiar antes del 80 %, `salto` con el segundo; al pasar del 80 %,
+8. **Eventos para las recomendaciones**: al cambiar antes del 80 %, `salto` con el segundo; al pasar del 80 %,
    `entera`; si falló la reproducción, `salto` con `causa: "error"`. `contexto` según de dónde vino (`radio`,
    `para_ti`, `vuelve`, `busqueda`, `biblioteca`, `playlist`, `favoritas`).

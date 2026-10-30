@@ -40,6 +40,7 @@ RECO_SKIP_PAUSE = 5 * 86400             # saltada estando recomendada: no recome
 # ---- perfil doble (sección 3) ----
 HALF_HISTORIC, HALF_RECENT = 180 * 86400, 10 * 86400
 MIX_HISTORIC = 0.6                      # el resto, lo reciente
+HALF_ARTIST = 45 * 86400                # "Tus artistas": una reproducción de hace 45 días vale la mitad
 # ---- radio y Para ti (secciones 5 y 6) ----
 SESSION_GAP = 30 * 60                   # dos escuchas más separadas que esto no son "una detrás de otra"
 S_NEXT, S_ARTIST, S_GENRE, S_YEAR, S_ALBUM = 3.0, 1.0, 0.6, 0.2, 0.1
@@ -389,6 +390,29 @@ class Recomendar:
                 old["yt-" + e["id"]] += 1
         blocked = self._blocked(sub) | recent
         return self._pick([(c, k) for k, c in old.items() if c >= 2 and k not in blocked], n)
+
+    def top_artists(self, sub):
+        """Los artistas que más escucha (como "Tus artistas" de Spotify): {artista normalizado: puntos}. Cada vez que
+        puso una canción cuenta más cuanto más reciente (la mitad a los HALF_ARTIST); favoritas y playlists suman un
+        poco, así quien acaba de llegar ya tiene orden."""
+        songs, now = self.catalog()["songs"], time.time()
+        score = collections.Counter()
+
+        def add(key, w, when):
+            if key in songs:
+                score[songs[key]["artist_n"]] += w * 0.5 ** (max(0, now - when) / HALF_ARTIST)
+
+        for e in self.events.get(sub, []):
+            if e["tipo"] == "inicio":
+                add("yt-" + e["id"], 1.0, e["cuando"])
+        for vid, when in self.ud.history(sub, 200):   # lo de antes de los eventos (una vez por canción)
+            add("yt-" + vid, 1.0, when)
+        for f in self.ud.favorites(sub):
+            add("yt-" + f["id"], 0.5, now)
+        for p in self.ud.playlists(sub):
+            for s in p["songs"]:
+                add("yt-" + s["id"], 0.3, now)
+        return score
 
     def recent(self, sub, n=15):
         out = []

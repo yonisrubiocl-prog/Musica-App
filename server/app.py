@@ -628,19 +628,46 @@ def genres():
     return {"genres": LIB.genres()}
 
 
-@app.get("/artists", dependencies=[Depends(check_token)])
-def artists():
-    """Todos los artistas guardados: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
-    return {"artists": LIB.artists()}
+def my_artists(sub):
+    """{artista normalizado: puntos} de lo que más escucha esta cuenta ({} sin cuenta o sin recomendaciones)."""
+    return REC.top_artists(sub) if REC and sub else {}
 
 
-@app.get("/artist", dependencies=[Depends(check_token)])
-def artist(name: str = Query(min_length=1, max_length=200)):
-    """Un artista: sus álbumes [{name, year, songs, thumb}] (más nuevos primero) y sus canciones sin álbum."""
+@app.get("/artists")
+def artists(found=Depends(check_token), orden: str = Query("canciones", pattern="^(canciones|tuyos)$")):
+    """Todos los artistas guardados: [{name, songs, albums, thumb}], los que más canciones tienen primero. Con
+    orden=tuyos (y sesión), primero los que más escuchas (como "Tus artistas" de Spotify; esos traen `tuyo: true`)
+    y detrás los demás."""
+    out = LIB.artists()
+    mine = my_artists(found[0] if found else None) if orden == "tuyos" else {}
+    if mine:
+        for a in out:
+            a["tuyo"] = mine.get(LIB._norm(a["name"]), 0) > 0
+        out.sort(key=lambda a: -mine.get(LIB._norm(a["name"]), 0))   # estable: los demás, por canciones
+    return {"artists": out}
+
+
+@app.get("/artist")
+def artist(found=Depends(check_token), name: str = Query(min_length=1, max_length=200)):
+    """Un artista: sus álbumes [{name, year, songs, thumb}] (más nuevos primero) y sus canciones sin álbum. Con
+    sesión, además `tuyas` (las suyas que tienes en favoritas o en alguna playlist: favoritas primero, la última
+    marcada arriba) y `todas` (la cola al darle a reproducir: las tuyas y luego las demás, las más puestas primero)."""
     a = LIB.artist(name)
     if not a:
         raise HTTPException(404, "no hay canciones de ese artista")
-    return {"name": a["name"], "songs": a["songs"], "albums": a["albums"], "loose": yt_entries(a["loose"])}
+    out = {"name": a["name"], "songs": a["songs"], "albums": a["albums"], "loose": yt_entries(a["loose"])}
+    if found:
+        sub = found[0]
+        songs = dict(a["loose"])
+        for al in a["albums"]:
+            songs.update((LIB.album(a["name"], al["name"]) or {}).get("songs", []))
+        order = [f["id"] for f in userdata.favorites(sub)] + [x["id"] for p in userdata.playlists(sub) for x in p["songs"]]
+        mine = list(dict.fromkeys(k for k in ("yt-" + i for i in order) if k in songs))
+        rest = sorted((k for k in songs if k not in set(mine)),
+                      key=lambda k: (-songs[k].get("plays", 0), (songs[k].get("title") or "").lower()))
+        out["tuyas"] = yt_entries([(k, songs[k]) for k in mine])
+        out["todas"] = yt_entries([(k, songs[k]) for k in mine + rest])
+    return out
 
 
 @app.get("/album", dependencies=[Depends(check_token)])
@@ -798,6 +825,11 @@ def home(found=Depends(check_token)):
         items = rec_songs(keys)
         if items:
             out.append({"id": sid, "titulo": title, "tipo": "canciones", "items": items})
+    mine = rec.top_artists(sub)
+    tuyos = [a for a in LIB.artists() if mine.get(LIB._norm(a["name"]), 0) > 0]
+    tuyos.sort(key=lambda a: -mine[LIB._norm(a["name"])])
+    if tuyos:   # tipo artistas: items = [{name, songs, albums, thumb}], como /artists
+        out.append({"id": "artistas", "titulo": "Tus artistas", "tipo": "artistas", "items": tuyos[:20]})
     return {"secciones": out}
 
 

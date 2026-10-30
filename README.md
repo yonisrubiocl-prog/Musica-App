@@ -118,7 +118,11 @@ lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas la
 aleatorio**, depende de dónde: en las **filas del Inicio** (Escuchado recientemente, Tus favoritas, Para ti, Vuelve
 a escuchar) suena **la lista entera** aunque la fila enseñe solo 20: la elegida y luego la lista en su orden normal
 desde el principio (7, 1, 2, 3…);
-en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. La cola solo enseña lo que
+en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. **Artistas
+como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas los pone
+primero; en la página de un artista, arriba **"Tus canciones"** (las suyas que tienes en Me gusta o en una
+playlist), y "▶ Reproducir" o tocar cualquiera de sus canciones suena **en orden y sin aleatorio** (lo apaga; se
+puede volver a encender): primero las tuyas y luego las demás, las más puestas primero. La cola solo enseña lo que
 viene desde la canción actual, así que el número cambia según suena. En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
@@ -186,14 +190,14 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /playlists` | `{name}` → `{id}`. Como mucho 200 playlists |
 | `PUT /playlists/<id>` | `{name, songs: [ids en orden]}`: **guarda la playlist entera** (quitar, añadir y reordenar son el mismo cambio; lo hecho sin conexión se sube igual, gana el último en guardar). Una canción que el servidor no conoce (ni guardada, ni en favoritas o playlists, ni en búsquedas recientes) va como ficha `{id, title, artist, album, duration, thumb}`; si falta, 400 con `{detail: {error, ids}}`. Hasta 2.000 canciones |
 | `DELETE /playlists/<id>` | Borrar una playlist |
-| `GET /home` | Secciones del Inicio recomendadas: `{secciones: [{id: recientes\|para_ti\|vuelve, titulo, tipo, items}]}` (ver `docs/recomendaciones.md`) |
+| `GET /home` | Secciones del Inicio recomendadas: `{secciones: [{id: recientes\|para_ti\|vuelve\|artistas, titulo, tipo, items}]}`; `tipo: canciones` o, en `artistas` ("Tus artistas", hasta 20), `tipo: artistas` con items como `/artists` (ver `docs/recomendaciones.md`) |
 | `GET /radio?desde=cancion:<id>\|artista:<nombre>&ya=<ids>&n=20` | Radio infinita: las siguientes `n`, sin repetir lo de `ya` |
 | `POST /eventos` | `{eventos: [{tipo: entera\|salto\|no_me_gusta\|ya_no_me_gusta, id, segundo, duracion, contexto, causa, cuando}]}` en lote ("empezó a sonar" lo apunta `/stream`) |
 | `POST /recomendaciones/opinion`, `GET /recomendaciones/preguntar?contexto=` | "¿Qué te parecieron?" y si toca preguntarlo (una vez por semana) |
 | `GET /history?limit=50` | **Lo último que puse yo** (no lo de todos), lo más reciente primero, con `played`. Se apunta solo al empezar a sonar una canción por `/stream` (los saltos dentro de la canción no cuentan); hasta 200 |
 | `GET /genres` | Géneros de lo guardado: `{genres: [{name, songs}]}`, los que más tienen primero (ver "Género y fichas"). Para filtrar: `/library?genre=…`. Pide sesión |
-| `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
-| `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum]}`; álbumes del más nuevo al más viejo. 404 si no hay. Pide sesión |
+| `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero; con `?orden=tuyos`, primero **los que más escuchas** (`tuyo: true`; cada vez que pusiste una canción suya cuenta, la mitad a los 45 días, y suman un poco favoritas y playlists: `Recomendar.top_artists`). Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
+| `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum y colaboraciones]}`; álbumes del más nuevo al más viejo. Con sesión de usuario, además **`tuyas`** (las suyas en tus favoritas, la última marcada primero, y luego en tus playlists) y **`todas`** (la cola de "Reproducir": las tuyas y luego las demás, las más puestas primero). 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
 

@@ -673,7 +673,8 @@ async function inicio() {
   if (lists.favs.songs.length) h += `<h2>Tus favoritas <small>${favs.size}</small></h2><div class="rail">${songCards('favs')}</div>`;
   if (genresCache.length) h += `<h2>Explora por género</h2><div class="chips wrapped">${genresCache.slice(0, 16)
     .map(g => `<button class="chip glass" data-genre="${esc(g.name)}">${esc(g.name)}</button>`).join('')}</div>`;
-  h += `<h2>Artistas</h2><div class="rail">${artistCards(arts.artists.slice(0, 20))}</div>`;
+  const mios = recs.secciones.find(s => s.id === 'artistas')?.items;   // los que más escuchas, como en Spotify
+  h += `<h2>${mios ? 'Tus artistas' : 'Artistas'}</h2><div class="rail">${artistCards((mios || arts.artists).slice(0, 20))}</div>`;
   h += `<h2>Lo más puesto</h2><div class="list">${rows('pop')}</div>`;
   if (!lists.hist.songs.length && !lists.favs.songs.length) h = `<div class="empty">Pon algo y toca ♡ en lo que te guste: aquí saldrá lo tuyo,<br>igual que en la app.</div>` + h;
   $('home').innerHTML = h;
@@ -845,10 +846,16 @@ async function showArtist(name) {
   page = null;
   let a;
   try { a = await api('/artist?name=' + encodeURIComponent(name)); } catch (e) { return toast('No hay canciones guardadas de ' + name); }
-  lists = {}; setList('view', a.loose, 'lista');
+  // Como en Spotify: arriba las suyas que tienes en favoritas o playlists, y al reproducir suenan esas primero y
+  // luego las demás (a.todas, la cola que arma el servidor), en orden y sin aleatorio.
+  const todas = a.todas || a.loose, tuyas = a.tuyas || [];
+  lists = {}; setList('view', a.loose, 'lista', todas); setList('tuyas', tuyas, 'lista', todas);
+  lists.view.orden = lists.tuyas.orden = true;
   const img = a.albums.find(x => x.thumb)?.thumb || a.loose.find(x => x.thumb)?.thumb;
   wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img, round: true, title: a.name,
-      sub: `${nSongs(a.songs)}${a.albums.length ? ` · ${a.albums.length} ${a.albums.length === 1 ? 'álbum' : 'álbumes'}` : ''}`})}
+      sub: `${nSongs(a.songs)}${a.albums.length ? ` · ${a.albums.length} ${a.albums.length === 1 ? 'álbum' : 'álbumes'}` : ''}`,
+      acts: todas.length ? '<button class="pill main" data-playall>▶ Reproducir</button>' : ''})}
+    ${tuyas.length ? `<h2>Tus canciones <small>${tuyas.length}</small></h2><div class="list">${rows('tuyas')}</div>` : ''}
     ${a.albums.length ? '<h2>Álbumes</h2><div class="rail">' + albumCards(a.albums.map(al => ({...al, artist: a.name,
         sub: [al.year, nSongs(al.songs)].filter(Boolean).join(' · ')}))) + '</div>' : ''}
     ${a.loose.length ? `<h2>${a.albums.length ? 'Otras canciones' : 'Canciones'}</h2><div class="list">${rows('view')}</div>` : ''}</div>`;
@@ -917,7 +924,7 @@ async function showLib() {
     setList('lib', (await api('/history?limit=100').catch(() => ({songs: []}))).songs, 'lista');
     box.innerHTML = lists.lib.songs.length ? `<h2>Lo último que pusiste</h2><div class="list">${rows('lib')}</div>` : '<div class="empty">Todavía no has puesto nada.</div>';
   } else {
-    const j = await api('/artists'); artistsCache = j.artists;
+    const j = await api('/artists?orden=tuyos'); artistsCache = j.artists;   // los que más escuchas primero
     box.innerHTML = `<h2>Artistas <small>${j.artists.length}</small></h2><div class="grid">${artistCards(j.artists.slice(0, 400))}</div>`;
   }
 }
@@ -960,8 +967,8 @@ wrap.addEventListener('click', e => {
     if (l.kind === 'radio') return playOne(s);
     const all = l.full || l.songs;   // la lista entera, aunque la fila enseñe menos
     const fila = ['hist', 'favs', 'para_ti', 'vuelve'].includes(r.dataset.l);   // filas del Inicio: la lista entera
-    return playList(all, Math.max(0, all.findIndex(x => x.id === s.id)), fila); }
-  if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.songs, 0);
+    return playList(all, Math.max(0, all.findIndex(x => x.id === s.id)), fila, l.orden); }
+  if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.full || lists.view.songs, 0, false, lists.view.orden);
   const pl = e.target.closest('[data-pl]'); if (pl) return showPlaylist(pls[+pl.dataset.pl]);
   const g = e.target.closest('[data-genre]'); if (g) return showGenre(g.dataset.genre);
   const t = e.target.closest('[data-artist]'); if (t) return showArtist(t.dataset.artist);
@@ -980,9 +987,11 @@ let shuffleOn = store.get('aleatorio', false), repeat = 'off', follow = store.ge
 function playOne(s) { isRadio = true; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista desde la canción i. Con aleatorio: esa primero y luego todas las demás mezcladas. Sin aleatorio:
 // si entera (filas del Inicio), esa primero y luego la lista entera en su orden normal desde el principio (sin
-// repetirla); si no (Biblioteca: Me gusta, playlist, álbum), desde ahí hacia abajo y ya.
-function playList(songs, i, entera = false) {
+// repetirla); si no (Biblioteca: Me gusta, playlist, álbum), desde ahí hacia abajo y ya. orden (página de un
+// artista): siempre sin aleatorio, que se apaga (se puede volver a encender mientras suena).
+function playList(songs, i, entera = false, orden = false) {
   isRadio = false; radioRecs = 0;
+  if (orden && shuffleOn) { shuffleOn = false; store.set('aleatorio', false); }
   if (shuffleOn && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
   else queue = entera ? [songs[i], ...songs.filter((_, k) => k !== i)] : songs.slice(i);
   qi = 0;
