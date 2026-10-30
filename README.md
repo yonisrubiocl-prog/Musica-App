@@ -15,7 +15,7 @@ sin publicarlo ni cobrar nada.
 **Estado actual** (30-10-2026):
 - **Servidor** hecho y publicado en `https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio;
   `https://yoneapolis.com` lleva aquí). Tailscale Funnel (`https://musicapp.tail66213e.ts.net`) sigue encendido
-  como respaldo. 7 usuarios. ~2.200 canciones (8,4 GB; tope 40 GB).
+  como respaldo. 7 usuarios. ~2.300 canciones (8,1 GB; tope 50 GB).
 - **Biblioteca única** hecha: la API es la dueña de la música (`/var/lib/music`) y el bot de Discord es cliente suyo.
 - **Buscar:** lo guardado tolera faltas y palabras a medio escribir; lo de internet sale de **YouTube Music**
   (20 canciones nuevas siempre, álbumes en orden), con memoria de 7 días y un ritmo máximo con YouTube.
@@ -63,7 +63,7 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
 La **API es la dueña de la música**: una carpeta `/var/lib/music` (~2.200 canciones, 8,4 GB el 30-10-2026) con su catálogo
 `index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
 YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
-`u-<resumen del enlace>`). **Tope de 40 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió para la precarga de álbumes): al pasarlo borra lo que hace
+`u-<resumen del enlace>`). **Tope de 50 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió a 40 y luego a 50 para la precarga de álbumes, que añade ~6.000 canciones / ~26 GB): al pasarlo borra lo que hace
 más que no suena, contando la app y Discord. La lógica está en `server/library.py`: índice de palabras,
 autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 
