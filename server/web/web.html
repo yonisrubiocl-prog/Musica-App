@@ -1190,7 +1190,14 @@ $('npShuffle').onclick = () => {
   paintNp();
 };
 $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[repeat]; paintNp(); };
-$('npTabs').onclick = e => { const b = e.target.closest('button'); if (b) { npTab = b.dataset.np; paintNp(); } };
+// Con la cola a la izquierda (≥1500 px) solo queda "Letra": entonces es un interruptor para mostrarla u ocultarla
+let letraOn = store.get('letra_visible', true);
+$('npTabs').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (tresColumnas.matches && b.dataset.np === 'letra') { letraOn = !letraOn; store.set('letra_visible', letraOn); }
+  else npTab = b.dataset.np;
+  paintNp();
+};
 function paintNp() {
   $('np').classList.toggle('sin', !cur);   // sin canción: el panel de la derecha enseña un mensaje en vez de quedar vacío
   if (tresColumnas.matches) { if (npTab === 'cola') npTab = 'letra'; paintQueue(); }
@@ -1204,7 +1211,10 @@ function paintNp() {
   $('npRepeat').innerHTML = repeat === 'one' ? ICO.repeatOne : ICO.repeat;
   $('npRepeat').classList.toggle('on', repeat !== 'off');
   $('npRepeat').title = {off: 'Repetir', all: 'Repitiendo la lista', one: 'Repitiendo esta canción'}[repeat];
-  document.querySelectorAll('#npTabs button').forEach(b => b.classList.toggle('on', b.dataset.np === npTab));
+  document.querySelectorAll('#npTabs button').forEach(b => b.classList.toggle('on', b.dataset.np === npTab && (!tresColumnas.matches || letraOn)));
+  const letraBtn = document.querySelector('#npTabs [data-np="letra"]');
+  letraBtn.textContent = tresColumnas.matches ? (letraOn ? 'Letra · ocultar' : 'Mostrar letra') : 'Letra';
+  if (tresColumnas.matches && !letraOn) { $('npPanel').innerHTML = ''; lyrFor = null; lyrLines = []; paintHearts(); return; }
   paintHearts();
   if (npTab === 'cola') paintQueue(); else loadLyrics();
 }

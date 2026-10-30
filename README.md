@@ -107,7 +107,11 @@ mientras suena); sin canción enseña "Aquí
 sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). Márgenes simétricos (sin
 hueco entre el contenido y el panel). **En pantallas muy anchas (≥1500 px)**, tres tarjetas iguales: **la cola
 ("Siguiente") a la izquierda**, siempre a la vista, el contenido en medio y el reproductor a la derecha (que
-entonces solo tiene la pestaña Letra). En el móvil, como
+entonces solo tiene la letra, con un interruptor "Letra · ocultar" / "Mostrar letra" que se recuerda). **Cómo se
+llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, biblioteca, género) es **modo radio**: esa
+canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
+lista (álbum, playlist, Me gusta, Para ti) es **modo lista**: toda esa lista desde ahí. La cola solo enseña lo que
+viene desde la canción actual, así que el número cambia según suena. En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
 escribe); los resultados completos salen con Enter (botón aparte "Buscar en YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
