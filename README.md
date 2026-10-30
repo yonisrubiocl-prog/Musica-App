@@ -271,7 +271,11 @@ canción de 5:23); por eso usa la **lista de audio** del álbum (`audioPlaylistI
 bajadas quedan con **título limpio** ("City Walls", no "Twenty One Pilots - City Walls (Official Video)"), la
 **portada del álbum** como foto, artista, álbum, año y número de pista (`track_no`). Estado en
 `server/data/precarga.json`; cómo va: `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`.
-Para pararla: quitar la línea `PRECARGA = …` de `app.py`.
+Para pararla: quitar la línea `PRECARGA = …` de `app.py`. **Saltar un álbum** (o uno que ya
+esté bajando): añadir una línea `Artista | Álbum` a `server/data/precarga-saltar.txt` (sin distinguir mayúsculas
+ni tildes); se lee en cada paso, sin reiniciar, y lo que ya estaba en cola de ese álbum sale al momento. Lo que ya
+se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltado el 30-10-2026: Rawayana |
+ASTROPICAL.
 
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
 600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
@@ -492,7 +496,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
-│                           precarga.json, youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
+│                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── docs/
 │   └── recomendaciones.md   plan y estado del recomendador
 ├── README.md     este documento

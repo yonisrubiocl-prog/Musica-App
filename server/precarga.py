@@ -25,6 +25,7 @@ import time
 log = logging.getLogger("musicapp.precarga")
 
 FILE = "/data/precarga.json"
+SKIP_FILE = "/data/precarga-saltar.txt"  # "Artista | Álbum" por línea: álbumes que no se bajan (se lee en cada paso)
 MIN_SONGS = 5                           # artistas con al menos tantas canciones guardadas
 NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile
 LISTEN = (0.4, 1.1)                     # entre canciones: esta parte de lo que dura la canción, al azar
@@ -122,6 +123,15 @@ class Precarga:
         log.info("precarga: %s, %d álbumes de estudio", name, len(albums))
         return {"done": False, "albums": albums}
 
+    def _skips(self):
+        """{(artista, álbum)} normalizados que no hay que bajar (SKIP_FILE)."""
+        try:
+            with open(SKIP_FILE, encoding="utf-8") as f:
+                rows = [x.split("|", 1) for x in f if "|" in x and not x.lstrip().startswith("#")]
+        except OSError:
+            return set()
+        return {(self.lib._norm(a), self.lib._norm(b)) for a, b in rows}
+
     def _plan_album(self, artist, album):
         """Abre un álbum y pone en la cola sus canciones que no estén ya. Las pistas de un álbum a veces apuntan al
         videoclip (City Walls de Breach: 9:55 con intro, en vez de 5:23); por eso se usa la **lista de audio** del
@@ -158,6 +168,13 @@ class Precarga:
         """Hace UNA cosa (abrir un artista, abrir un álbum o bajar una canción). Devuelve cuánto esperar después
         (segundos, al azar y a ritmo de persona) o None si no queda nada."""
         s = self.state
+        skips = self._skips()
+        if skips:   # álbumes que alguien no quiere: fuera de la cola sin esperar
+            n0 = len(s["queue"])
+            s["queue"] = [q for q in s["queue"] if (self.lib._norm(q["artist"]), self.lib._norm(q["album"])) not in skips]
+            if len(s["queue"]) < n0:
+                s["skipped"] += n0 - len(s["queue"])
+                log.info("precarga: %d canciones fuera (álbum en %s)", n0 - len(s["queue"]), SKIP_FILE)
         if s["queue"]:
             item = s["queue"].pop(0)
             last_of_album = not s["queue"] or s["queue"][0].get("album") != item.get("album")
@@ -192,7 +209,8 @@ class Precarga:
             if a is None:
                 s["artists"][name] = self._plan_artist(name)
                 return random.uniform(*LOOK)
-            pend = [al for al in a["albums"] if not al.get("opened")]
+            pend = [al for al in a["albums"] if not al.get("opened")
+                    and (self.lib._norm(name), self.lib._norm(al["title"])) not in skips]
             if not pend:
                 a["done"] = True
                 continue
