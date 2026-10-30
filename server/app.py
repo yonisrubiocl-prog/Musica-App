@@ -514,7 +514,8 @@ def apk_download(link: str):
 def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt"),
            offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=200)):
     """Primero lo guardado (tolera palabras a medio escribir y faltas: ver Library.find), de 'limit' en 'limit' desde
-    'offset'; 'total' dice cuántas guardadas hay en total (p. ej. "rawayana": 78). Luego, si se pide y es la primera
+    'offset'; 'total' dice cuántas guardadas hay en total (p. ej. "rawayana": 78); 'artists', los artistas que
+    encajan (también con faltas: "cancerbero" -> Canserbero), solo en la primera página. Luego, si se pide y es la primera
     página, YouTube. Sin repetir canciones."""
     out, seen = [], set()
     saved = [(k, e) for k, e in LIB.find(q, 2000) if k.startswith("yt-")]   # /stream solo acepta canciones de YouTube
@@ -533,7 +534,9 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
                     seen.add(f"yt-{e['id']}")
                     out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
                                 "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
-    return {"results": out, "total": len(saved), "offset": offset}
+    arts = [{"name": x["name"], "songs": x["songs"], "albums": x["albums"], "thumb": x["thumb"]}
+            for x in LIB.find_artists(q, 10)] if offset == 0 else []
+    return {"results": out, "total": len(saved), "offset": offset, "artists": arts}
 
 
 @app.get("/suggest", dependencies=[Depends(check_token)])
@@ -548,7 +551,7 @@ def suggest(q: str = Query(min_length=1, max_length=100), n: int = Query(8, ge=1
         tw = Library._norm(text).split()
         return all(any(t.startswith(w) for t in tw) for w in words)
     out = []
-    arts = [a for a in LIB.artists() if fits(a["name"])][:3]
+    arts = LIB.find_artists(q, 3)   # tolera faltas: "cancerbero" -> Canserbero
     out += [{"tipo": "artista", "texto": a["name"], "canciones": a["songs"], "thumb": a["thumb"]} for a in arts]
     albums, seen_al = [], set()
     with LIB.lock:

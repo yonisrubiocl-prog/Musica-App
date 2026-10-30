@@ -228,7 +228,7 @@ class Library:
 
     def _variants(self, w):
         """Palabras guardadas que pueden ser 'w', con su nota: exacta 1; empieza por 'w' (aún escribiendo:
-        'pilot' -> 'pilots') 0.85; su singular (solo si 'w' acaba en s/es: 'pilots' -> 'pilot') 0.8; con faltas
+        'pilot' -> 'pilots') 0.85; su singular (solo si 'w' acaba en s/es: 'pilots' -> 'pilot') 0.7; con faltas
         ('chayane' -> 'chayanne') según lo parecida, como mucho 0.75. Las faltas solo en palabras de 5 letras o
         más: en las cortas casi todo se parece ('hope' ~ 'hype', 'open', 'nope')."""
         out = {}
@@ -241,7 +241,7 @@ class Library:
                 i += 1
         for stem in ([w[:-1]] if w.endswith("s") else []) + ([w[:-2]] if w.endswith("es") else []):
             if len(stem) >= 3 and stem in self.wix:
-                out.setdefault(stem, 0.8)
+                out.setdefault(stem, 0.7)   # < 0.8: solo si sin plurales ni faltas no sale nada ("juanes" no es "juan")
         if len(w) >= 5:
             for c in difflib.get_close_matches(w, self.vocab, n=5, cutoff=0.8):
                 out.setdefault(c, 0.75 * difflib.SequenceMatcher(None, w, c).ratio())
@@ -350,6 +350,7 @@ class Library:
             a = e["title"].split(" - ", 1)[0].strip()
         return a
 
+    CHANNEL = re.compile(r"\s*(?:music|musica|música|vevo|official|oficial|tv|channel|canal)\s*$", re.I)
     JOINT = re.compile(r"\s*(?:,|&|\+|\bfeat\.?|\bft\.?|\bx\b|\by\b|\bwith\b|\bcon\b)\s*", re.I)
 
     def _by_artist(self):
@@ -366,6 +367,10 @@ class Library:
             first = self.JOINT.split(a, 1)[0] if a else ""
             if first and first != a and self._norm(first) in solo:
                 a = first
+            # nombre de canal: "Canserbero Music", "X VEVO", "X Official", "X TV" = el artista X (si existe)
+            base = self.CHANNEL.sub("", a) if a else ""
+            if base and base != a and self._norm(base) in solo:
+                a = base
             n = self._norm(a)
             if n and self._exists(k):
                 groups.setdefault(n, []).append((k, e))
@@ -391,6 +396,30 @@ class Library:
     def genre_of(self, key):
         """Género de una canción: el de su artista."""
         return self._key_genres().get(key, "")
+
+    def find_artists(self, query, n=10):
+        """Artistas para lo escrito: primero los que tienen palabras que empiezan así ("raw" -> Rawayana); si no hay
+        ninguno, los más parecidos aunque esté mal escrito ("cancerbero" -> Canserbero, "chayane" -> Chayanne)."""
+        words_q = self._norm(query).split()
+        if not words_q:
+            return []
+        arts = self.artists()
+        fits = [a for a in arts if all(any(t.startswith(w) for t in self._norm(a["name"]).split()) for w in words_q)]
+        fits.sort(key=lambda a: (not self._norm(a["name"]).startswith(" ".join(words_q)), -a["songs"]))
+        if fits:
+            return fits[:n]
+        q = " ".join(words_q)
+        by = {self._norm(a["name"]): a for a in arts}
+        close = difflib.get_close_matches(q, list(by), n=n, cutoff=0.75)
+        if not close and len(words_q) == 1 and len(q) >= 4:   # una palabra contra cada palabra del nombre
+            word_map = {}
+            for name in by:
+                for t in name.split():
+                    if len(t) >= 4:
+                        word_map.setdefault(t, []).append(name)
+            for t in difflib.get_close_matches(q, list(word_map), n=n, cutoff=0.8):
+                close += [x for x in word_map[t] if x not in close]
+        return sorted((by[c] for c in close), key=lambda a: -a["songs"])[:n]
 
     def artists(self):
         """Todos los artistas: [{name, songs, albums, thumb}], los que más canciones tienen primero."""

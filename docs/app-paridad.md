@@ -10,7 +10,8 @@
 1. **Buscar** — `GET /search?q=…&yt=0|1&offset=&limit=`. `where`: `guardada` o `youtube`. **`total`** = cuántas
    guardadas hay en total ("rawayana" → 78): úsalo en "Ver todas (N)" y pide más con `limit=200` o por páginas. Con
    `yt=1` (solo en la primera página) añade **20 de internet que no estén guardadas**, de YouTube Music. Lo guardado
-   tolera faltas y palabras a medio escribir.
+   tolera faltas y palabras a medio escribir. **`artists`** = los artistas que encajan, también con faltas
+   ("cancerbero" → Canserbero): úsalos para la fila de artistas en vez de filtrarlos en la app.
 2. **Sugerencias mientras se escribe** — `GET /suggest?q=…` (~45 ms, sin YouTube) → `{sugerencias: [{tipo:
    artista|album|cancion, texto, artista, id, canciones, thumb}]}`. **En un desplegable bajo el campo, sin cambiar la
    lista de abajo**; primera fila "🔎 Buscar «texto»"; tocar: artista → su página, álbum → el álbum, canción → que

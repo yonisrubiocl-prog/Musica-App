@@ -774,8 +774,9 @@ async function search() {
   const j = await api('/search?yt=0&q=' + encodeURIComponent(q));   // solo lo guardado: no toca YouTube
   if (q !== lastQ) return;
   resTotal = j.total || j.results.length;
+  // los artistas los decide el servidor (tolera faltas: "cancerbero" -> Canserbero); si no los manda, los de antes
   const nq = norm(q), words = nq.split(/\s+/).filter(Boolean);
-  const arts = artistsCache.filter(a => { const n = norm(a.name), aw = n.split(/[\s\-_.,&]+/);
+  const arts = j.artists || artistsCache.filter(a => { const n = norm(a.name), aw = n.split(/[\s\-_.,&]+/);
     return n.includes(nq) || words.every(w => aw.some(x => x.startsWith(w))); })
     .sort((a, b) => (norm(a.name).startsWith(nq) ? 0 : 1) - (norm(b.name).startsWith(nq) ? 0 : 1)).slice(0, 10);
   setList('res', j.results, 'radio');
