@@ -151,7 +151,7 @@ async function entrar(r) {
   estado('wait', 'Comprobando tu cuenta…<div class="bar"><i></i></div>');
   try {
     const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                             body: JSON.stringify({id_token: r.credential})});
+                                             body: JSON.stringify({id_token: r.credential, web: true})});   // no cuenta como dispositivo
     const j = await res.json();
     const d = j.detail && typeof j.detail === 'object' ? j.detail : j;
     const nombre = esc((d.user && (d.user.name || d.user.email)) || '');

@@ -10,6 +10,7 @@ Desde el servidor:
 """
 import hashlib
 import json
+import logging
 import os
 import secrets
 import sys
@@ -17,8 +18,10 @@ import threading
 import time
 
 USERS_FILE = "/data/users.json"         # sub de Google -> {email, name, picture, status, since, seen}
-SESSIONS_FILE = "/data/sessions.json"   # sha256(sesión) -> {sub, until}
+SESSIONS_FILE = "/data/sessions.json"   # sha256(sesión) -> {sub, until, since, web}
 SESSION_DAYS = 90
+MAX_DEVICES = 3                         # sesiones de la app a la vez por cuenta: la 4.ª cierra la más antigua
+WEB_SESSION_MIN = 10                    # la de la página de acceso (solo para bajar la app): no cuenta como dispositivo
 MAX_PENDING = 30                        # tope de solicitudes sin revisar, para que nadie llene el archivo
 STATUSES = ("pendiente", "aprobado", "bloqueado")
 
@@ -52,6 +55,7 @@ class JsonStore:
 
 USERS = JsonStore(USERS_FILE)
 SESSIONS = JsonStore(SESSIONS_FILE)
+log = logging.getLogger("musicapp.users")
 
 
 def _hash(session):
@@ -63,9 +67,11 @@ def public(sub, u):
             "status": u["status"]}
 
 
-def login(claims):
+def login(claims, web=False):
     """Datos ya verificados del token de Google -> (usuario, sesión o None si no está aprobado).
-    Lanza OverflowError si hay demasiadas solicitudes pendientes."""
+    Como mucho MAX_DEVICES sesiones de la app por cuenta: una más cierra la más antigua (así una cuenta no se
+    reparte entre mucha gente; quien la comparta se irá echando). web: sesión de la página de acceso, dura
+    WEB_SESSION_MIN y no cuenta. Lanza OverflowError si hay demasiadas solicitudes pendientes."""
     sub = claims["sub"]
     with USERS.lock:
         USERS.reload()
@@ -84,7 +90,16 @@ def login(claims):
         SESSIONS.reload()
         now = time.time()
         SESSIONS.data = {k: s for k, s in SESSIONS.data.items() if s["until"] > now}   # de paso, limpia caducadas
-        SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + SESSION_DAYS * 86400)}
+        if web:
+            SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + WEB_SESSION_MIN * 60), "web": True}
+        else:
+            mine = sorted(((k, s) for k, s in SESSIONS.data.items() if s["sub"] == sub and not s.get("web")),
+                          key=lambda ks: ks[1].get("since", ks[1]["until"] - SESSION_DAYS * 86400))
+            for k, _ in mine[:max(0, len(mine) - MAX_DEVICES + 1)]:
+                del SESSIONS.data[k]
+                log.info("sesiones: %s entró en otro dispositivo; cierro el más antiguo (máximo %d)",
+                         claims["email"], MAX_DEVICES)
+            SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + SESSION_DAYS * 86400), "since": int(now)}
         SESSIONS.save()
     return public(sub, u), session
 
@@ -109,9 +124,11 @@ def logout(session):
 def _cli(args):
     if not args:
         rows = sorted(USERS.data.items(), key=lambda kv: (STATUSES.index(kv[1]["status"]), kv[1]["since"]))
+        now = time.time()
         for sub, u in rows:
+            devices = sum(1 for s in SESSIONS.data.values() if s["sub"] == sub and not s.get("web") and s["until"] > now)
             print(f"{u['status']:<10} {u['email']:<35} {u.get('name') or '':<25} "
-                  f"desde {time.strftime('%Y-%m-%d', time.localtime(u['since']))}")
+                  f"desde {time.strftime('%Y-%m-%d', time.localtime(u['since']))}  {devices} dispositivo(s)")
         print(f"{len(rows)} usuarios" if rows else "Nadie ha entrado todavía.")
         return 0
     action, who = (args + [""])[:2]

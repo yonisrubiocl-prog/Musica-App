@@ -106,7 +106,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | Ruta | Qué hace |
 |---|---|
 | `GET /health` | `{"ok": true}`, sin clave |
-| `POST /auth/google` | Cuerpo `{"id_token": "…"}` (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
+| `POST /auth/google` | Cuerpo `{"id_token": "…"}` (y `"web": true` desde la página de acceso: sesión de 10 min que no cuenta como dispositivo) (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, con el estilo Dark Premium de la app y el logo del perrito). Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
@@ -175,6 +175,13 @@ seguidas parecen un bot):
 **Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 600): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. Bloquear
 cierra sus sesiones al momento.
+
+**Máximo 3 dispositivos por cuenta** (`MAX_DEVICES` en `users.py`), para que nadie reparta su cuenta: entrar en
+un 4.º cierra la sesión **más antigua** (ese dispositivo recibe 401 y tiene que volver a entrar con Google). No se
+rechaza el 4.º porque al reinstalar la app la sesión del móvil viejo sigue "viva" 90 días y dejaría fuera al
+dueño. Quien comparta su cuenta se irá echando con los demás, y el registro de la API lo dice ("entró en otro
+dispositivo; cierro el más antiguo"). La sesión de la página de acceso (`"web": true` en `/auth/google`) dura
+10 min y no cuenta. `docker exec musicapp-api python users.py` enseña los dispositivos de cada uno.
 
 **Qué sabemos de cada uno** (solo el permiso básico "perfil y email" de Google; es lo que enseña la pantalla
 de Google al entrar):

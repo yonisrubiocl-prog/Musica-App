@@ -252,7 +252,7 @@ def health():
 
 
 @app.post("/auth/google")
-def auth_google(token: str = Body(embed=True, alias="id_token", max_length=4096)):
+def auth_google(token: str = Body(embed=True, alias="id_token", max_length=4096), web: bool = Body(False, embed=True)):
     """La app manda el ID token que le dio Google. Si el usuario está aprobado, recibe su sesión;
     si es nuevo, queda pendiente hasta que se apruebe en el servidor (ver users.py)."""
     if not GOOGLE_CLIENT_ID:
@@ -265,7 +265,7 @@ def auth_google(token: str = Body(embed=True, alias="id_token", max_length=4096)
     if not claims.get("email_verified"):
         raise HTTPException(401, "la cuenta de Google no tiene el email verificado")
     try:
-        user, session = users.login(claims)
+        user, session = users.login(claims, web)
     except OverflowError:
         raise HTTPException(429, "demasiadas solicitudes pendientes; prueba más tarde")
     log.info("login: %s (%s)", user["email"], user["status"])
