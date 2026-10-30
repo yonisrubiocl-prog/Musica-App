@@ -90,6 +90,57 @@ _yt_last_user = 0.0                     # última vez que alguien (no la precarg
 BACKGROUND = {"precarga", "enrich"}     # hilos de fondo: no cuentan como uso de alguien
 
 
+YT_STATE = "/data/youtube-estado.json"      # cómo está YouTube ahora (lo lee panel.py)
+YT_BLOCKS = "/data/youtube-bloqueos.jsonl"  # historial de bloqueos
+
+
+def yt_blocked(source, err):
+    """YouTube pidió "confirmar que no eres un bot" (o 429): no se le pide nada durante YT_PAUSE y queda apuntado en
+    el historial y en el estado (el panel lo pone en rojo y el bot avisa en el canal de registro)."""
+    global _yt_blocked_until
+    now = time.time()
+    _yt_blocked_until = now + YT_PAUSE
+    log.warning("YouTube nos bloqueó (%s): no le pido nada durante %d min", source, YT_PAUSE // 60)
+    try:
+        with open(YT_BLOCKS, "a") as f:
+            f.write(json.dumps({"cuando": int(now), "hasta": int(_yt_blocked_until), "fuente": source,
+                                "peticiones_hora": len(_yt_recent), "error": str(err)[:200]}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    yt_state()
+
+
+def yt_state():
+    """{bloqueado_hasta, peticiones_hora, tope_hora, ultimo_bloqueo, cuando}: lo que enseña el panel y consulta el bot."""
+    last = None
+    try:
+        with open(YT_BLOCKS) as f:
+            lines = f.read().splitlines()
+        last = json.loads(lines[-1]) if lines else None
+    except (OSError, ValueError):
+        pass
+    now = time.time()
+    st = {"bloqueado_hasta": int(_yt_blocked_until) if _yt_blocked_until > now else 0,
+          "peticiones_hora": sum(1 for t in _yt_recent if t > now - 3600), "tope_hora": YT_PER_HOUR,
+          "ultimo_bloqueo": last, "cuando": int(now)}
+    try:
+        with open(YT_STATE + ".tmp", "w") as f:
+            json.dump(st, f, ensure_ascii=False)
+        os.replace(YT_STATE + ".tmp", YT_STATE)
+    except OSError:
+        pass
+    return st
+
+
+def _yt_state_loop():
+    while True:
+        time.sleep(30)
+        yt_state()
+
+
+threading.Thread(target=_yt_state_loop, daemon=True).start()
+
+
 def yt_turn(cost=1):
     """Espera su turno para pedirle algo a YouTube: una operación cada YT_GAP s y como mucho YT_PER_HOUR peticiones
     reales por hora (cost = las que hace esta operación), venga de la app, del bot o de una importación. Lo
@@ -119,7 +170,6 @@ def yt_turn(cost=1):
 def youtube(fn, yt=True, cost=COST_INFO):
     """Llama a YouTube salvo que nos tenga bloqueados (pide 'confirmar que no eres un bot'): insistir lo alarga.
     yt=False: es otra web (SoundCloud, una radio…), no cuenta el bloqueo."""
-    global _yt_blocked_until
     left = _yt_blocked_until - time.time()
     if yt and left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
@@ -130,8 +180,7 @@ def youtube(fn, yt=True, cost=COST_INFO):
     except yt_dlp.utils.DownloadError as e:
         t = str(e).lower()
         if yt and ("not a bot" in t or ("429" in t and "too many requests" in t)):
-            _yt_blocked_until = time.time() + YT_PAUSE
-            log.warning("YouTube nos bloqueó: no le pido nada durante %d min", YT_PAUSE // 60)
+            yt_blocked("yt-dlp", e)
         log.warning("descarga: %s", e)
         raise HTTPException(502, str(e).replace("ERROR: ", "")[:200])
 
@@ -245,7 +294,7 @@ _ytm = None
 
 def ytm(fn, cost=COST_ALBUM):
     """Llama a YouTube Music con el mismo cuidado que a YouTube: bloqueo, turno (yt_turn) y errores."""
-    global _ytm, _yt_blocked_until
+    global _ytm
     left = _yt_blocked_until - time.time()
     if left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
@@ -258,8 +307,7 @@ def ytm(fn, cost=COST_ALBUM):
     except Exception as e:
         t = str(e).lower()
         if "429" in t or "not a bot" in t:
-            _yt_blocked_until = time.time() + YT_PAUSE
-            log.warning("YouTube Music nos bloqueó: no le pido nada a YouTube durante %d min", YT_PAUSE // 60)
+            yt_blocked("YouTube Music", e)
             raise HTTPException(503, "YouTube nos bloqueó un rato")
         log.warning("YouTube Music: %s", e)
         raise HTTPException(502, f"YouTube Music: {str(e)[:150]}")
@@ -888,6 +936,13 @@ def i_albums():
 @internal.get("/interno/album")
 def i_album(q: str = Query(max_length=300)):
     return {"songs": songs(LIB.album_tracks(q))}
+
+
+@internal.get("/interno/youtube")
+def i_youtube():
+    """Cómo está YouTube: {bloqueado_hasta (0 si no), peticiones_hora, tope_hora, ultimo_bloqueo}. El bot lo consulta
+    para avisar en el canal de registro cuando nos bloquea y cuando se pasa."""
+    return yt_state()
 
 
 @internal.get("/interno/precarga")

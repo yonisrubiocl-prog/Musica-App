@@ -210,6 +210,7 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `GET /interno/suggest?q=…&limit=` | Autocompletado por trozos de palabra; sin texto, las más puestas |
 | `GET /interno/search?q=…&limit=` | Texto tal cual en título/artista/álbum, recientes primero |
 | `GET /interno/albums`, `GET /interno/album?q=…` | Álbumes y sus canciones |
+| `GET /interno/youtube` | Cómo está YouTube: `{bloqueado_hasta (0 si no), peticiones_hora, tope_hora, ultimo_bloqueo}`. El bot lo usa para avisar en el canal de registro |
 | `GET /interno/precarga` | Cómo va la precarga de álbumes: artistas hechos, cola, bajadas, saltadas, fallidas |
 | `GET /interno/stats` | `{songs, bytes, max_bytes}` |
 | `POST /interno/resolve` | `{"query": …, "limit": n}`: buscar un nombre (`ytsearch5:…` o el nombre a secas: **YouTube Music**; con `yt:` delante o si no hay nada, YouTube normal) o leer un enlace (video, lista, SoundCloud…) sin bajar nada. Título, duración, miniatura, artista y `entries` si es lista o búsqueda |
@@ -256,7 +257,11 @@ seguidas parecen un bot):
   que YouTube nos vea como un navegador) y **Cloudflare WARP** como salida de reserva o para picos (sus IP las
   comparten miles: YouTube desconfía más de ellas; por ahí, sin cookies).
 - Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
-  bloqueo); lo guardado sigue sonando.
+  bloqueo); lo guardado sigue sonando. **Cómo enterarse:** el panel tiene una línea fija "YouTube: ✅ normal · N de
+  300 peticiones en la última hora" que pasa a **🔴 BLOQUEADO hasta las HH:MM**; el bot de Discord escribe en el canal
+  de registro "⛔ YouTube nos bloqueó…" y "✅ YouTube vuelve a responder" (consulta `GET /interno/youtube` cada
+  minuto); y cada bloqueo queda en `server/data/youtube-bloqueos.jsonl` (cuándo, hasta cuándo, de dónde y cuántas
+  peticiones llevábamos esa hora). El estado actual, en `server/data/youtube-estado.json` (se reescribe cada 30 s).
 
 **Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …` o `?token=…`. También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de

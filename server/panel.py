@@ -20,7 +20,8 @@ D = os.path.dirname(os.path.abspath(__file__))
 USERS = os.path.join(D, "data", "users.json")
 USERDATA = os.path.join(D, "data", "userdata.json")   # historial de cada uno (última canción que pidió)
 PRECARGA = os.path.join(D, "data", "precarga.json")   # cómo va la precarga de álbumes (precarga.py)
-OPINIONES = "/var/lib/musicapp/recomendar/opiniones.jsonl"   # "¿qué te parecieron las recomendaciones?"
+OPINIONES = "/var/lib/musicapp/recomendar/opiniones.jsonl"
+YT_ESTADO = os.path.join(D, "data", "youtube-estado.json")   # lo escribe la API cada 30 s y al bloquearnos   # "¿qué te parecieron las recomendaciones?"
 CONT = "musicapp-api"
 ORDEN = {"pendiente": 0, "aprobado": 1, "bloqueado": 2}
 VERDE, AMARILLO, ROJO, CIAN, GRIS = 1, 2, 3, 4, 5
@@ -42,6 +43,7 @@ AYUDA = [
     ("Precarga", ""),
     ("", "Arriba: qué artista y álbum está bajando la precarga, cuándo baja la siguiente y cuántas lleva."),
     ("Abajo", ""),
+    ("", "YouTube: normal (verde) o BLOQUEADO hasta… (rojo), y peticiones de la última hora."),
     ("", "Opiniones sobre las recomendaciones de los últimos 7 días: 👍/👎 y lo que más se marca."),
     ("Última canción", ""),
     ("", "Cuándo pidió su última canción en la app o la web (no cuenta Discord). Verde: hace menos de 1 h."),
@@ -91,6 +93,22 @@ def precarga():
     sig = "ahora" if falta < 60 else f"en {int(falta // 60)} min"
     donde = f"{now.get('artist', '')} – {now.get('album', '')}" if now.get("artist") else "buscando álbumes"
     return f"Precarga ({now.get('mode', '?')}): {donde} · siguiente {sig} · {cuentas}", CIAN
+
+
+def youtube():
+    """Una línea con cómo está YouTube (bloqueado o no, y peticiones en la última hora), y su color."""
+    try:
+        with open(YT_ESTADO, encoding="utf-8") as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        return "YouTube: sin datos (¿la API está encendida?)", GRIS
+    if time.time() - s.get("cuando", 0) > 120:
+        return "YouTube: sin datos recientes (¿la API está encendida?)", AMARILLO
+    uso = f"{s.get('peticiones_hora', 0)} de {s.get('tope_hora', 300)} peticiones en la última hora"
+    if s.get("bloqueado_hasta"):
+        return f"YouTube: 🔴 BLOQUEADO hasta las {fecha(s['bloqueado_hasta'])[-5:]} (lo guardado suena igual) · {uso}", ROJO
+    ult = s.get("ultimo_bloqueo")
+    return f"YouTube: ✅ normal · {uso}" + (f" · último bloqueo: {fecha(ult['cuando'])}" if ult else " · nunca bloqueado"), VERDE
 
 
 def opiniones():
@@ -184,14 +202,16 @@ class UI:
         texto, color = precarga()
         s.put(1, 46, "│ " + texto, color)
 
+        texto, color = youtube()
+        s.put(H - 3, 2, texto, color, color == ROJO)
         texto, color = opiniones()
         s.put(H - 2, 2, texto, color)
-        s.caja(2, 0, H - 4, W, "USUARIOS")
+        s.caja(2, 0, H - 5, W, "USUARIOS")
         s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'último login':<13} "
                     f"{'última canción':<14} {'24 h'}", GRIS, True)
         if not s.lista:
             s.put(5, 4, "Nadie ha pedido acceso todavía. Enlace: https://musica.yoneapolis.com/acceso", GRIS)
-        for i, (sub, u) in enumerate(s.lista[: max(0, H - 8)], start=1):
+        for i, (sub, u) in enumerate(s.lista[: max(0, H - 9)], start=1):
             s.put(3 + i, 2, f"{i:>3}  ", 0, True)
             s.put(3 + i, 7, f"{u['status']:<10} ", COLOR.get(u["status"], 0), u["status"] == "pendiente")
             s.put(3 + i, 18, f"{u['email'][:33]:<34} {(u.get('name') or '')[:21]:<22} "
@@ -201,8 +221,8 @@ class UI:
             s.put(3 + i, 104, f"{hace(t):<14} ", VERDE if reciente else (GRIS if not t or time.time() - t > 86400 else 0),
                   bool(reciente))
             s.put(3 + i, 119, f"{dia or '—'}", GRIS if not dia else 0)
-        if len(s.lista) > H - 8:
-            s.put(H - 4, 4, f"… y {len(s.lista) - (H - 8)} más (agranda la ventana)", GRIS)
+        if len(s.lista) > H - 9:
+            s.put(H - 5, 4, f"… y {len(s.lista) - (H - 9)} más (agranda la ventana)", GRIS)
         if s.ayuda:
             s.dibujar_ayuda(H, W)
         s.linea_cmd(H, W)
