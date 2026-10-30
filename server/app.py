@@ -1103,7 +1103,9 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
     if not path:
         return {"key": key, "source": "live", "file": None, "song": None, "info": small}
     key = DUPLICADAS.real_key(key_of(url, info))
-    return {"key": key, "source": "online", "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
+    # la misma canción ya guardada con otro título (no se bajó nada): para el bot es local
+    source = "local" if key not in (key_of(url), key_of(url, info)) else "online"
+    return {"key": key, "source": source, "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
 
 
 @internal.post("/interno/resolve")
