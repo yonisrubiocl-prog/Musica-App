@@ -237,6 +237,8 @@ def check_token(request: Request):
         return None
     found = users.user_of(key) if key else None
     if not found:
+        if request.url.path == "/app/version":
+            log.info("versión de la app pedida sin sesión válida (%s)", "sin clave" if not key else "sesión caducada o no aprobada")
         raise HTTPException(401, "no autorizado")
     return found
 
@@ -331,11 +333,15 @@ def apk_link(found=Depends(check_token)):
 def app_version(found=Depends(check_token)):
     """Versión publicada de la app (la escribe tools/publicar.ps1 de la app junto al APK, como version.json):
     la app avisa si es mayor que la suya y se actualiza con /app/enlace."""
+    who = found[1]["email"] if found else "clave compartida"
     try:
         with open(os.path.join(os.path.dirname(APK), "version.json")) as f:
-            return json.load(f)
+            v = json.load(f)
     except (FileNotFoundError, ValueError):   # ValueError: se está escribiendo justo ahora
+        log.info("versión de la app pedida por %s: sin versión publicada", who)
         raise HTTPException(404, "sin versión publicada")
+    log.info("versión de la app pedida por %s: publicada %s (build %s)", who, v.get("version"), v.get("build"))
+    return v
 
 
 @app.get("/app/descargar/{link}")
@@ -361,6 +367,35 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
                 out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
                             "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
     return {"results": out}
+
+
+def yt_entries(pairs):
+    """Canciones para la app (solo las de YouTube: /stream solo acepta esas)."""
+    return [entry(k, e, "guardada") for k, e in pairs if k.startswith("yt-")]
+
+
+@app.get("/artists", dependencies=[Depends(check_token)])
+def artists():
+    """Todos los artistas guardados: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
+    return {"artists": LIB.artists()}
+
+
+@app.get("/artist", dependencies=[Depends(check_token)])
+def artist(name: str = Query(min_length=1, max_length=200)):
+    """Un artista: sus álbumes [{name, year, songs, thumb}] (más nuevos primero) y sus canciones sin álbum."""
+    a = LIB.artist(name)
+    if not a:
+        raise HTTPException(404, "no hay canciones de ese artista")
+    return {"name": a["name"], "songs": a["songs"], "albums": a["albums"], "loose": yt_entries(a["loose"])}
+
+
+@app.get("/album", dependencies=[Depends(check_token)])
+def album(artist: str = Query(min_length=1, max_length=200), name: str = Query(min_length=1, max_length=300)):
+    """Las canciones guardadas de un álbum de un artista."""
+    a = LIB.album(artist, name)
+    if not a:
+        raise HTTPException(404, "no hay canciones de ese álbum")
+    return {"name": a["name"], "artist": a["artist"], "year": a["year"], "songs": yt_entries(a["songs"])}
 
 
 @app.get("/stream/{vid}", dependencies=[Depends(check_token)])

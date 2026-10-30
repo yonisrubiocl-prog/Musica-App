@@ -5,6 +5,7 @@ autocompletado, faltas de ortografía) y el mismo tope de espacio. El bot pasar�
 Ver README.md, sección "Canciones".
 """
 import bisect
+import collections
 import difflib
 import hashlib
 import json
@@ -324,6 +325,80 @@ class Library:
             hits = [(k, dict(e)) for k, e in self.index.items()
                     if q <= set(words(e.get("album") or "")) and self._exists(k)]
         return sorted(hits, key=lambda h: (h[1].get("title") or "").lower())
+
+    # ---------- artistas y álbumes (para la app) ----------
+    # Se agrupa por el nombre normalizado ('Milo j' = 'Milo J'); se enseña la forma más repetida. Canciones sin
+    # artista en su ficha pero con título 'Artista - Canción' (las bajadas antes de guardar fichas) cuentan
+    # para ese artista.
+
+    @staticmethod
+    def _norm(text):
+        t = unicodedata.normalize("NFKD", (text or "").lower())
+        t = "".join(c for c in t if not unicodedata.combining(c))
+        return " ".join(re.findall(r"[a-z0-9]+", t))
+
+    @staticmethod
+    def artist_name(e):
+        """Artista de una canción: el de su ficha o, si no tiene, lo que va antes de ' - ' en el título."""
+        a = (e.get("artist") or "").strip()
+        if not a and " - " in (e.get("title") or ""):
+            a = e["title"].split(" - ", 1)[0].strip()
+        return a
+
+    def _by_artist(self):
+        """clave normalizada -> (nombre a enseñar, [(clave de canción, datos)])."""
+        groups, names = {}, {}
+        for k, e in self.index.items():
+            a = self.artist_name(e)
+            n = self._norm(a)
+            if n and self._exists(k):
+                groups.setdefault(n, []).append((k, e))
+                names.setdefault(n, collections.Counter())[a] += 1
+        return {n: (names[n].most_common(1)[0][0], songs) for n, songs in groups.items()}
+
+    def artists(self):
+        """Todos los artistas: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
+        with self.lock:
+            out = []
+            for name, songs in self._by_artist().values():
+                albums = {self._norm(e.get("album")) for _, e in songs if e.get("album")}
+                best = max(songs, key=lambda s: (s[1].get("plays", 0), s[1].get("used", 0)))[1]
+                out.append({"name": name, "songs": len(songs), "albums": len(albums), "thumb": best.get("thumb")})
+        return sorted(out, key=lambda a: (-a["songs"], a["name"].lower()))
+
+    def artist(self, name):
+        """Un artista: sus álbumes (los más nuevos primero) y las canciones sueltas (sin álbum en su ficha).
+        None si no hay ninguno con ese nombre."""
+        with self.lock:
+            found = self._by_artist().get(self._norm(name))
+            if not found:
+                return None
+            shown, songs = found
+            albums, loose = {}, []
+            for k, e in songs:
+                if e.get("album"):
+                    a = albums.setdefault(self._norm(e["album"]), {"name": e["album"], "year": e.get("year"),
+                                                                   "songs": 0, "thumb": e.get("thumb")})
+                    a["songs"] += 1
+                    a["year"] = a["year"] or e.get("year")
+                else:
+                    loose.append((k, dict(e)))
+        loose.sort(key=lambda s: (-s[1].get("plays", 0), (s[1].get("title") or "").lower()))
+        albums = sorted(albums.values(), key=lambda a: (-(a["year"] or 0), a["name"].lower()))
+        return {"name": shown, "songs": len(songs), "albums": albums, "loose": loose}
+
+    def album(self, artist, name):
+        """Canciones de un álbum de un artista, por fecha y título. None si no hay."""
+        with self.lock:
+            found = self._by_artist().get(self._norm(artist))
+            if not found:
+                return None
+            hits = [(k, dict(e)) for k, e in found[1] if self._norm(e.get("album")) == self._norm(name)]
+        if not hits:
+            return None
+        hits.sort(key=lambda s: (s[1].get("date") or "", (s[1].get("title") or "").lower()))
+        e0 = hits[0][1]
+        return {"name": e0["album"], "artist": found[0], "year": e0.get("year"), "songs": hits}
 
     def stats(self):
         with self.lock:
