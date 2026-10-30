@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080A12">
 <title>Música</title>
-<link rel="icon" href="/logo.png">
+<link rel="icon" href="/logo-96.webp" type="image/webp">
 <link rel="apple-touch-icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   /* Tema de la app (Dark Premium): mismos colores que la app Flutter */
   :root {
@@ -45,8 +45,7 @@
       radial-gradient(40% 35% at 35% 45%, rgba(155, 92, 255, .55), transparent 70%),
       radial-gradient(35% 30% at 68% 40%, rgba(240, 77, 187, .38), transparent 70%),
       radial-gradient(45% 40% at 55% 75%, rgba(82, 104, 255, .30), transparent 70%);
-    filter: blur(20px);
-    animation: drift 14s ease-in-out infinite alternate;
+    animation: drift 14s ease-in-out infinite alternate;   /* sin filter: blur, que en móviles cuesta mucho */
   }
   .hero::after {   /* degradado inferior hacia el fondo */
     content: ""; position: absolute; inset: auto 0 0 0; height: 55%;
@@ -70,7 +69,7 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
   .brand .mini { width: 34px; height: 34px; }
-  .brand span { font-weight: 700; font-size: 1.2rem; letter-spacing: .2px; }
+  .brand span { font-weight: 600; font-size: 1.2rem; letter-spacing: .2px; }
   h1 { font-size: clamp(1.7rem, 7vw, 2.1rem); line-height: 1.15; font-weight: 800; letter-spacing: -.5px; }
   .lead { margin-top: 12px; color: var(--muted); line-height: 1.55; font-size: .98rem; }
 
@@ -113,12 +112,12 @@
 <body>
 
 <section class="hero" aria-hidden="true">
-  <div class="logo"><img src="/logo.png" alt="" width="512" height="512"></div>
+  <div class="logo"><img src="/logo-480.webp" alt="" width="480" height="480" fetchpriority="high"></div>
 </section>
 
 <main>
   <div class="brand">
-    <span class="mini"><img src="/logo.png" alt="" width="34" height="34"></span>
+    <span class="mini"><img src="/logo-96.webp" alt="" width="34" height="34"></span>
     <span>Música</span>
   </div>
   <h1>Tu música,<br>sin límites.</h1>

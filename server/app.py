@@ -301,10 +301,14 @@ def access_page():
         return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
-@app.get("/logo.png")
-def logo():
-    return FileResponse(os.path.join(WEB, "logo.png"), media_type="image/png",
-                        headers={"Cache-Control": "public, max-age=86400"})
+@app.get("/logo{rest}", include_in_schema=False)
+def logo(rest: str):
+    """El logo: logo.png (original, 512 px) y logo-480.webp / logo-96.webp (los que usa la página: 25 KB y 3 KB)."""
+    name = "logo" + rest
+    if not re.fullmatch(r"logo(-\d+)?\.(png|webp)", name) or not os.path.isfile(os.path.join(WEB, name)):
+        raise HTTPException(404, "no existe")
+    return FileResponse(os.path.join(WEB, name), media_type="image/" + name.rsplit(".", 1)[1],
+                        headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.post("/app/enlace")

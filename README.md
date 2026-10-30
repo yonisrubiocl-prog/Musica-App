@@ -110,7 +110,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, con el estilo Dark Premium de la app y el logo del perrito). Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
-| `GET /logo.png` | El logo (`server/web/logo.png`, 512×512), también icono de la pestaña. Sin clave |
+| `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK: `{"build": 3, "version": "1.0.2"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
@@ -341,7 +341,8 @@ Cada fase funciona por sí sola.
 │   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot; también reparte el APK
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
-│   ├── web/                página principal (acceso.html) y logo.png; colores de la app: fondo #080A12,
+│   ├── web/                página principal (acceso.html) y el logo (logo.png original; logo-480.webp y
+│   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,
 │   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
 │   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
 │   ├── Dockerfile
