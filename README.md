@@ -290,8 +290,14 @@ petición cada 2 min, de 03:00 a 08:00 de Chile). Nunca cambia el título ni pis
 que da iTunes se guarda aparte (`itunes_genre`) solo como pista para el paso 3.
 
 **Artistas con colaboraciones**: "Diomedes Díaz & Juancho Rois" cuenta para Diomedes Díaz si él tiene canciones a
-su nombre (un dúo de verdad, "Simon & Garfunkel", no se parte). **Nombres de canal**: "Canserbero Music", "X VEVO",
-"X Official", "X TV" cuentan como el artista X si existe. **Buscar artistas tolera faltas** (`Library.find_artists`):
+su nombre (un dúo de verdad, "Simon & Garfunkel", no se parte), y **sale también en la página de los demás**
+(Juancho Rois, si tiene canciones propias), igual que quien va en un **"feat./ft." del título** ("HIGH feat.
+Apache" sale en Apache; cada canción una vez aunque el nombre esté en el artista y en el "ft."). **Nombres de
+canal**: "Canserbero Music", "X VEVO", "X Official", "X TV" cuentan como el artista X si existe; si la ficha trae
+el canal que la subió ("DOBLE S") y el título es "Canserbero – …", manda el título. **Sin artista**: si el título
+empieza o acaba por un artista que ya existe ("SHAKIRA || BZRP…", "Qué tengo que hacer. Daddy Yankee"), es suya.
+Así la página de un artista y su búsqueda dan lo mismo; la búsqueda solo trae de más canciones que **se llaman**
+como él ("Apache" de The Sugarhill Gang). **Buscar artistas tolera faltas** (`Library.find_artists`):
 primero por cómo empieza cada palabra ("raw" → Rawayana); si no hay ninguno, el más parecido ("cancerbero" →
 Canserbero, "chayane" → Chayanne).
 

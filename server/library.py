@@ -346,9 +346,12 @@ class Library:
     def artist_name(e):
         """Artista de una canción: el de su ficha o, si no tiene, lo que va antes de ' - ' en el título."""
         a = (e.get("artist") or "").strip()
-        if not a and " - " in (e.get("title") or ""):
-            a = e["title"].split(" - ", 1)[0].strip()
+        if not a and Library.DASH.search(e.get("title") or ""):
+            a = Library.DASH.split(e["title"], 1)[0].strip()
         return a
+
+    FEAT = re.compile(r"\b(?:feat\.?|ft\.?|featuring)\s+([^()\[\]\-–|]+)", re.I)   # "(feat. Apache)" -> "Apache"
+    DASH = re.compile(r"\s+[-–—]\s+")   # "Artista - Canción" (también con – o —)
 
     CHANNEL = re.compile(r"\s*(?:music|musica|música|vevo|official|oficial|tv|channel|canal)\s*$", re.I)
     JOINT = re.compile(r"\s*(?:,|&|\+|\bfeat\.?|\bft\.?|\bx\b|\by\b|\bwith\b|\bcon\b)\s*", re.I)
@@ -360,10 +363,20 @@ class Library:
         if self._groups[0] == (self._ver, len(self.index)):
             return self._groups[1]
         raw = {k: self.artist_name(e) for k, e in self.index.items()}
-        solo = {self._norm(a) for a in raw.values() if a and not self.JOINT.search(a)}
-        groups, names = {}, {}
+        solo = {self._norm(a): a for a in raw.values() if a and not self.JOINT.search(a)}   # normalizado -> nombre
+        groups, names, feats = {}, {}, {}
         for k, e in self.index.items():
             a = raw[k]
+            # ficha con el canal que la subió en vez del artista ("DOBLE S" en "Canserbero - De la vida…"): si el
+            # título es "Artista - Canción", ese artista existe y el de la ficha no sale en el título, manda el título
+            title = e.get("title") or ""
+            members = [m.strip() for m in self.JOINT.split(a) if m.strip()] if a else []
+            if not a:
+                a = self._artist_in_title(title, solo)
+            if self.DASH.search(title):
+                pre = self.DASH.split(title, 1)[0].strip()
+                if self._norm(pre) in solo and self._norm(a) not in self._norm(title):
+                    a = pre
             first = self.JOINT.split(a, 1)[0] if a else ""
             if first and first != a and self._norm(first) in solo:
                 a = first
@@ -375,9 +388,32 @@ class Library:
             if n and self._exists(k):
                 groups.setdefault(n, []).append((k, e))
                 names.setdefault(n, collections.Counter())[a] += 1
+                # colaboraciones: "Apache, Canserbero" cuenta también para Canserbero (si tiene canciones propias), y
+                # "… feat. Apache" en el título, para Apache
+                for f in self.FEAT.findall(title):
+                    members += [m.strip() for m in self.JOINT.split(f) if m.strip()]
+                for nm in {self._norm(m) for m in members}:   # una vez aunque salga en el artista y en el "ft."
+                    if nm in solo and nm != n:
+                        feats.setdefault(nm, []).append((k, e))
         out = {n: (names[n].most_common(1)[0][0], songs) for n, songs in groups.items()}
+        self._feats = feats
         self._groups = ((self._ver, len(self.index)), out)
         return out
+
+    def _artist_in_title(self, title, solo):
+        """Canción sin artista con el nombre de uno que ya existe al principio o al final del título ("SHAKIRA ||
+        BZRP…", "Qué tengo que hacer. Daddy Yankee"): ese artista; si no, "". Nombres de 4 letras o más."""
+        words = self._norm(title).split()
+        for i in range(min(len(words), 5), 0, -1):
+            for cand in (" ".join(words[:i]), " ".join(words[-i:])):
+                if len(cand) >= 4 and cand in solo and cand != " ".join(words):
+                    return solo[cand]
+        return ""
+
+    def _feats_of(self, n):
+        """Canciones en las que el artista (normalizado) colabora sin ser el principal."""
+        self._by_artist()
+        return getattr(self, "_feats", {}).get(n, [])
 
     def _key_genres(self):
         """clave de canción -> género (el de su artista, genres.py). Se recalcula solo cuando cambia algo."""
@@ -425,15 +461,16 @@ class Library:
         """Todos los artistas: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
         with self.lock:
             out = []
-            for name, songs in self._by_artist().values():
+            for n, (name, songs) in self._by_artist().items():
                 albums = {self._norm(e.get("album")) for _, e in songs if e.get("album")}
                 best = max(songs, key=lambda s: (s[1].get("plays", 0), s[1].get("used", 0)))[1]
-                out.append({"name": name, "songs": len(songs), "albums": len(albums), "thumb": best.get("thumb")})
+                out.append({"name": name, "songs": len(songs) + len(self._feats_of(n)), "albums": len(albums),
+                            "thumb": best.get("thumb")})
         return sorted(out, key=lambda a: (-a["songs"], a["name"].lower()))
 
     def artist(self, name):
-        """Un artista: sus álbumes (los más nuevos primero) y las canciones sueltas (sin álbum en su ficha).
-        None si no hay ninguno con ese nombre."""
+        """Un artista: sus álbumes (los más nuevos primero) y las canciones sueltas (sin álbum en su ficha) más las
+        colaboraciones en las que sale sin ser el principal. None si no hay ninguno con ese nombre."""
         with self.lock:
             found = self._by_artist().get(self._norm(name))
             if not found:
@@ -448,9 +485,10 @@ class Library:
                     a["year"] = a["year"] or e.get("year")
                 else:
                     loose.append((k, dict(e)))
+            feats = [(k, dict(e)) for k, e in self._feats_of(self._norm(name))]   # colaboraciones ("Apache, Canserbero")
         loose.sort(key=lambda s: (-s[1].get("plays", 0), (s[1].get("title") or "").lower()))
         albums = sorted(albums.values(), key=lambda a: (-(a["year"] or 0), a["name"].lower()))
-        return {"name": shown, "songs": len(songs), "albums": albums, "loose": loose}
+        return {"name": shown, "songs": len(songs) + len(feats), "albums": albums, "loose": loose + feats}
 
     def album(self, artist, name):
         """Canciones de un álbum de un artista, por fecha y título. None si no hay."""

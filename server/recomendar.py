@@ -21,6 +21,12 @@ import unicodedata
 
 log = logging.getLogger("musicapp.recomendar")
 
+
+def _year(y):
+    """Año como número (algunas fichas lo traen como texto, "1998" o "1998-05-01"); None si no hay."""
+    m = re.match(r"\d{4}", str(y or ""))
+    return int(m.group()) if m else None
+
 DIR = "/recomendar"
 KEEP_DAYS = 180                         # eventos que se leen al arrancar (los archivos viejos se pueden borrar)
 
@@ -179,7 +185,7 @@ class Recomendar:
                     if " - " in title and norm(title.split(" - ", 1)[0]) == n_artist:
                         title = title.split(" - ", 1)[1]
                     songs[k] = {"key": k, "id": k[3:], "artist": shown, "artist_n": n_artist,
-                                "genre": genres.get(k, ""), "year": e.get("year"), "album": norm(e.get("album")),
+                                "genre": genres.get(k, ""), "year": _year(e.get("year")), "album": norm(e.get("album")),
                                 "canon": n_artist + "|" + norm(TAGS.sub("", title)), "live": bool(LIVE.search(title)),
                                 "plays": e.get("plays", 0), "used": e.get("used", 0), "duration": e.get("duration")}
         by_artist, by_genre, by_canon = collections.defaultdict(list), collections.defaultdict(list), {}
