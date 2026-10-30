@@ -994,16 +994,20 @@ wrap.addEventListener('click', e => {
 // o una lista (playlist, álbum, Me gusta…: con aleatorio, y al acabar sigue con parecidas si está activado).
 const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
-let shuffleOn = store.get('aleatorio', false), repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
-function playOne(s) { isRadio = true; queue = [s]; qi = 0; start(); fillRadio(); }
+// Dos aleatorios independientes: el general (Inicio, Biblioteca, playlists, álbumes) y el de la página de un
+// artista (empieza apagado). El botón cambia el de lo que está sonando.
+let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
+const shuffleNow = () => fromArtist ? shuffleArt : shuffleOn;
+let repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
+function playOne(s) { isRadio = true; fromArtist = false; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista desde la canción i. Con aleatorio: esa primero y luego todas las demás mezcladas. Sin aleatorio:
 // si entera (filas del Inicio), esa primero y luego la lista entera en su orden normal desde el principio (sin
 // repetirla); si no (Biblioteca: Me gusta, playlist, álbum), desde ahí hacia abajo y ya. orden (página de un
-// artista): siempre sin aleatorio, que se apaga (se puede volver a encender mientras suena).
+// artista): usa el aleatorio del artista, no el general.
 function playList(songs, i, entera = false, orden = false) {
   isRadio = false; radioRecs = 0;
-  if (orden && shuffleOn) { shuffleOn = false; store.set('aleatorio', false); }
-  if (shuffleOn && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
+  fromArtist = orden;
+  if (shuffleNow() && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
   else queue = entera ? [songs[i], ...songs.filter((_, k) => k !== i)] : songs.slice(i);
   qi = 0;
   start();
@@ -1222,9 +1226,10 @@ $('npA').onclick = () => { if (cur?.artist) { closeNp(); showArtist(cur.artist);
 $('npSeek').onchange = () => { const d = audio.duration; if (d) audio.currentTime = d * $('npSeek').value / 1000; seeking = false; };
 $('npShuffle').onclick = () => {
   if (isRadio) return;
-  shuffleOn = !shuffleOn; store.set('aleatorio', shuffleOn);
+  if (fromArtist) { shuffleArt = !shuffleArt; store.set('aleatorio_artista', shuffleArt); }
+  else { shuffleOn = !shuffleOn; store.set('aleatorio', shuffleOn); }
   // Activarlo desordena lo que queda; quitarlo mantiene ese orden (como en la app).
-  if (shuffleOn) queue = [...queue.slice(0, qi + 1), ...shuffled(queue.slice(qi + 1))];
+  if (shuffleNow()) queue = [...queue.slice(0, qi + 1), ...shuffled(queue.slice(qi + 1))];
   paintNp();
 };
 $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[repeat]; paintNp(); };
@@ -1244,7 +1249,7 @@ function paintNp() {
   $('npT').textContent = cur.title; $('npA').textContent = cur.artist || '';
   $('npAl').hidden = !cur.album || cur.where === 'youtube'; $('npAlT').textContent = cur.album || '';
   $('npShuffle').innerHTML = isRadio ? ICO.radio : ICO.shuffle;
-  $('npShuffle').classList.toggle('on', isRadio || shuffleOn);
+  $('npShuffle').classList.toggle('on', isRadio || shuffleNow());
   $('npShuffle').title = isRadio ? 'Radio: las siguientes son recomendadas' : 'Aleatorio';
   $('npRepeat').innerHTML = repeat === 'one' ? ICO.repeatOne : ICO.repeat;
   $('npRepeat').classList.toggle('on', repeat !== 'off');

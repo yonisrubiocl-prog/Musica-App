@@ -62,8 +62,8 @@
    (`id: artistas`, `tipo: artistas`, items como `/artists`) en vez de la fila de todos los artistas.
 5. **Página de un artista**, en este orden: **"Tus canciones"** (`tuyas`, si hay), **"Populares"** (`todas` sin las
    de `tuyas`, ya vienen de más a menos puestas: 10 y "Ver todas") y **al final los álbumes**. "▶ Reproducir" y tocar cualquiera de sus
-   canciones usan **`todas`** desde esa canción hacia abajo, **en orden y apagando el aleatorio** (se puede volver a
-   encender mientras suena).
+   canciones usan **`todas`** desde esa canción hacia abajo, con **un aleatorio propio del artista, independiente del general**
+   (Inicio, Biblioteca…): empieza apagado, cada uno se recuerda por separado y el botón cambia el de lo que suena.
 6. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
    fondo desenfocado "respira" (9 s). Solo mientras suena; sin animación si el sistema pide reducir movimiento.
    (En Flutter: `ClipRRect` + `Transform` con un `AnimationController` de 24 s `repeat(reverse: true)`; fondo con

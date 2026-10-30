@@ -122,8 +122,8 @@ en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo,
 como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
 (los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien
 no tiene ninguno ve todos); la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),
-luego **"Populares"** (las más puestas, sin repetir las tuyas: 10 y "Ver todas") y **al final los álbumes**; y "▶ Reproducir" o tocar cualquiera de sus canciones suena **en orden y sin aleatorio** (lo apaga; se
-puede volver a encender): primero las tuyas y luego las demás, las más puestas primero. La cola solo enseña lo que
+luego **"Populares"** (las más puestas, sin repetir las tuyas: 10 y "Ver todas") y **al final los álbumes**; y "▶ Reproducir" o tocar cualquiera de sus canciones suena con **su propio aleatorio** (aparte del general
+de Inicio y Biblioteca; empieza apagado y cada uno se recuerda por separado; el botón cambia el de lo que suena): primero las tuyas y luego las demás, las más puestas primero. La cola solo enseña lo que
 viene desde la canción actual, así que el número cambia según suena. En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
