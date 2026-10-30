@@ -463,15 +463,17 @@ def apk_download(link: str):
 
 
 @app.get("/search", dependencies=[Depends(check_token)])
-def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt")):
-    """Primero lo guardado (hasta 20, tolera palabras a medio escribir y faltas: ver Library.find); luego, si se
-    pide, YouTube. Sin repetir canciones."""
+def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Query(True, alias="yt"),
+           offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=200)):
+    """Primero lo guardado (tolera palabras a medio escribir y faltas: ver Library.find), de 'limit' en 'limit' desde
+    'offset'; 'total' dice cuántas guardadas hay en total (p. ej. "rawayana": 78). Luego, si se pide y es la primera
+    página, YouTube. Sin repetir canciones."""
     out, seen = [], set()
-    for k, e in LIB.find(q, 20):
-        if k.startswith("yt-"):   # /stream solo acepta canciones de YouTube
-            seen.add(k)
-            out.append(entry(k, e, "guardada"))
-    if youtube_too:
+    saved = [(k, e) for k, e in LIB.find(q, 2000) if k.startswith("yt-")]   # /stream solo acepta canciones de YouTube
+    seen.update(k for k, _ in saved)
+    for k, e in saved[offset:offset + limit]:
+        out.append(entry(k, e, "guardada"))
+    if youtube_too and offset == 0:
         try:
             out += new_songs(q, seen)
         except HTTPException as ex:
@@ -483,7 +485,40 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
                     seen.add(f"yt-{e['id']}")
                     out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
                                 "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
-    return {"results": out}
+    return {"results": out, "total": len(saved), "offset": offset}
+
+
+@app.get("/suggest", dependencies=[Depends(check_token)])
+def suggest(q: str = Query(min_length=1, max_length=100), n: int = Query(8, ge=1, le=20)):
+    """Sugerencias mientras se escribe (de lo guardado, sin YouTube; pocos ms): artistas, álbumes y canciones cuyas
+    palabras empiezan por lo escrito ("raw" -> Rawayana · 78 canciones). {sugerencias: [{tipo: artista|album|cancion,
+    texto, artista, id, canciones, thumb}]}: al tocar una, buscar 'texto' (o abrir el artista / poner la canción)."""
+    words = Library._norm(q).split()
+    if not words:
+        return {"sugerencias": []}
+    def fits(text):
+        tw = Library._norm(text).split()
+        return all(any(t.startswith(w) for t in tw) for w in words)
+    out = []
+    arts = [a for a in LIB.artists() if fits(a["name"])][:3]
+    out += [{"tipo": "artista", "texto": a["name"], "canciones": a["songs"], "thumb": a["thumb"]} for a in arts]
+    albums, seen_al = [], set()
+    with LIB.lock:
+        for e in LIB.index.values():
+            al = e.get("album")
+            if al and Library._norm(al) not in seen_al and fits(al):
+                seen_al.add(Library._norm(al))
+                albums.append({"tipo": "album", "texto": al, "artista": LIB.artist_name(e), "thumb": e.get("thumb")})
+                if len(albums) >= 3:
+                    break
+    out += albums
+    for k, e in LIB.suggest(q, n):
+        if len(out) >= n:
+            break
+        if k.startswith("yt-"):
+            out.append({"tipo": "cancion", "texto": e.get("title"), "artista": LIB.artist_name(e), "id": k[3:],
+                        "thumb": e.get("thumb")})
+    return {"sugerencias": out[:n]}
 
 
 @app.get("/search/albums", dependencies=[Depends(check_token)])
