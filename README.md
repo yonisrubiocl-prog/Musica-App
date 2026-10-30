@@ -104,7 +104,10 @@ favoritas", artistas y "Lo más puesto". **En pantallas anchas (≥1100 px, PC):
 derecha** (portada viva, controles, volumen, cola y letra), como Spotify en el ordenador, en una **tarjeta flotante
 redondeada** con aire alrededor, brillo violeta y un **ecualizador animado** junto a "Reproduciendo" (se mueve solo
 mientras suena); sin canción enseña "Aquí
-sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). En el móvil, como
+sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). Márgenes simétricos (sin
+hueco entre el contenido y el panel). **En pantallas muy anchas (≥1500 px)**, tres tarjetas iguales: **la cola
+("Siguiente") a la izquierda**, siempre a la vista, el contenido en medio y el reproductor a la derecha (que
+entonces solo tiene la pestaña Letra). En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
 escribe); los resultados completos salen con Enter (botón aparte "Buscar en YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por

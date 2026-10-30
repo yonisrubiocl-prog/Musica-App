@@ -310,6 +310,32 @@
     .np .vacio b { color: var(--text); font-size: 1.15rem; }
     body.locked { overflow: auto; }
   }
+  /* Pantallas muy anchas: tres tarjetas iguales y simétricas: la cola a la izquierda, el contenido en medio y el
+     reproductor a la derecha (que entonces solo tiene la pestaña Letra). */
+  .qside { display: none; }
+  @media (min-width: 1100px) and (max-width: 1499px) {
+    .wrap { max-width: none; margin: 0; padding-left: calc(var(--pgap) + 8px); padding-right: var(--pgap); }
+    .dock { left: calc(var(--pgap) - 12px); }
+  }
+  @media (min-width: 1500px) {
+    :root { --qside: 360px; }
+    body { padding-left: calc(var(--qside) + var(--pgap) * 2); }
+    .wrap { max-width: 1040px; }
+    .dock { left: calc(var(--qside) + var(--pgap) * 2); }
+    .toast { left: calc(var(--qside) + var(--pgap) * 2 + (100% - var(--qside) - var(--panel) - var(--pgap) * 4) / 2); }
+    .qside { display: flex; flex-direction: column; position: fixed; z-index: 50; top: var(--pgap); left: var(--pgap); bottom: var(--pgap);
+             width: var(--qside); border-radius: 30px; overflow: hidden;
+             background: linear-gradient(180deg, rgba(26,22,48,.94), rgba(12,13,24,.96)); border: 1px solid rgba(255,255,255,.08);
+             box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(155,92,255,.06), inset 0 1px 0 rgba(255,255,255,.06); }
+    .qside::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+                    background: radial-gradient(120% 50% at 50% 0%, rgba(240,77,187,.12), transparent 60%); }
+    .qhead { display: flex; align-items: center; gap: 10px; padding: 22px 24px 10px; font-weight: 700; font-size: 1.05rem; }
+    .qlist { flex: 1; overflow-y: auto; padding: 0 12px 18px; position: relative; z-index: 1; }
+    .qlist .radio { display: flex; align-items: center; gap: 12px; padding: 10px 12px 14px; }
+    .qlist .radio div { flex: 1; } .qlist .radio small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+    .qside.sonando .eq b, body.sonando .qside .eq b { animation-play-state: running; }
+    #npTabs [data-np="cola"] { display: none; }
+  }
   .scrim { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center;
            opacity: 0; pointer-events: none; transition: opacity 200ms; }
   .scrim.on { opacity: 1; pointer-events: auto; }
@@ -362,6 +388,10 @@
 </div>
 
 <!-- Reproductor grande: se abre tocando la barra de abajo -->
+<aside class="qside" id="qside" aria-label="Siguiente">
+  <div class="qhead"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i>Siguiente</div>
+  <div class="qlist" id="qList"></div>
+</aside>
 <div class="np sin" id="np" aria-hidden="true">
   <div class="tint" id="npTint"></div>
   <div class="in">
@@ -1054,7 +1084,7 @@ addEventListener('keydown', e => {   // flechas arriba/abajo (fuera de un campo 
 });
 audio.onerror = () => { if (playing) playing.error = true; if (cur) toast('No se pudo reproducir «' + cur.title + '»'); };
 const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause;
-  $('np').classList.toggle('sonando', !p); };   // la portada viva solo se mueve mientras suena
+  $('np').classList.toggle('sonando', !p); document.body.classList.toggle('sonando', !p); };   // la portada viva solo se mueve mientras suena
 audio.onplay = () => ico(false); audio.onpause = () => ico(true);
 let seeking = false;
 audio.ontimeupdate = () => {
@@ -1118,6 +1148,9 @@ async function fillRadio() {
 // ---------- reproductor grande ----------
 let npTab = 'cola';
 const panelFijo = matchMedia('(min-width: 1100px)');   // en el PC el reproductor grande ya está a la derecha
+const tresColumnas = matchMedia('(min-width: 1500px)');   // la cola, en su barra de la izquierda
+tresColumnas.addEventListener('change', () => { if (!tresColumnas.matches && npTab === 'letra' && !cur) npTab = 'cola'; paintNp(); });
+setTimeout(paintNp, 0);   // al abrir la página: los mensajes de "sin música" del panel y de la cola
 function npVisible() { return panelFijo.matches || $('np').classList.contains('on'); }
 panelFijo.addEventListener('change', () => paintNp());
 function openNp() { if (!cur || panelFijo.matches) return; $('np').classList.add('on'); document.body.classList.add('locked'); paintNp(); }
@@ -1160,6 +1193,7 @@ $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[re
 $('npTabs').onclick = e => { const b = e.target.closest('button'); if (b) { npTab = b.dataset.np; paintNp(); } };
 function paintNp() {
   $('np').classList.toggle('sin', !cur);   // sin canción: el panel de la derecha enseña un mensaje en vez de quedar vacío
+  if (tresColumnas.matches) { if (npTab === 'cola') npTab = 'letra'; paintQueue(); }
   if (!cur) return;
   $('npImg').src = cur.thumb || ''; $('npTint').style.backgroundImage = cur.thumb ? `url("${cur.thumb.replace(/"/g, '%22')}")` : 'none';
   $('npT').textContent = cur.title; $('npA').textContent = cur.artist || '';
@@ -1175,20 +1209,25 @@ function paintNp() {
   if (npTab === 'cola') paintQueue(); else loadLyrics();
 }
 function paintQueue() {
-  if (!npVisible() || npTab !== 'cola') return;
+  const enBarra = tresColumnas.matches;   // ≥1500 px: la cola vive en su barra de la izquierda, siempre a la vista
+  if (!enBarra && (!npVisible() || npTab !== 'cola')) return;
+  const dest = enBarra ? $('qList') : $('npPanel');
+  if (enBarra && !cur) { dest.innerHTML = '<div class="empty">Cuando suene algo, aquí verás lo que viene después.</div>'; return; }
   setList('queue', queue, 'lista');
   const top = isRadio
     ? `<div class="radio"><span>📻</span><div>Radio de «${esc(queue[0]?.title)}»<small>Detrás van canciones recomendadas; se añaden más solas</small></div></div>`
     : `<div class="radio"><span>📻</span><div>Seguir con canciones parecidas<small>Al acabarse la lista</small></div><button class="switch${follow ? ' on' : ''}" id="npFollow" aria-label="Seguir con parecidas"></button></div>`;
-  $('npPanel').innerHTML = top + `<div class="list">${queue.slice(qi).map((s, k) => { const i = qi + k;
+  dest.innerHTML = top + `<div class="list">${queue.slice(qi).map((s, k) => { const i = qi + k;
     return `<div class="row${i === qi ? ' playing' : ''}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
       <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button></div>`; }).join('')}</div>`;
   if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
 }
-$('npPanel').addEventListener('click', e => {
+$('qList').addEventListener('click', e => npPanelClick(e));
+$('npPanel').addEventListener('click', e => npPanelClick(e));
+function npPanelClick(e) {
   const q = e.target.closest('[data-q]'); if (q) { qi = +q.dataset.q; start(); }
   const l = e.target.closest('[data-at]'); if (l) audio.currentTime = +l.dataset.at;
-});
+}
 
 // ---------- letras ----------
 // Del servidor (/lyrics) si las tiene; si no, de lrclib.net (gratis, sin clave), limpiando el título de YouTube.
