@@ -275,7 +275,10 @@ un 4.º cierra la sesión **más antigua** (ese dispositivo recibe 401 y tiene q
 rechaza el 4.º porque al reinstalar la app la sesión del móvil viejo sigue "viva" 90 días y dejaría fuera al
 dueño. Quien comparta su cuenta se irá echando con los demás, y el registro de la API lo dice ("entró en otro
 dispositivo; cierro el más antiguo"). La app web cuenta como un dispositivo más. (`"web": true` en `/auth/google` da una sesión de 10 min que no
-cuenta; hoy no la usa nadie.) `docker exec musicapp-api python users.py` enseña los dispositivos de cada uno.
+cuenta; hoy no la usa nadie.) `docker exec musicapp-api python users.py` enseña los dispositivos de cada uno. **Los administradores no tienen
+límite** (el dueño prueba en el móvil, el emulador, la web y el PC a la vez; el 30-10-2026 el límite le cerró la
+sesión del móvil): `users.py admin <email>` / `noadmin <email>`. Hoy son `yonisrubiocl@gmail.com` y
+`lainerrubio@gmail.com`.
 
 **Qué sabemos de cada uno** (solo el permiso básico "perfil y email" de Google; es lo que enseña la pantalla
 de Google al entrar):
@@ -304,6 +307,7 @@ Discord, y empezó a apuntarse el 30-10-2026 (antes de eso sale "nunca"). Por de
 docker exec musicapp-api python users.py                       # lista
 docker exec musicapp-api python users.py aprobar amigo@gmail.com
 docker exec musicapp-api python users.py bloquear amigo@gmail.com
+docker exec musicapp-api python users.py admin yo@gmail.com     # sin límite de dispositivos
 ```
 
 Arrancar y probar desde el servidor:

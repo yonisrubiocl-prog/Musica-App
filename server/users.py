@@ -7,6 +7,8 @@ Desde el servidor:
   docker exec musicapp-api python users.py                    # lista de usuarios
   docker exec musicapp-api python users.py aprobar <email>
   docker exec musicapp-api python users.py bloquear <email>    # también cierra sus sesiones
+  docker exec musicapp-api python users.py admin <email>       # sin límite de dispositivos (el dueño)
+  docker exec musicapp-api python users.py noadmin <email>
 """
 import hashlib
 import json
@@ -92,13 +94,15 @@ def login(claims, web=False):
         SESSIONS.data = {k: s for k, s in SESSIONS.data.items() if s["until"] > now}   # de paso, limpia caducadas
         if web:
             SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + WEB_SESSION_MIN * 60), "web": True}
-        else:
+        elif not u.get("admin"):   # los administradores (el dueño) no tienen límite de dispositivos
             mine = sorted(((k, s) for k, s in SESSIONS.data.items() if s["sub"] == sub and not s.get("web")),
                           key=lambda ks: ks[1].get("since", ks[1]["until"] - SESSION_DAYS * 86400))
             for k, _ in mine[:max(0, len(mine) - MAX_DEVICES + 1)]:
                 del SESSIONS.data[k]
                 log.info("sesiones: %s entró en otro dispositivo; cierro el más antiguo (máximo %d)",
                          claims["email"], MAX_DEVICES)
+            SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + SESSION_DAYS * 86400), "since": int(now)}
+        else:
             SESSIONS.data[_hash(session)] = {"sub": sub, "until": int(now + SESSION_DAYS * 86400), "since": int(now)}
         SESSIONS.save()
     return public(sub, u), session
@@ -129,10 +133,21 @@ def _cli(args):
         for sub, u in rows:
             devices = sum(1 for s in SESSIONS.data.values() if s["sub"] == sub and not s.get("web") and s["until"] > now)
             print(f"{u['status']:<10} {u['email']:<35} {u.get('name') or '':<25} "
-                  f"desde {time.strftime('%Y-%m-%d', time.localtime(u['since']))}  {devices} dispositivo(s)")
+                  f"desde {time.strftime('%Y-%m-%d', time.localtime(u['since']))}  {devices} dispositivo(s)"
+                  f"{'  [admin: sin límite]' if u.get('admin') else ''}")
         print(f"{len(rows)} usuarios" if rows else "Nadie ha entrado todavía.")
         return 0
     action, who = (args + [""])[:2]
+    if action in ("admin", "noadmin") and who:
+        found = [sub for sub, u in USERS.data.items() if who in (sub, u["email"])]
+        if not found:
+            print(f"No hay nadie con '{who}'.")
+            return 1
+        for sub in found:
+            USERS.data[sub]["admin"] = action == "admin"
+        USERS.save()
+        print(f"{who}: {'administrador (sin límite de dispositivos)' if action == 'admin' else 'sin administrador'}")
+        return 0
     status = {"aprobar": "aprobado", "bloquear": "bloqueado"}.get(action)
     if not status or not who:
         print(__doc__)
