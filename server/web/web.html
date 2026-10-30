@@ -846,19 +846,24 @@ async function showArtist(name) {
   page = null;
   let a;
   try { a = await api('/artist?name=' + encodeURIComponent(name)); } catch (e) { return toast('No hay canciones guardadas de ' + name); }
-  // Como en Spotify: arriba las suyas que tienes en favoritas o playlists, y al reproducir suenan esas primero y
-  // luego las demás (a.todas, la cola que arma el servidor), en orden y sin aleatorio.
+  // Como en Spotify: arriba las suyas que tienes en favoritas o playlists, luego las populares (las más puestas,
+  // sin repetir las tuyas) y al final los álbumes. Al reproducir suenan las tuyas primero y luego las demás
+  // (a.todas, la cola que arma el servidor), en orden y sin aleatorio.
   const todas = a.todas || a.loose, tuyas = a.tuyas || [];
-  lists = {}; setList('view', a.loose, 'lista', todas); setList('tuyas', tuyas, 'lista', todas);
+  const mias = new Set(tuyas.map(x => x.id)), populares = todas.filter(x => !mias.has(x.id));
+  lists = {}; setList('view', populares.slice(0, 10), 'lista', todas); setList('tuyas', tuyas, 'lista', todas);
   lists.view.orden = lists.tuyas.orden = true;
   const img = a.albums.find(x => x.thumb)?.thumb || a.loose.find(x => x.thumb)?.thumb;
   wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img, round: true, title: a.name,
       sub: `${nSongs(a.songs)}${a.albums.length ? ` · ${a.albums.length} ${a.albums.length === 1 ? 'álbum' : 'álbumes'}` : ''}`,
       acts: todas.length ? '<button class="pill main" data-playall>▶ Reproducir</button>' : ''})}
     ${tuyas.length ? `<h2>Tus canciones <small>${tuyas.length}</small></h2><div class="list">${rows('tuyas')}</div>` : ''}
+    ${populares.length ? `<h2>${tuyas.length ? 'Populares' : 'Canciones'} <small>${populares.length}</small></h2>
+      <div class="list" id="popArt">${rows('view')}</div>
+      ${populares.length > 10 ? `<div class="more"><button class="pill glass" id="popMas">Ver todas (${populares.length})</button></div>` : ''}` : ''}
     ${a.albums.length ? '<h2>Álbumes</h2><div class="rail">' + albumCards(a.albums.map(al => ({...al, artist: a.name,
-        sub: [al.year, nSongs(al.songs)].filter(Boolean).join(' · ')}))) + '</div>' : ''}
-    ${a.loose.length ? `<h2>${a.albums.length ? 'Otras canciones' : 'Canciones'}</h2><div class="list">${rows('view')}</div>` : ''}</div>`;
+        sub: [al.year, nSongs(al.songs)].filter(Boolean).join(' · ')}))) + '</div>' : ''}</div>`;
+  if ($('popMas')) $('popMas').onclick = () => { lists.view.songs = populares; $('popArt').innerHTML = rows('view'); $('popMas').parentNode.remove(); };
   scrollTo({top: 0});
 }
 async function showAlbum(artist, name) {

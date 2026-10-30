@@ -59,7 +59,8 @@
    `versiones_raras`, texto libre y "Ahora no".
 4. **Inicio**: las secciones de `/home` (Para ti, Vuelve a escuchar) junto a las de siempre, y **"Tus artistas"**
    (`id: artistas`, `tipo: artistas`, items como `/artists`) en vez de la fila de todos los artistas.
-5. **Página de un artista**: arriba **"Tus canciones"** (`tuyas`, si hay); "▶ Reproducir" y tocar cualquiera de sus
+5. **Página de un artista**, en este orden: **"Tus canciones"** (`tuyas`, si hay), **"Populares"** (`todas` sin las
+   de `tuyas`, ya vienen de más a menos puestas: 10 y "Ver todas") y **al final los álbumes**. "▶ Reproducir" y tocar cualquiera de sus
    canciones usan **`todas`** desde esa canción hacia abajo, **en orden y apagando el aleatorio** (se puede volver a
    encender mientras suena).
 6. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
