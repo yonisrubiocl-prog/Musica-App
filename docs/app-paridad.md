@@ -20,6 +20,8 @@
    `GET /search/album/<id>` (canciones en orden, `track`, y `where` para marcar las guardadas).
 4. **Biblioteca** — `GET /library?sort=recientes|populares|nombre|artista&offset=&limit=&genre=` (scroll infinito),
    `GET /genres`, `GET /artists`, `GET /artist?name=`, `GET /album?artist=&name=`. Las canciones traen `genre`.
+   **No agrupar artistas en la app**: usar `/artist` tal cual (cuenta colaboraciones, "feat." del título y
+   canciones sin artista con el nombre en el título; las colaboraciones vienen en `loose` aunque tengan álbum).
 5. **Favoritas** — `GET /favorites`, `PUT /favorites/<id>` (si no está guardada, en el cuerpo `{title, artist, album,
    duration, thumb}`), `DELETE /favorites/<id>`.
 6. **Playlists** — `GET /playlists`, `POST /playlists {name}` → `{id}`, `PUT /playlists/<id> {name, songs}` (entera;
@@ -29,7 +31,8 @@
    - `POST /eventos {eventos: [{tipo: entera|salto|no_me_gusta|ya_no_me_gusta, id, segundo, duracion, contexto,
      causa, cuando}]}` en lote; sin conexión, guardarlos y mandarlos después. **No mandar `inicio`**: lo apunta `/stream`.
    - `GET /home` → secciones `recientes`, `para_ti`, `vuelve` (las vacías no vienen; si da 404, el Inicio de siempre).
-   - `GET /radio?desde=cancion:<id>|artista:<nombre>&ya=<ids>&n=20`; volver a pedir cuando queden 2–3.
+   - `GET /radio?desde=cancion:<id>|artista:<nombre>&ya=<ids>&n=20`; volver a pedir cuando queden 2–3. Si falla
+     (500, sin red), seguir con la cola que hay y reintentar más tarde, sin cortar la música.
    - `GET /recomendaciones/preguntar?contexto=` y `POST /recomendaciones/opinion {contexto, semilla, gusto: si|no,
      opciones, texto, canciones}`.
 9. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva).
