@@ -101,14 +101,16 @@ vive en la API y la web solo la enseña. Idea pendiente: diseño de escritorio (
 reproductor a lo ancho abajo). Tiene tres pestañas
 abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
 favoritas", artistas y "Lo más puesto". **En pantallas anchas (≥1100 px, PC):** el contenido a la izquierda y el **reproductor grande fijo a la
-derecha** (portada viva, controles, volumen, cola y letra), como Spotify en el ordenador; sin canción enseña "Aquí
+derecha** (portada viva, controles, volumen, cola y letra), como Spotify en el ordenador, en una **tarjeta flotante
+redondeada** con aire alrededor, brillo violeta y un **ecualizador animado** junto a "Reproduciendo" (se mueve solo
+mientras suena); sin canción enseña "Aquí
 sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
 escribe); los resultados completos salen con Enter (botón aparte "Buscar en YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
 artista). **Biblioteca**: Favoritas, Historial y Artistas → álbumes → canciones. ♡ en cada canción y en el
 reproductor (`/favorites`, sincronizado con la app). Cristal (fondo translúcido con desenfoque) en tarjetas,
-reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Minirreproductor con
+reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Barras de scroll finas y discretas (y sin scroll horizontal). Minirreproductor con
 barra violeta, anterior/siguiente, **volumen** (en la barra en pantallas anchas y en el reproductor grande; flechas
 arriba/abajo; se recuerda; en el móvil manda el volumen del teléfono) y controles en la pantalla de bloqueo (Media
 Session). En Android enseña arriba
