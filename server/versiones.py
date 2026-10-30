@@ -31,7 +31,8 @@ VIDEO = re.compile(r"official\s*(music\s*)?video|video\s*oficial|v[ií]deo\s*cli
                    r"\(clip\)", re.I)
 LIVE = re.compile(r"en\s*vivo|ao\s*vivo|\blive\b|en\s*directo|unplugged", re.I)
 OTHER = re.compile(r"\b(remix|rmx|acoustic|ac[uú]stic[oa]|live|en vivo|version|versi[oó]n|edit|mix|cover|"
-                   r"karaoke|instrumental|sped up|slowed|demo)\b", re.I)   # otra canción si solo la tiene una
+                   r"karaoke|instrumental|sped up|slowed|demo|orchestral|orquestal|stripped|symphonic|sinf[oó]nic[oa]|"
+                   r"extended|unplugged|piano)\b", re.I)   # otra canción si solo la tiene una
 TAGS = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]|\s+(?:ft\.?|feat\.?|featuring)\s.*$|\s*\|.*$|"
                   r"\s+(?:official|video oficial|videoclip|lyric).*$", re.I)
 
@@ -62,7 +63,9 @@ class Versiones:
         if self.lib.DASH.search(t):
             a, b = self.lib.DASH.split(t, 1)
             na = self.lib._norm(a)
-            if artist_n and (na == artist_n or artist_n in na or na in artist_n):
+            # solo si lo de delante EMPIEZA por el artista ('Rawayana, Akapellah - Veneka'); si no, lo de detrás puede
+            # ser el canal ('Difícil De Igualar, Binomio De Oro, Video Letra - Sentir Vallenato')
+            if artist_n and (na == artist_n or na.startswith(artist_n + " ") or artist_n.startswith(na + " ")):
                 t = b
         return self.lib._norm(TAGS.sub("", t))
 

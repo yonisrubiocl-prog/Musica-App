@@ -28,6 +28,7 @@ from enrich import Enricher
 from genres import Genres
 from precarga import Precarga
 from versiones import Versiones
+from duplicadas import Duplicadas
 from recomendar import Recomendar
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
@@ -321,6 +322,7 @@ LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
 REC = Recomendar(LIB, userdata) if os.environ.get("RECOMENDAR", "1") == "1" else None
 PRECARGA = Precarga(LIB, ytm, download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
                     lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
+DUPLICADAS = Duplicadas(LIB, userdata)   # la misma canción guardada varias veces: se juntan (duplicadas.py)
 VERSIONES = Versiones(LIB, ytm, download, userdata, lambda: _yt_blocked_until > time.time(),   # vídeo -> disco
                       lambda s: time.time() - _yt_last_user > s)                               # (versiones.py)
 
@@ -357,7 +359,9 @@ def new_songs(text, skip):
     limit = YTM_NEW
     while True:
         songs = ytm_songs(text, limit)
-        fresh = [s for s in songs if f"yt-{s['id']}" not in skip]
+        # ni las guardadas ni otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
+        fresh = [s for s in songs if f"yt-{s['id']}" not in skip
+                 and not DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""))]
         if len(fresh) >= YTM_NEW or len(songs) < limit or limit >= YTM_MAX:
             return fresh[:YTM_NEW]
         limit = YTM_MAX   # el segundo intento ya pide el máximo: dos búsquedas como mucho (peor caso ~8 peticiones)
@@ -981,6 +985,20 @@ def i_youtube():
     """Cómo está YouTube: {bloqueado_hasta (0 si no), peticiones_hora, tope_hora, ultimo_bloqueo}. El bot lo consulta
     para avisar en el canal de registro cuando nos bloquea y cuando se pasa."""
     return yt_state()
+
+
+@internal.get("/interno/duplicadas")
+def i_duplicadas():
+    """Canciones repetidas en la biblioteca, sin tocar nada: [{queda, sobran: [títulos]}]."""
+    found = DUPLICADAS.find()
+    return {"repetidas": len(found), "sobran": sum(len(r) for _, r in found),
+            "lista": [{"queda": b[1].get("title"), "sobran": [e.get("title") for _, e in r]} for b, r in found]}
+
+
+@internal.post("/interno/duplicadas")
+def i_duplicadas_merge():
+    """Junta las repetidas ya (se hace sola cada noche): favoritas, playlists e historial pasan a la que se queda."""
+    return {"borradas": DUPLICADAS.merge()}
 
 
 @internal.get("/interno/versiones")

@@ -122,28 +122,50 @@ def remove_favorite(sub, vid):
     return False
 
 
+def _replace_in(u, old, new, info):
+    """Cambia la canción `old` por `new` en las favoritas, playlists e historial de un usuario (sin cerrojo)."""
+    favs = u["favorites"]
+    if old in favs:   # la nueva, en el sitio exacto de la vieja (hay muchas con la misma fecha: importadas)
+        was, dup = favs[old], new in favs and new != old
+        entry = {**{k: info.get(k) for k in FIELDS}, "added": was.get("added") or int(time.time())}
+        u["favorites"] = {(new if k == old else k): (entry if k == old else v)
+                          for k, v in favs.items() if not (dup and k == new)}
+    for p in u["playlists"].values():
+        if not any(s["id"] == old for s in p["songs"]):
+            continue
+        out, seen = [], set()
+        for s in p["songs"]:
+            s = {"id": new, **{k: info.get(k) for k in FIELDS}} if s["id"] == old else s
+            if s["id"] not in seen:
+                seen.add(s["id"])
+                out.append(s)
+        p["songs"] = out
+    if any(h[0] == old for h in u.get("history", [])):
+        out, seen = [], set()
+        for vid, when in u["history"]:
+            vid = new if vid == old else vid
+            if vid not in seen:
+                seen.add(vid)
+                out.append([vid, when])
+        u["history"] = out
+
+
 def replace_song(sub, old, new, info):
-    """Cambia la canción `old` por `new` (con su ficha `info`) en las favoritas y playlists de un usuario: en
-    favoritas conserva cuándo se marcó (sigue en su sitio); en cada playlist, su posición. Si `new` ya estaba, no
-    se repite (se queda la primera). Ver versiones.py."""
+    """Cambia la canción `old` por `new` (con su ficha `info`) en las favoritas, playlists e historial de un usuario:
+    en favoritas conserva cuándo se marcó y su sitio; en cada playlist, su posición. Si `new` ya estaba, no se repite
+    (se queda en el sitio de la vieja). Ver versiones.py."""
     with _lock:
-        u = _user(sub)
-        favs = u["favorites"]
-        if old in favs:   # la nueva, en el sitio exacto de la vieja (hay muchas con la misma fecha: importadas)
-            was, dup = favs[old], new in favs and new != old
-            entry = {**{k: info.get(k) for k in FIELDS}, "added": was.get("added") or int(time.time())}
-            u["favorites"] = favs = {(new if k == old else k): (entry if k == old else v)
-                                     for k, v in favs.items() if not (dup and k == new)}
-        for p in u["playlists"].values():
-            if not any(s["id"] == old for s in p["songs"]):
-                continue
-            out, seen = [], set()
-            for s in p["songs"]:
-                s = {"id": new, **{k: info.get(k) for k in FIELDS}} if s["id"] == old else s
-                if s["id"] not in seen:
-                    seen.add(s["id"])
-                    out.append(s)
-            p["songs"] = out
+        _user(sub)
+        _replace_in(_data[sub], old, new, info)
+        _save()
+
+
+def replace_everywhere(old, new, info):
+    """Lo mismo en todas las cuentas (duplicadas.py: al juntar dos copias de la misma canción)."""
+    with _lock:
+        for sub in list(_data):
+            _user(sub)
+            _replace_in(_data[sub], old, new, info)
         _save()
 
 

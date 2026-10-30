@@ -344,6 +344,23 @@ semanas).
   `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`. Para pararla: quitar la línea
   `PRECARGA = …` de `app.py`.
 
+**Canciones repetidas** (`duplicadas.py`, dentro de la API): la misma canción guardada varias veces con otro
+título ("Numb", "Numb (Official Music Video) [4K]", "Numb (Lyrics)", la remasterizada, la del single…) se junta en
+una sola.
+
+- **Es la misma** si coincide el artista y el título limpio (quitando "Artista - " solo si lo de delante empieza
+  por el artista; si no, lo de detrás puede ser el canal), ninguna es directo, remix, acústica, orquestal,
+  "stripped"… sin serlo la otra, y la duración se parece (o la de vídeo es algo más larga por la intro). Títulos
+  genéricos ("Intro", "Interlude", "Skit") nunca se juntan.
+- **Se queda la del disco** (sin etiquetas de vídeo o letra, con álbum y pista) o, si no hay, la más puesta. Antes de
+  borrar las demás, las favoritas, playlists e historial de **todos** pasan a la que queda (mismo sitio, sin
+  repetirse) y se le suman sus reproducciones. Cada borrado queda en `server/data/duplicadas.jsonl`.
+- **Cada noche** (05:00 de Chile) se juntan las nuevas, y **"Buscar en YouTube" no enseña** copias de lo ya guardado
+  (`Duplicadas.is_saved` en `new_songs`).
+- A mano: `GET /interno/duplicadas` (ver, sin tocar) y `POST /interno/duplicadas` (juntar ya), con `BOT_API_KEY`
+  en el puerto 8091. El 30-10-2026 se juntaron 177 copias (671 MB); respaldos de antes en
+  `server/data/index.antes-duplicadas.json` y `userdata.antes-duplicadas.json`.
+
 **Versiones de disco** (`versiones.py`, dentro de la API): cambia en las favoritas y playlists de una cuenta las
 versiones de **vídeo o de letra** ("Official Music Video", "Video Oficial", "(Letra)"…) por **la canción del disco**,
 sin intros ni escenas habladas. Los directos no se tocan.
@@ -577,6 +594,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── versiones.py        cambia en favoritas/playlists las versiones de vídeo por la canción del disco
+│   ├── duplicadas.py       junta la misma canción guardada varias veces (cada noche) y la quita de "Buscar en YouTube"
 │   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)
