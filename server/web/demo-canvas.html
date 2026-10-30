@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080A12">
+<title>Música · prueba de portada viva y Canvas</title>
+<link rel="icon" href="/logo-96.webp" type="image/webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* Página de prueba: opción A (portada viva) frente a opción B (Canvas). Ver README, "Portada viva y Canvas". */
+  :root { --bg: #080A12; --card: #151725; --primary: #9B5CFF; --secondary: #F04DBB; --text: #FFFFFF; --muted: #A3A5B5; }
+  * { box-sizing: border-box; margin: 0; }
+  html { background: var(--bg); color: var(--text); }
+  body { font-family: Inter, Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; padding: 28px 20px 40px; }
+  h1 { text-align: center; font-size: 1.4rem; font-weight: 800; }
+  .lead { text-align: center; color: var(--muted); margin: 8px auto 26px; max-width: 560px; line-height: 1.5; font-size: .95rem; }
+  .pair { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
+  .opt { width: min(340px, 100%); }
+  .opt h2 { font-size: 1rem; margin-bottom: 4px; } .opt p { color: var(--muted); font-size: .85rem; margin-bottom: 12px; line-height: 1.4; }
+  .phone { position: relative; aspect-ratio: 9 / 16; border-radius: 26px; overflow: hidden; background: #000;
+           box-shadow: 0 30px 70px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06); }
+  .media { position: absolute; inset: 0; }
+  .shade { position: absolute; inset: 0; background: linear-gradient(rgba(8,10,18,.15) 0%, rgba(8,10,18,0) 30%, rgba(8,10,18,.25) 55%, rgba(8,10,18,.92) 100%); }
+  .info { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 20px 24px; }
+  .info .t { font-size: 1.25rem; font-weight: 800; } .info .a { color: #d7d8e3; margin-top: 4px; }
+  .row { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+  .play { width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--primary); color: #fff; cursor: pointer;
+          display: grid; place-items: center; box-shadow: 0 8px 26px rgba(155,92,255,.45); }
+  .play svg { width: 26px; height: 26px; fill: currentColor; }
+  .prog { flex: 1; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--secondary)); }
+
+  /* ---- Opción A: portada viva. La portada se acerca y se desplaza muy despacio (Ken Burns); detrás, sus
+     mismos colores muy desenfocados, que "respiran". Todo lo hace el navegador: sin vídeo, sin peticiones. ---- */
+  .alive .glow { position: absolute; inset: -20%; background-size: cover; background-position: center; filter: blur(50px) saturate(170%);
+                 opacity: .75; animation: breathe 9s ease-in-out infinite alternate; }
+  .alive .cover { position: absolute; left: 50%; top: 40%; width: 118%; aspect-ratio: 1; transform: translate(-50%, -50%);
+                  background-size: cover; background-position: center; animation: kenburns 24s ease-in-out infinite alternate;
+                  -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent 100%); mask-image: radial-gradient(closest-side, #000 70%, transparent 100%); }
+  @keyframes kenburns { 0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+                        50% { transform: translate(-46%, -53%) scale(1.12) rotate(.6deg); }
+                        100% { transform: translate(-53%, -48%) scale(1.2) rotate(-.6deg); } }
+  @keyframes breathe { from { transform: scale(1); opacity: .55; } to { transform: scale(1.15); opacity: .85; } }
+  /* ---- Opción B: Canvas. Un trozo de 7 s del videoclip, vertical, sin sonido y en bucle. ---- */
+  .canvas video { width: 100%; height: 100%; object-fit: cover; }
+  @media (prefers-reduced-motion: reduce) { .alive .glow, .alive .cover { animation: none; } }
+  .note { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 28px; }
+  .note a { color: var(--text); }
+</style>
+</head>
+<body>
+<h1>Portada viva y Canvas · prueba</h1>
+<p class="lead">Así se vería el reproductor grande. Dale a ▶ para oír cada una mientras la miras.</p>
+<div class="pair">
+  <div class="opt">
+    <h2>A · Portada viva</h2>
+    <p>La portada del álbum, moviéndose despacio. Gratis: no gasta espacio ni peticiones. Vale para todas las canciones.</p>
+    <div class="phone alive">
+      <div class="media"><div class="glow" id="aGlow"></div><div class="cover" id="aCover"></div></div>
+      <div class="shade"></div>
+      <div class="info"><div class="t">Bienvenidos A La Tierra</div><div class="a">Rawayana</div>
+        <div class="row"><button class="play" data-play="8K0XHhq89OE" aria-label="Reproducir"></button><div class="prog"><i data-prog="8K0XHhq89OE"></i></div></div></div>
+    </div>
+  </div>
+  <div class="opt">
+    <h2>B · Canvas (trozo del videoclip)</h2>
+    <p>7 segundos del videoclip, en bucle y sin sonido (~400 KB). Solo para canciones con videoclip; se bajan de madrugada.</p>
+    <div class="phone canvas">
+      <div class="media"><video id="bVideo" autoplay muted loop playsinline></video></div>
+      <div class="shade"></div>
+      <div class="info"><div class="t">Mariposa Traicionera</div><div class="a">Maná</div>
+        <div class="row"><button class="play" data-play="av3wkasS-WQ" aria-label="Reproducir"></button><div class="prog"><i data-prog="av3wkasS-WQ"></i></div></div></div>
+    </div>
+  </div>
+</div>
+<p class="note">Página de prueba. <a href="/web/">Volver a la música</a></p>
+<audio id="audio"></audio>
+<script>
+const session = (() => { try { return localStorage.getItem('musica_sesion'); } catch (e) { return null; } })();
+if (!session) location.replace('/');
+const tok = encodeURIComponent(session);
+const COVER = 'https://yt3.googleusercontent.com/zPDzKeVjuw8viqW0FxHjGlOCIa_ixJJRT15kzbf9ZlYzCuyoL8mT5G1PPO8URIsqa9hZQKxYKwUDqgYhbg=w544-h544-l90-rj';
+document.getElementById('aCover').style.backgroundImage = document.getElementById('aGlow').style.backgroundImage = `url("${COVER}")`;
+document.getElementById('bVideo').src = `/canvas/av3wkasS-WQ?token=${tok}`;
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+const audio = document.getElementById('audio'); let curId = null;
+const paint = () => document.querySelectorAll('[data-play]').forEach(b => b.innerHTML = (b.dataset.play === curId && !audio.paused) ? PAUSE : PLAY);
+document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
+  if (curId === b.dataset.play) { audio.paused ? audio.play() : audio.pause(); return; }
+  curId = b.dataset.play; audio.src = `/stream/${curId}?token=${tok}`; audio.play();
+});
+audio.onplay = audio.onpause = paint;
+audio.ontimeupdate = () => document.querySelectorAll('[data-prog]').forEach(i =>
+  i.style.width = i.dataset.prog === curId && audio.duration ? (100 * audio.currentTime / audio.duration) + '%' : 0);
+paint();
+</script>
+</body>
+</html>

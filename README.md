@@ -112,6 +112,18 @@ Session). En Android enseña arriba
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
 
 
+**Portada viva y Canvas (prueba, 30-10-2026):** `https://musica.yoneapolis.com/demo-canvas` (`server/web/demo-canvas.html`)
+enseña las dos ideas para el reproductor grande, con una canción cada una:
+- **A · Portada viva:** la portada del álbum se acerca y se desplaza muy despacio (Ken Burns, 24 s) y detrás sus
+  colores desenfocados "respiran". Solo CSS: sin vídeo, sin espacio, sin peticiones; vale para todas.
+- **B · Canvas:** un trozo de **7 s del videoclip**, vertical (540×960), sin sonido y en bucle, en
+  `/var/lib/music/canvas/<id>.mp4` (~400 KB; `GET /canvas/<id>` con sesión, 404 si no tiene). Se hace con yt-dlp
+  bajando **solo ese tramo** (`download_ranges`, 3–4 peticiones) y ffmpeg: quita las bandas negras que traiga el
+  propio vídeo (`cropdetect`), recorta en vertical al centro, H.264 sin audio. El de prueba es Mariposa
+  Traicionera (Maná), desde el segundo 95 (~35 %, para saltarse intros). Si se adopta: de madrugada y a ritmo de
+  persona, primero lo más escuchado; las pistas de audio (sin vídeo) necesitan buscar su videoclip (1 petición) o se
+  quedan con la portada viva. Sin decidir.
+
 **Publicar la app Android:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
 sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).
 La carpeta está montada solo lectura en la API como `/app-dist`. Sin reiniciar nada. La app instalada lo ve en
