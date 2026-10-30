@@ -400,6 +400,22 @@ class Library:
         e0 = hits[0][1]
         return {"name": e0["album"], "artist": found[0], "year": e0.get("year"), "songs": hits}
 
+    SORTS = ("recientes", "populares", "nombre", "artista")
+
+    def page(self, sort="recientes", offset=0, limit=50):
+        """Toda la biblioteca por páginas (para ir cargando según se baja en la app): (total, [(clave, datos)]).
+        recientes: la última que sonó primero; populares: las más puestas; nombre: A-Z por título; artista: A-Z
+        por artista y dentro por título."""
+        keys = {
+            "recientes": lambda kv: -kv[1].get("used", 0),
+            "populares": lambda kv: (-kv[1].get("plays", 0), -kv[1].get("used", 0)),
+            "nombre": lambda kv: self._norm(kv[1].get("title")),
+            "artista": lambda kv: (self._norm(self.artist_name(kv[1])) or "~", self._norm(kv[1].get("title"))),
+        }
+        with self.lock:
+            songs = sorted(((k, e) for k, e in self.index.items() if k.startswith("yt-")), key=keys[sort])
+            return len(songs), [(k, dict(e)) for k, e in songs[offset:offset + limit]]
+
     def stats(self):
         with self.lock:
             return len(self.index), sum(e["size"] for e in self.index.values()), self.max

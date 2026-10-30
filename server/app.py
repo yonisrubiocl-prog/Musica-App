@@ -374,6 +374,17 @@ def yt_entries(pairs):
     return [entry(k, e, "guardada") for k, e in pairs if k.startswith("yt-")]
 
 
+@app.get("/library", dependencies=[Depends(check_token)])
+def library_page(sort: str = Query("recientes"), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+    """Toda la música guardada por páginas, para ir cargando según se baja: {total, offset, songs}. sort:
+    recientes (la última que sonó primero), populares, nombre (A-Z) o artista (A-Z). Cuando offset + len(songs)
+    llega a total, no hay más."""
+    if sort not in LIB.SORTS:
+        raise HTTPException(400, f"sort tiene que ser uno de: {', '.join(LIB.SORTS)}")
+    total, songs = LIB.page(sort, offset, limit)
+    return {"total": total, "offset": offset, "songs": yt_entries(songs)}
+
+
 @app.get("/artists", dependencies=[Depends(check_token)])
 def artists():
     """Todos los artistas guardados: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
