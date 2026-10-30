@@ -29,6 +29,9 @@ sin publicarlo ni cobrar nada.
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
 `github-musicapp` en `~/.ssh/config`): `git push` desde `~/MusicApp`. Al terminar cada cambio: commit y push.
 
+**Para igualar la app con la web y el servidor:** `docs/app-paridad.md` (rutas que debe usar y comportamientos a
+copiar: cola, radio, sugerencias, recomendaciones, portada viva…). Es lo que hay que pasarle a la sesión de la app.
+
 **Quién hace qué:** el servidor (este repo) se trabaja en una sesión de Claude en este servidor. La **app
 Flutter** se trabaja en otra sesión de Claude **en el PC**, con su propio proyecto: desde el servidor no se
 puede hablar con ella (no sale en la lista de sesiones), así que los avisos de cambios de la API que le afecten
@@ -482,8 +485,9 @@ Cada fase funciona por sí sola.
 ## 5. Pendiente
 
 **Del servidor:**
-- **Recomendaciones** (fase 6, `docs/recomendaciones.md`): fase 1 hecha en el servidor y la web; falta que la app
-  Android mande eventos, use `/home` y `/radio`, y tenga "No me gusta" y la tarjeta de opinión. Siguientes fases:
+- **Igualar la app Android** con la web y el servidor: lista completa en `docs/app-paridad.md`.
+- **Recomendaciones** (fase 6, `docs/recomendaciones.md`): fase 1 hecha en el servidor y la web; falta en la app
+  (ver `docs/app-paridad.md`). Siguientes fases:
   afinar con datos y que las opiniones ajusten (3), mixes (4), lo de todos opcional (5), Descubre (6).
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
@@ -530,7 +534,8 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
 │                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── docs/
-│   └── recomendaciones.md   plan y estado del recomendador
+│   ├── recomendaciones.md   plan y estado del recomendador
+│   └── app-paridad.md       lo que la app Android tiene que usar y copiar de la web (para igualarlas)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
