@@ -32,7 +32,7 @@ from versiones import Versiones
 from duplicadas import Duplicadas
 from recomendar import Recomendar
 import users
-from library import KEY, Library, artist_of, key_of, music_meta
+from library import KEY, YT_ID, Library, artist_of, key_of, music_meta
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("musicapp")
@@ -1108,6 +1108,13 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
     return {"key": key, "source": source, "file": os.path.basename(path), "song": LIB.peek(key), "info": small}
 
 
+def saved_as_info(key):
+    """Una guardada con la forma de una respuesta de yt-dlp, que es lo que entiende el bot."""
+    e = LIB.peek(key)
+    return {"id": key[3:], "title": e.get("title"), "webpage_url": f"https://www.youtube.com/watch?v={key[3:]}",
+            "duration": e.get("duration"), "thumbnail": e.get("thumb"), "artist": LIB.artist_name(e)}
+
+
 @internal.post("/interno/resolve")
 def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(100, embed=True, le=MAX_PLAYLIST)):
     """Buscar ('ytsearch5:…' o un nombre) o leer un enlace (video, lista, SoundCloud…) sin bajar nada: título,
@@ -1136,11 +1143,23 @@ def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(
              "artists": [x for x in s["artist"].split(", ") if x], "channel": s["artist"], "album": s["album"]}
             for s in songs]}
 
+    # un vídeo suelto que ya se sabe que es una guardada con otro título: suena la guardada sin preguntar a YouTube
+    one = bool(YT_ID.search(query)) and "list=" not in query
+    key = key_of(query)
+    if one and (real := DUPLICADAS.real_key(key)) != key and real.startswith("yt-"):
+        return saved_as_info(real)
+
     def run():
         with ydl(extract_flat="in_playlist", playlistend=limit, default_search="ytsearch") as y:
             return y.extract_info(query, download=False)
     # una lista larga son varias páginas (~100 por página)
-    return small_info(youtube(run, not re.match(r"https?://", query) or is_yt(query), COST_SEARCH + limit // 100))
+    info = youtube(run, not re.match(r"https?://", query) or is_yt(query), COST_SEARCH + limit // 100)
+    # la primera vez se reconoce aquí, para no volver a preguntar al bajarla
+    if one and info.get("duration") and not info.get("is_live") and not LIB.peek(key):
+        same = DUPLICADAS.same_as_saved(key, info)
+        if same and same.startswith("yt-"):
+            return saved_as_info(same)
+    return small_info(info)
 
 
 @internal.post("/interno/ficha/{key}")

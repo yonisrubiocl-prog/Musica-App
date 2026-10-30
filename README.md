@@ -361,7 +361,8 @@ una sola.
 - **Para que no entren:** "Buscar en YouTube" **no enseña** copias de lo ya guardado (`Duplicadas.is_saved` en
   `new_songs`), y **antes de bajar nada** (`download`, para la app, la web y el bot, también con enlaces y `yt:`)
   se mira la ficha del vídeo: si es la misma canción que una guardada, **no se baja**, suena la guardada y se apunta
-  el apodo en `server/data/alias.json` (la próxima vez ni se pregunta a YouTube). Excepción: si lo pedido es la
+  el apodo en `server/data/alias.json`. Al bot se lo dice ya `/interno/resolve`: un enlace con apodo responde al
+  momento con la guardada, sin preguntar a YouTube, y uno nuevo solo le pregunta una vez. Excepción: si lo pedido es la
   versión del disco y lo guardado un vídeo, se baja (es mejor; la noche junta). La precarga y `versiones.py` bajan
   siempre lo que eligen (`dedupe=False`).
 - **Cada noche** (05:00 de Chile) se juntan las que se hayan colado, y las favoritas, playlists e historial que
