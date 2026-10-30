@@ -242,6 +242,7 @@ class Precarga:
         for name in asked + [n for n in top + pending[3:] if n not in asked]:
             a = s["artists"].get(name)
             if a is None:
+                s["now"] = {"artist": name, "album": "mirando sus álbumes"}   # para el panel
                 s["artists"][name] = self._plan_artist(name)
                 return random.uniform(*LOOK)
             pend = [al for al in a["albums"] if not al.get("opened")
@@ -250,6 +251,7 @@ class Precarga:
                 a["done"] = True
                 continue
             pend[0]["opened"] = True
+            s["now"] = {"artist": name, "album": f"{pend[0]['title']} (abriendo)"}
             self._plan_album(name, pend[0])
             return random.uniform(*LOOK)
         return None
