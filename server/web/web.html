@@ -162,6 +162,9 @@
   .row:hover { background: rgba(255,255,255,.045); }
   .row.playing .t { color: var(--primary); }
   .row.past { opacity: .45; } .row.past:hover { opacity: .8; }
+  [data-qrow]:not(.past):not(.playing) { cursor: grab; }
+  .row.dragging { opacity: .55; background: rgba(255,255,255,.08); cursor: grabbing; user-select: none; }
+  .row.drop-before { box-shadow: inset 0 2px 0 var(--primary); } .row.drop-after { box-shadow: inset 0 -2px 0 var(--primary); }
   .row .hit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
   .row img, .row .ph { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--raised); flex: none; }
   .row .meta { flex: 1; min-width: 0; }
@@ -1273,7 +1276,7 @@ function paintNp() {
 // La cola es una lista fija: se pinta entera (también las que ya sonaron, en gris) solo cuando cambia (qVer); al
 // pasar de canción solo cambia cuál está resaltada, y se baja lo justo si la que suena quedó fuera de la vista.
 // Al pintarla, se ven las 5 anteriores encima de la que suena; más atrás, subiendo a mano.
-let qVer = 0, qPainted = null;
+let qVer = 0, qPainted = null, qKeepScroll = false;
 const scrollBox = el => { for (let p = el.parentElement; p; p = p.parentElement) {
   const o = getComputedStyle(p).overflowY; if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p; } return null; };
 function paintQueue() {
@@ -1292,7 +1295,7 @@ function paintQueue() {
       `<div class="row" data-qrow="${i}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
       <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button></div>`).join('')}</div>`;
     if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
-    markQueue(dest, true);
+    markQueue(dest, !qKeepScroll); qKeepScroll = false;
   } else markQueue(dest, false);
 }
 function markQueue(dest, fresh) {
@@ -1306,6 +1309,63 @@ function markQueue(dest, fresh) {
     box.scrollTop += first.getBoundingClientRect().top - b.top - 8;
   } else if (rr.top < b.top || rr.bottom > b.bottom) box.scrollTop += rr.bottom > b.bottom ? rr.bottom - b.bottom + 8 : rr.top - b.top - 8;
 }
+// Mover una canción de la cola arrastrándola (mantener pulsado; en el móvil, ~0,35 s quieto y vibra). Solo las que
+// faltan por sonar, y a cualquier sitio después de la que suena. Al soltar no se mueve el scroll.
+let qDrag = null, qNoClick = false;
+function qDown(e) {
+  const row = e.target.closest('[data-qrow]');
+  if (!row || e.button > 0 || +row.dataset.qrow <= qi) return;
+  qDrag = {row, i: +row.dataset.qrow, x: e.clientX, y: e.clientY, on: false, box: e.currentTarget, pid: e.pointerId,
+           touch: e.pointerType !== 'mouse', target: null};
+  if (qDrag.touch) qDrag.t = setTimeout(qBegin, 350);
+}
+function qBegin() {
+  if (!qDrag) return;
+  qDrag.on = true; qDrag.row.classList.add('dragging');
+  try { qDrag.box.setPointerCapture(qDrag.pid); } catch (err) {}
+  if (qDrag.touch) navigator.vibrate?.(15);
+}
+function qClear() { qDrag?.box.querySelectorAll('.drop-before, .drop-after, .dragging').forEach(r => r.classList.remove('drop-before', 'drop-after', 'dragging')); }
+function qMove(e) {
+  if (!qDrag) return;
+  const dist = Math.hypot(e.clientX - qDrag.x, e.clientY - qDrag.y);
+  if (!qDrag.on) {
+    if (qDrag.touch) { if (dist > 8) { clearTimeout(qDrag.t); qDrag = null; } return; }   // se mueve rápido: es scroll
+    if (dist < 6) return;
+    qBegin();
+  }
+  e.preventDefault();
+  const rows = [...qDrag.box.querySelectorAll('[data-qrow]')].filter(r => +r.dataset.qrow > qi);
+  qDrag.box.querySelectorAll('.drop-before, .drop-after').forEach(r => r.classList.remove('drop-before', 'drop-after'));
+  qDrag.target = null;
+  for (const r of rows) { const b = r.getBoundingClientRect();
+    if (e.clientY >= b.top && e.clientY <= b.bottom || r === rows[rows.length - 1] && e.clientY > b.bottom || r === rows[0] && e.clientY < b.top) {
+      const after = e.clientY > b.top + b.height / 2; qDrag.target = {i: +r.dataset.qrow, after};
+      if (r !== qDrag.row) r.classList.add(after ? 'drop-after' : 'drop-before'); break; } }
+  const sb = scrollBox(qDrag.row);   // cerca del borde, la lista se desplaza sola
+  if (sb) { const b = sb.getBoundingClientRect(); if (e.clientY < b.top + 40) sb.scrollTop -= 12; else if (e.clientY > b.bottom - 40) sb.scrollTop += 12; }
+}
+function qUp() {
+  if (!qDrag) return;
+  clearTimeout(qDrag.t);
+  qClear(); const d = qDrag; qDrag = null;
+  if (!d.on) return;
+  qNoClick = true; setTimeout(() => qNoClick = false, 50);
+  if (!d.target || d.target.i === d.i) return;
+  let to = d.target.i + (d.target.after ? 1 : 0);
+  const [s] = queue.splice(d.i, 1);
+  if (d.i < to) to--;
+  queue.splice(Math.max(qi + 1, to), 0, s);
+  qVer++; qKeepScroll = true; paintQueue();
+}
+for (const box of [$('qList'), $('npPanel')]) {
+  box.addEventListener('pointerdown', qDown);
+  box.addEventListener('dragstart', e => e.preventDefault());   // que el navegador no arrastre la portada
+  box.addEventListener('click', e => { if (qNoClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+addEventListener('pointermove', qMove, {passive: false});
+addEventListener('pointerup', qUp); addEventListener('pointercancel', qUp);
+addEventListener('touchmove', e => { if (qDrag?.on) e.preventDefault(); }, {passive: false});   // arrastrando: sin scroll de la página
 $('qList').addEventListener('click', e => npPanelClick(e));
 $('npPanel').addEventListener('click', e => npPanelClick(e));
 function npPanelClick(e) {
