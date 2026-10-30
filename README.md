@@ -122,7 +122,8 @@ se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue igual
 "▶ Reproducir" sí empieza de cero. **La cola es una lista fija**: enseña también las que ya sonaron (en gris; se
 ven las 5 anteriores y más subiendo a mano), y al pasar de canción no se repinta, solo cambia la resaltada (baja lo
 justo si la que suena queda fuera de la vista); tocar una anterior la vuelve a poner. **Mover canciones de la
-cola arrastrando**: mantener pulsado (en el móvil ~0,35 s quieto, vibra) y soltar donde se quiera; una línea marca
+cola arrastrando**: desde el asa **≡** de la derecha (empieza al momento, ratón o dedo) o manteniendo pulsada la
+fila (en el móvil ~0,35 s quieto, vibra), y soltar donde se quiera; una línea marca
 el sitio, cerca del borde la lista se desplaza sola. Solo las que faltan, y siempre después de la que suena. **Artistas
 como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
 (los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien

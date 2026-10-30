@@ -58,7 +58,8 @@
      anteriores; más, subiendo a mano). Al pasar de canción **no se reconstruye ni salta**: solo cambia cuál está
      resaltada (si queda fuera de la vista, bajar lo justo). Solo se repinta si la cola cambia (lista nueva, canción
      adelantada, aleatorio, radio añadida). Ninguna canción sale dos veces.
-   - **Mover canciones de la cola arrastrando** (en Flutter, `ReorderableListView` con pulsación larga): solo las
+   - **Mover canciones de la cola arrastrando**, con un asa **≡** a la derecha de cada una que falta por sonar (en
+     Flutter, `ReorderableListView` + `ReorderableDragStartListener` en el asa, y pulsación larga en la fila): solo las
      que faltan por sonar, a cualquier sitio después de la que suena; al soltar, la lista no salta de scroll.
    - **Con aleatorio**, siempre: la elegida primero y el resto mezclado.
    - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última).

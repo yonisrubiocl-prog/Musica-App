@@ -162,7 +162,10 @@
   .row:hover { background: rgba(255,255,255,.045); }
   .row.playing .t { color: var(--primary); }
   .row.past { opacity: .45; } .row.past:hover { opacity: .8; }
-  [data-qrow]:not(.past):not(.playing) { cursor: grab; }
+  [data-qrow] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  [data-qrow] .grip { display: none; padding: 10px 8px; font-size: 1.25rem; line-height: 1; color: var(--muted);
+    cursor: grab; touch-action: none; }   /* sin touch-action el móvil lo tomaría por scroll */
+  [data-qrow]:not(.past):not(.playing) .grip { display: block; }
   .row.dragging { opacity: .55; background: rgba(255,255,255,.08); cursor: grabbing; user-select: none; }
   .row.drop-before { box-shadow: inset 0 2px 0 var(--primary); } .row.drop-after { box-shadow: inset 0 -2px 0 var(--primary); }
   .row .hit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
@@ -1293,7 +1296,7 @@ function paintQueue() {
       : `<div class="radio"><span>📻</span><div>Seguir con canciones parecidas<small>Al acabarse la lista</small></div><button class="switch${follow ? ' on' : ''}" id="npFollow" aria-label="Seguir con parecidas"></button></div>`;
     dest.innerHTML = top + `<div class="list">${queue.map((s, i) =>
       `<div class="row" data-qrow="${i}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
-      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button></div>`).join('')}</div>`;
+      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button><span class="grip" aria-label="Arrastrar para mover">≡</span></div>`).join('')}</div>`;
     if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
     markQueue(dest, !qKeepScroll); qKeepScroll = false;
   } else markQueue(dest, false);
@@ -1317,7 +1320,8 @@ function qDown(e) {
   if (!row || e.button > 0 || +row.dataset.qrow <= qi) return;
   qDrag = {row, i: +row.dataset.qrow, x: e.clientX, y: e.clientY, on: false, box: e.currentTarget, pid: e.pointerId,
            touch: e.pointerType !== 'mouse', target: null};
-  if (qDrag.touch) qDrag.t = setTimeout(qBegin, 350);
+  if (e.target.closest('.grip')) { e.preventDefault(); qBegin(); }   // el asa ≡: sin esperar
+  else if (qDrag.touch) qDrag.t = setTimeout(qBegin, 350);
 }
 function qBegin() {
   if (!qDrag) return;
@@ -1361,6 +1365,7 @@ function qUp() {
 for (const box of [$('qList'), $('npPanel')]) {
   box.addEventListener('pointerdown', qDown);
   box.addEventListener('dragstart', e => e.preventDefault());   // que el navegador no arrastre la portada
+  box.addEventListener('contextmenu', e => { if (e.target.closest('[data-qrow]')) e.preventDefault(); });   // pulsación larga
   box.addEventListener('click', e => { if (qNoClick) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
 addEventListener('pointermove', qMove, {passive: false});
