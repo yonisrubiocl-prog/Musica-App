@@ -105,7 +105,9 @@ YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Reci
 artista). **Biblioteca**: Favoritas, Historial y Artistas → álbumes → canciones. ♡ en cada canción y en el
 reproductor (`/favorites`, sincronizado con la app). Cristal (fondo translúcido con desenfoque) en tarjetas,
 reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Minirreproductor con
-barra violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
+barra violeta, anterior/siguiente, **volumen** (en la barra en pantallas anchas y en el reproductor grande; flechas
+arriba/abajo; se recuerda; en el móvil manda el volumen del teléfono) y controles en la pantalla de bloqueo (Media
+Session). En Android enseña arriba
 "Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
 
