@@ -194,7 +194,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (de 20 en 20 con `&offset=&limit=` hasta 200; `total` dice cuántas guardadas hay en total: "rawayana" → 78; `artists`: los artistas que encajan, también con faltas ("cancerbero" → Canserbero), en la primera página; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más, y **las faltas y los plurales** ("pilots" → "pilot") **solo si sin ellos no sale nada** (si no, "juanes" traía a Juan Luis Guerra y Juan Magán como plural de "juan"). Ver `Library.find`). Con `&yt=1` (por defecto, solo en la primera página) añade **20 canciones de internet que no estén en el servidor**, de **YouTube Music** (oficiales, con artista, álbum y duración): pide 20; si muchas ya están guardadas, pide más (hasta 100) para juntar 20 nuevas, salvo que YouTube no tenga más. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
 | `GET /suggest?q=…&n=8` | **Sugerencias mientras se escribe**, de lo guardado (sin YouTube, ~45 ms): artistas (con su nº de canciones), álbumes y canciones cuyas palabras empiezan por lo escrito ("raw" → Rawayana · 78, RawayanaLand…): `{sugerencias: [{tipo: artista\|album\|cancion, texto, artista, id, canciones, thumb}]}` |
-| `GET /search/albums?q=…` | Álbumes de internet (YouTube Music): `{albums: [{id, title, artist, year, type, thumb}]}`. 1 petición la primera vez; luego de memoria. Pide sesión |
+| `GET /search/albums?q=…` | Álbumes de internet (YouTube Music): `{albums: [{id, title, artist, year, type, thumb}], artista}`. Si lo escrito es un artista, aunque tenga faltas ("guns ando rose" → Guns N' Roses, por la biblioteca o por las canciones ya buscadas), busca **los suyos** y solo enseña los suyos (`artista`; la búsqueda de álbumes de YouTube Music no corrige faltas y traía de Anuel). 1 petición la primera vez; luego de memoria. Pide sesión |
 | `GET /search/album/<id>` | Un álbum de internet con sus canciones **en orden** (`track`) y `where` (cuáles ya están guardadas). 1 petición la primera vez. Poner una canción baja solo esa. Pide sesión |
 | `GET /library?sort=…&offset=0&limit=50` | **Toda la música guardada por páginas**, para ir cargando según se baja (scroll infinito): `{total, offset, songs}`. `sort`: `recientes` (la última que sonó primero, por defecto), `populares`, `nombre` (A-Z) o `artista` (A-Z). `&genre=…` filtra por género. `limit` hasta 200. No hay más cuando `offset + len(songs)` llega a `total`. Pide sesión |
 | `GET /favorites` | **Mis favoritas** (las mismas en la app y en la web), la última marcada primero: canciones como en `/search` más `added`. Las que ya no están guardadas salen con `where: youtube` (al ponerlas se vuelven a bajar). Pide sesión de un usuario (la clave compartida no tiene: 400) |
@@ -350,15 +350,16 @@ una sola.
 
 - **Es la misma** si coincide el artista y el título limpio (quitando "Artista - " solo si lo de delante empieza
   por el artista; si no, lo de detrás puede ser el canal), ninguna es directo, remix, acústica, orquestal,
-  "stripped"… sin serlo la otra, y la duración se parece (o la de vídeo es algo más larga por la intro). Títulos
-  genéricos ("Intro", "Interlude", "Skit") nunca se juntan.
+  "stripped"… sin serlo la otra, la duración se parece (o la de vídeo es algo más larga por la intro) y, si las
+  dos nombran colaboradores, comparten alguno. Vale también "Canción – Artista" ("Numb (Official Music Video) [4K] –
+  Linkin Park"). Títulos genéricos ("Intro", "Interlude", "Skit") nunca se juntan.
 - **Se queda la del disco** (sin etiquetas de vídeo o letra, con álbum y pista) o, si no hay, la más puesta. Antes de
   borrar las demás, las favoritas, playlists e historial de **todos** pasan a la que queda (mismo sitio, sin
   repetirse) y se le suman sus reproducciones. Cada borrado queda en `server/data/duplicadas.jsonl`.
 - **Cada noche** (05:00 de Chile) se juntan las nuevas, y **"Buscar en YouTube" no enseña** copias de lo ya guardado
   (`Duplicadas.is_saved` en `new_songs`).
 - A mano: `GET /interno/duplicadas` (ver, sin tocar) y `POST /interno/duplicadas` (juntar ya), con `BOT_API_KEY`
-  en el puerto 8091. El 30-10-2026 se juntaron 177 copias (671 MB); respaldos de antes en
+  en el puerto 8091. El 30-10-2026 se juntaron 190 copias (~700 MB); respaldos de antes en
   `server/data/index.antes-duplicadas.json` y `userdata.antes-duplicadas.json`.
 
 **Versiones de disco** (`versiones.py`, dentro de la API): cambia en las favoritas y playlists de una cuenta las

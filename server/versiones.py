@@ -65,8 +65,11 @@ class Versiones:
             na = self.lib._norm(a)
             # solo si lo de delante EMPIEZA por el artista ('Rawayana, Akapellah - Veneka'); si no, lo de detrás puede
             # ser el canal ('Difícil De Igualar, Binomio De Oro, Video Letra - Sentir Vallenato')
+            nb = self.lib._norm(b)
             if artist_n and (na == artist_n or na.startswith(artist_n + " ") or artist_n.startswith(na + " ")):
                 t = b
+            elif artist_n and (nb == artist_n or nb.startswith(artist_n + " ")):   # "Numb (Official Video) – Linkin Park"
+                t = a
         return self.lib._norm(TAGS.sub("", t))
 
     def _same(self, orig, title, artists_n, duration, artist_n):

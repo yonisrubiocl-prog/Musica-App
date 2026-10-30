@@ -50,8 +50,11 @@ class Duplicadas:
             na = self.lib._norm(a)
             # solo si lo de delante EMPIEZA por el artista ('Rawayana, Akapellah - Veneka'); si no, lo de detrás puede
             # ser el canal ('Difícil De Igualar, Binomio De Oro, Video Letra - Sentir Vallenato')
+            nb = self.lib._norm(b)
             if artist_n and (na == artist_n or na.startswith(artist_n + " ") or artist_n.startswith(na + " ")):
                 t = b
+            elif artist_n and (nb == artist_n or nb.startswith(artist_n + " ")):   # "Numb (Official Video) – Linkin Park"
+                t = a
         return self.lib._norm(TAGS.sub("", t))
 
     def kind(self, title, artist_n):
@@ -64,6 +67,19 @@ class Duplicadas:
         """¿Lleva etiquetas de vídeo o letra? ("(Official Video)", "(Lyrics)", "[4K]", "| álbum")."""
         t = unicodedata.normalize("NFKD", title or "")   # "ᴴᴰ" -> "HD"
         return bool(VIDEO.search(t)) or "|" in t or bool(re.search(r"\b(hd|hq|4k)\s*$", t, re.I)) or any(TAG_VIDEO.search(x) for x in re.findall(r"[\(\[]([^\)\]]*)[\)\]]", t))
+
+    def collabs(self, e, artist_n):
+        """Con quién canta, sin el artista principal: los "feat." del título, el "Artista, Otro - …" y la ficha."""
+        t, out = e.get("title") or "", set()
+        parts = self.lib.DASH.split(t, 1) if self.lib.DASH.search(t) else []
+        chunks = [f for f in self.lib.FEAT.findall(t)] + [e.get("artist") or ""]
+        chunks += [p for p in parts if artist_n and self.lib._norm(p).startswith(artist_n)]
+        for c in chunks:
+            for m in self.lib.JOINT.split(TAGS.sub("", c)):
+                n = self.lib._norm(m)
+                if n and n != artist_n and artist_n not in n:
+                    out.add(n)
+        return out
 
     def _best(self, items):
         return max(items, key=lambda ke: (not self.tagged(ke[1].get("title")), bool(ke[1].get("track_no")),
@@ -81,17 +97,23 @@ class Duplicadas:
         """[(la que se queda (clave, ficha), [(clave, ficha) que sobran])]."""
         with self.lib.lock:
             groups = collections.defaultdict(list)
+            artist_of = {}
             for n, (_, items) in self.lib._by_artist().items():
                 for k, e in items:
                     if k.startswith("yt-"):
                         key = self.kind(e.get("title") or e.get("track"), n)
                         if key[1] and not GENERIC.match(key[1]):
                             groups[key].append((k, dict(e)))
+                            artist_of[k] = n
+        best_n = lambda items: artist_of[items[0][0]]
         out = []
         for items in groups.values():
             if len(items) > 1:
                 best = self._best(items)
-                rest = [(k, e) for k, e in items if k != best[0] and self._close(e, best[1])]
+                bc = self.collabs(best[1], items_n := best_n(items))
+                # con colaboradores distintos son otra canción ("Sin Ti" con Willy Rodríguez / con La Vida Bohème)
+                rest = [(k, e) for k, e in items if k != best[0] and self._close(e, best[1])
+                        and not (bc and (oc := self.collabs(e, items_n)) and not bc & oc)]
                 if rest:
                     out.append((best, rest))
         return out

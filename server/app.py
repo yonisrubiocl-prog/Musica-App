@@ -6,6 +6,7 @@ directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pid
 """
 import asyncio
 import collections
+import difflib
 import hmac
 import secrets
 import json
@@ -579,18 +580,43 @@ def suggest(q: str = Query(min_length=1, max_length=100), n: int = Query(8, ge=1
     return {"sugerencias": out[:n]}
 
 
+def album_artist(q):
+    """El artista del que se habla en 'q', aunque esté mal escrito ("guns ando rose" -> Guns N' Roses): el de la
+    biblioteca (tolera faltas) o, si no está guardado, el que más sale en las canciones de internet que ya se
+    buscaron con ese texto (de memoria, sin pedir nada). Solo si lo escrito se parece al nombre o lo contiene (si no,
+    "amor" acabaría en un artista cualquiera). None si no se sabe."""
+    nq = LIB._norm(q)
+    names = [a["name"] if isinstance(a, dict) else a for a in LIB.find_artists(q)[:3]]
+    songs = SEARCHES_YT.recall("ytm-songs:" + YouTubeSearches.key(q, YTM_NEW)) or []
+    top = collections.Counter((s.get("artist") or "").split(", ")[0] for s in songs[:10] if s.get("artist")).most_common(1)
+    if top and top[0][1] >= 5:
+        names.append(top[0][0])
+    for name in names:
+        nn = LIB._norm(name)
+        if nn and (nq in nn or nn in nq or difflib.SequenceMatcher(None, nq, nn).ratio() >= 0.6):
+            return name
+    return None
+
+
 @app.get("/search/albums", dependencies=[Depends(check_token)])
 def search_albums(q: str = Query(min_length=1, max_length=200)):
-    """Álbumes de internet (YouTube Music) para 'q': {albums: [{id, title, artist, year, thumb, type}]}. 1 petición
-    a YouTube la primera vez; después, de memoria. La app lo pide solo si se abre la pestaña de álbumes."""
-    k = "ytm-albums:" + YouTubeSearches.key(q, 20)
+    """Álbumes de internet (YouTube Music) para 'q': {albums: [{id, title, artist, year, thumb, type}]}. Si 'q' es un
+    artista (también con faltas, album_artist), se buscan los suyos y solo salen los suyos (si hay alguno). 1
+    petición a YouTube la primera vez; después, de memoria. La app lo pide solo si se abre la pestaña de álbumes."""
+    artist = album_artist(q)
+    text = artist or q
+    k = "ytm-albums:" + YouTubeSearches.key(text, 20)
     hit = SEARCHES_YT.recall(k)
     if hit is None:
         hit = [{"id": a.get("browseId"), "title": a.get("title"), "year": a.get("year"), "type": a.get("type"),
                 "artist": ", ".join(x["name"] for x in a.get("artists") or [] if x.get("name")), "thumb": ytm_thumb(a)}
-               for a in ytm(lambda y: y.search(q, filter="albums", limit=20)) if a.get("browseId")]
-        SEARCHES_YT.store(k, hit, f"{q} (álbumes)")
-    return {"albums": hit}
+               for a in ytm(lambda y: y.search(text, filter="albums", limit=20)) if a.get("browseId")]
+        SEARCHES_YT.store(k, hit, f"{text} (álbumes)")
+    if artist:   # solo los de ese artista ("Real Hasta la Muerte" no es de Guns N' Roses)
+        na = LIB._norm(artist)
+        mine = [a for a in hit if na in LIB._norm(a.get("artist"))]
+        hit = mine or hit
+    return {"albums": hit, "artista": artist}
 
 
 @app.get("/search/album/{album_id}", dependencies=[Depends(check_token)])
