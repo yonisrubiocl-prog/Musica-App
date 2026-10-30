@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
+import userdata
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
 
@@ -57,6 +58,7 @@ INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live",
                "extractor_key", "ie_key", "uploader", "channel", "artist", "artists")
 
 LIB = Library(MUSIC_DIR, MUSIC_GB * 1024 ** 3, MUSIC_INDEX)
+LIB.keep = lambda: {"yt-" + i for i in userdata.favorite_ids()}   # las favoritas de alguien no se borran por espacio
 
 _yt_blocked_until = 0.0
 _downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
@@ -417,15 +419,80 @@ def album(artist: str = Query(min_length=1, max_length=200), name: str = Query(m
     return {"name": a["name"], "artist": a["artist"], "year": a["year"], "songs": yt_entries(a["songs"])}
 
 
-@app.get("/stream/{vid}", dependencies=[Depends(check_token)])
-def stream(vid: str, request: Request):
+def need_user(found):
+    if not found:
+        raise HTTPException(400, "esto es de cada usuario: entra con tu cuenta (la clave compartida no tiene)")
+    return found[0]
+
+
+def valid_vid(vid):
+    if not VIDEO_ID.fullmatch(vid):
+        raise HTTPException(400, "id de YouTube no válido")
+    return vid
+
+
+def song_of(vid, fallback=None):
+    """Una canción para la app: de la biblioteca si está guardada; si no, la ficha que se tenga (fallback)."""
+    e = LIB.peek(f"yt-{vid}")
+    if e:
+        return entry(f"yt-{vid}", e, "guardada")
+    if fallback:
+        return {"id": vid, **{k: fallback.get(k) for k in userdata.FIELDS}, "where": "youtube"}
+    return None
+
+
+@app.get("/favorites")
+def favorites(found=Depends(check_token)):
+    """Mis favoritas (iguales en la app y en la web), la última marcada primero. Las que ya no están guardadas
+    salen con where=youtube: al ponerlas se vuelven a bajar."""
+    return {"songs": [dict(song_of(f["id"], f), added=f["added"]) for f in userdata.favorites(need_user(found))]}
+
+
+@app.put("/favorites/{vid}")
+def add_favorite(vid: str, found=Depends(check_token), title: str | None = Body(None, embed=True, max_length=300),
+                 artist: str | None = Body(None, embed=True, max_length=200),
+                 album: str | None = Body(None, embed=True, max_length=300),
+                 duration: float | None = Body(None, embed=True), thumb: str | None = Body(None, embed=True, max_length=500)):
+    """Marca una canción como favorita. Si está guardada, su ficha sale de la biblioteca; si no (un resultado de
+    YouTube), vale la que mande la app (title, artist, album, duration, thumb)."""
+    sub = need_user(found)
+    info = song_of(valid_vid(vid)) or {"title": title, "artist": artist, "album": album, "duration": duration, "thumb": thumb}
+    if not info.get("title"):
+        raise HTTPException(400, "falta el título (no está guardada en el servidor)")
+    userdata.add_favorite(sub, vid, info)
+    return {"ok": True}
+
+
+@app.delete("/favorites/{vid}")
+def remove_favorite(vid: str, found=Depends(check_token)):
+    return {"ok": userdata.remove_favorite(need_user(found), valid_vid(vid))}
+
+
+@app.get("/history")
+def history(found=Depends(check_token), limit: int = Query(50, ge=1, le=userdata.HISTORY_MAX)):
+    """Lo último que puse yo (no lo de todos), lo más reciente primero: canciones con 'played' (cuándo)."""
+    sub = need_user(found)
+    favs = {f["id"]: f for f in userdata.favorites(sub)}
+    out = []
+    for vid, when in userdata.history(sub, limit):
+        s = song_of(vid, favs.get(vid))
+        if s:
+            out.append(dict(s, played=when))
+    return {"songs": out}
+
+
+@app.get("/stream/{vid}")
+def stream(vid: str, request: Request, found=Depends(check_token)):
     """El audio de la canción (webm/Opus). Admite Range, así el reproductor puede saltar dentro de la canción."""
     if not VIDEO_ID.fullmatch(vid):
         raise HTTPException(400, "id de YouTube no válido")
     key, where = f"yt-{vid}", "guardada"
-    if request.headers.get("range", "bytes=0-").startswith("bytes=0-"):
-        hit = LIB.get(key)   # cuenta al empezar, no en cada trozo que pide el reproductor
+    first = request.headers.get("range", "bytes=0-").startswith("bytes=0-")   # al empezar, no en cada trozo
+    if first:
+        hit = LIB.get(key)
         path = hit and hit["path"]
+        if found:
+            userdata.played(found[0], vid)   # mi historial
     else:
         path = LIB.path(key)
     if not path:

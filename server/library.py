@@ -81,6 +81,7 @@ class Library:
 
     def __init__(self, root, max_bytes, index_file):
         self.root, self.max, self.file = root, max_bytes, index_file
+        self.keep = lambda: set()   # claves que el tope de espacio no borra (las favoritas: lo pone app.py)
         self.lock = threading.Lock()
         self.index = {}   # clave -> {file, url, title, duration, thumb, size, used, plays, by, artist, album…}
         self.wix, self.tw, self.vocab = {}, {}, []
@@ -507,9 +508,12 @@ class Library:
             self.index[key] = e
             self._index_add(key, self._text(e))
             total = sum(x["size"] for x in self.index.values())
+            keep = self.keep() if total > self.max else set()
             for k in sorted(self.index, key=lambda k: self.index[k]["used"]):
-                if total <= self.max or k == key:
+                if total <= self.max:
                     break
+                if k == key or k in keep:
+                    continue
                 gone = self.index.pop(k)
                 self._index_del(k)
                 total -= gone["size"]

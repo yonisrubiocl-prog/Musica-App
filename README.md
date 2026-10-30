@@ -82,10 +82,14 @@ entrar con Google → si está **aprobado**, se abre la **app web** (`/web`); si
 sesión se guarda en el navegador (`localStorage`): la próxima vez entra directo. Cuenta como uno de los 3
 dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
-**App web** (`server/web/web.html`, **prototipo** hecho en el servidor para ver cómo queda): saludo con nombre y
-foto, buscador (solo lo guardado mientras se escribe, y botón "Buscar en YouTube"), filtros Recientes / Populares
-/ Artistas / A–Z con scroll infinito (`/library`), artistas → álbumes → canciones, y minirreproductor con barra
-violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
+**App web** (`server/web/web.html`, **prototipo** hecho en el servidor, con el estilo de la app): tres pestañas
+abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
+favoritas", artistas y "Lo más puesto". **Buscar**: solo lo guardado mientras se escribe (botón aparte "Buscar en
+YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
+artista). **Biblioteca**: Favoritas, Historial y Artistas → álbumes → canciones. ♡ en cada canción y en el
+reproductor (`/favorites`, sincronizado con la app). Cristal (fondo translúcido con desenfoque) en tarjetas,
+reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Minirreproductor con
+barra violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
 "Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
 La idea es que la definitiva sea la **app Flutter compilada para web** (una sola app que mantener); este
@@ -126,6 +130,10 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más y **solo si sin ellas no sale nada**: si no, "hope" traía "hype", "open" y "nope". Ver `Library.find`), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado |
 | `GET /library?sort=…&offset=0&limit=50` | **Toda la música guardada por páginas**, para ir cargando según se baja (scroll infinito): `{total, offset, songs}`. `sort`: `recientes` (la última que sonó primero, por defecto), `populares`, `nombre` (A-Z) o `artista` (A-Z). `limit` hasta 200. No hay más cuando `offset + len(songs)` llega a `total`. Pide sesión |
+| `GET /favorites` | **Mis favoritas** (las mismas en la app y en la web), la última marcada primero: canciones como en `/search` más `added`. Las que ya no están guardadas salen con `where: youtube` (al ponerlas se vuelven a bajar). Pide sesión de un usuario (la clave compartida no tiene: 400) |
+| `PUT /favorites/<id>` | Marcar como favorita. Si está guardada, la ficha sale de la biblioteca; si es un resultado de YouTube, mandar en el cuerpo `{title, artist, album, duration, thumb}` |
+| `DELETE /favorites/<id>` | Quitar de favoritas |
+| `GET /history?limit=50` | **Lo último que puse yo** (no lo de todos), lo más reciente primero, con `played`. Se apunta solo al empezar a sonar una canción por `/stream` (los saltos dentro de la canción no cuentan); hasta 200 |
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum]}`; álbumes del más nuevo al más viejo. 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista). 404 si no hay. Pide sesión |
@@ -180,6 +188,11 @@ seguidas parecen un bot):
 **Clave:** `/search`, `/stream`, `/me` y `/auth/logout` piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
 (en `server/.env`, fuera de git); se quitará cuando la app tenga login.
+
+**Favoritas e historial** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos 600): por
+cuenta, para que la app y la web se vean igual. De cada favorita se guarda su ficha (título, artista, portada…),
+así sigue saliendo aunque la canción se borre del servidor. **Las favoritas de cualquiera no se borran por el tope
+de espacio** (`Library.keep`).
 
 **Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 600): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. Bloquear

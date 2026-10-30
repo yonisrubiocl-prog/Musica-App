@@ -106,6 +106,7 @@ def login(claims, web=False):
 
 def user_of(session):
     """Sesión -> (sub, usuario) si es válida y el usuario sigue aprobado; si no, None."""
+    SESSIONS.reload()   # por si otro proceso las cambió (el comando de bloquear)
     s = SESSIONS.data.get(_hash(session))
     if not s or s["until"] < time.time():
         return None
