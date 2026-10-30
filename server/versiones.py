@@ -32,7 +32,7 @@ VIDEO = re.compile(r"official\s*(music\s*)?video|video\s*oficial|v[ií]deo\s*cli
 LIVE = re.compile(r"en\s*vivo|ao\s*vivo|\blive\b|en\s*directo|unplugged", re.I)
 OTHER = re.compile(r"\b(remix|rmx|acoustic|ac[uú]stic[oa]|live|en vivo|version|versi[oó]n|edit|mix|cover|"
                    r"karaoke|instrumental|sped up|slowed|demo|orchestral|orquestal|stripped|symphonic|sinf[oó]nic[oa]|"
-                   r"extended|unplugged|piano)\b", re.I)   # otra canción si solo la tiene una
+                   r"extended|unplugged|piano|nightcore|mashup|tv size)\b|\bver\.", re.I)   # otra canción si solo la tiene una
 TAGS = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]|\s+(?:ft\.?|feat\.?|featuring)\s.*$|\s*\|.*$|"
                   r"\s+(?:official|video oficial|videoclip|lyric).*$", re.I)
 

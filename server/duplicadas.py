@@ -29,6 +29,12 @@ HOUR_UTC = 8                            # cada noche, a las 05:00 de Chile
 # etiquetas de vídeo/letra entre paréntesis o tras "|": "(Lyrics)", "[4K]", "(Vídeo Animación)", "| Un Verano Sin Ti"
 TAG_VIDEO = re.compile(r"video|v[ií]deo|lyric|letra|\b4k\b|\bhd\b|\bhq\b|clip|visuali[sz]er|animaci[oó]n|official|"
                        r"oficial|audio", re.I)
+# lo único que puede llevar una etiqueta de un vídeo de otro canal para ser la misma canción ("(Lyrics)", "[4K UPGRADE]",
+# "(Remastered 2023)"): lo demás ("(Metal)", "| Naruto AMV", "(Reaction Video)") puede ser otra interpretación
+SAME_WORDS = set("official oficial music musica musical video videoclip clip audio lyric lyrics letra con with hd hq "
+                 "4k uhd upgrade remaster remastered remasterizado remasterizada visualizer visualiser animacion "
+                 "sub subtitulado subtitulada subtitulos en espanol traducida".split())
+CHANNEL_WORDS = {"official", "oficial", "music", "musica", "tv", "channel", "canal", "topic", "band", "banda"}
 # títulos que se repiten entre discos sin ser la misma canción
 GENERIC = re.compile(r"^(intro|outro|interlude|interludio|skit|prelude|preludio|bonus( track)?|untitled|sin titulo|"
                      r"hidden track|instrumental|reprise|\d+)$")
@@ -87,6 +93,26 @@ class Duplicadas:
                     out.add(n)
         return out
 
+    def genuine(self, title, channel, artists):
+        """¿Es de verdad esa grabación y no otra persona cantándola? Sí si la subió el propio artista; de otro canal,
+        solo si lo único que añade el título son etiquetas de vídeo o letra (ante la duda, no: mejor una copia de más
+        que sonar otra canción). Sin canal conocido (fichas viejas) no se sabe nada: sí."""
+        words = [w for w in self.lib._norm(channel).split() if w not in CHANNEL_WORDS]
+        if not channel:
+            return True
+        who = re.sub(r"^(?:oficial|official)|(?:vevo|oficial|official|musica|music)$", "", "".join(words))   # OficialMana, LassoMusica
+        if any(who == "".join(self.lib._norm(a).split()) for a in artists):
+            return True
+        t = unicodedata.normalize("NFKD", title or "")
+        tags = re.findall(r"[\(\[]([^\)\]]*)[\)\]]", t) + t.split("|")[1:]
+        tags += re.findall(r"\s((?:official|video oficial|videoclip|lyric).*)$", re.sub(r"[\(\[][^\)\]]*[\)\]]", "", t), re.I)
+        words = [self.lib._norm(x).split() for x in tags]
+        return bool(words) and all(w and all(x in SAME_WORDS or x.isdigit() or re.fullmatch(r"\d+p", x) for x in w) for w in words)
+
+    def _genuine(self, e, artist_n):
+        name = self.lib.artist_name(e)
+        return self.genuine(e.get("title"), e.get("channel"), [artist_n, name, *self.lib.JOINT.split(name)])
+
     def _best(self, items):
         return max(items, key=lambda ke: (not self.tagged(ke[1].get("title")), bool(ke[1].get("track_no")),
                                           bool(ke[1].get("album")), ke[1].get("plays", 0)))
@@ -119,6 +145,7 @@ class Duplicadas:
                 bc = self.collabs(best[1], items_n := best_n(items))
                 # con colaboradores distintos son otra canción ("Sin Ti" con Willy Rodríguez / con La Vida Bohème)
                 rest = [(k, e) for k, e in items if k != best[0] and self._close(e, best[1])
+                        and self._genuine(e, items_n) and self._genuine(best[1], items_n)
                         and not (bc and (oc := self.collabs(e, items_n)) and not bc & oc)]
                 if rest:
                     out.append((best, rest))
@@ -178,6 +205,9 @@ class Duplicadas:
         if not (self._close(asked, e) or self._close(e, asked)):
             return None
         if not self.tagged(title) and self.tagged(e.get("title")):
+            return None
+        name = self.lib.artist_name(e)
+        if not self.genuine(title, info.get("channel") or info.get("uploader"), [name, *self.lib.JOINT.split(name)]):
             return None
         with self.lock:
             self.aliases[key] = saved
