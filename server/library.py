@@ -403,7 +403,7 @@ class Library:
 
     SORTS = ("recientes", "populares", "nombre", "artista")
 
-    def page(self, sort="recientes", offset=0, limit=50):
+    def page(self, sort="recientes", offset=0, limit=50, genre=None):
         """Toda la biblioteca por páginas (para ir cargando según se baja en la app): (total, [(clave, datos)]).
         recientes: la última que sonó primero; populares: las más puestas; nombre: A-Z por título; artista: A-Z
         por artista y dentro por título."""
@@ -414,7 +414,9 @@ class Library:
             "artista": lambda kv: (self._norm(self.artist_name(kv[1])) or "~", self._norm(kv[1].get("title"))),
         }
         with self.lock:
-            songs = sorted(((k, e) for k, e in self.index.items() if k.startswith("yt-")), key=keys[sort])
+            g = self._norm(genre) if genre else None
+            songs = sorted(((k, e) for k, e in self.index.items() if k.startswith("yt-")
+                            and (not g or self._norm(e.get("genre")) == g)), key=keys[sort])
             return len(songs), [(k, dict(e)) for k, e in songs[offset:offset + limit]]
 
     def stats(self):
@@ -475,6 +477,30 @@ class Library:
             self._index_add(key, self._text(e))
             self.save()
             return dict(e)
+
+    def fill(self, key, fields, step=None):
+        """Rellena datos que faltan (artista, álbum, año, género…) sin pisar los que ya hay ni tocar el título. step:
+        apunta en 'enriched' qué paso de enrich.py ya se intentó. Se guarda en el siguiente flush."""
+        with self.lock:
+            e = self.index.get(key)
+            if e is None:
+                return
+            changed = False
+            for f, v in fields.items():
+                if v not in (None, "") and not e.get(f):
+                    e[f] = v
+                    changed = True
+            if step and step not in e.setdefault("enriched", []):
+                e["enriched"].append(step)
+            if changed:
+                self._index_add(key, self._text(e))
+            self.dirty = True
+
+    def genres(self):
+        """[{name, songs}] de los géneros que hay, los que más canciones tienen primero."""
+        with self.lock:
+            c = collections.Counter(e["genre"] for k, e in self.index.items() if e.get("genre") and k.startswith("yt-"))
+        return [{"name": g, "songs": n} for g, n in c.most_common()]
 
     def remove(self, key):
         """Borra una canción. Devuelve sus datos o None si no estaba."""

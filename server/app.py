@@ -24,6 +24,7 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
 import userdata
+from enrich import Enricher
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
 
@@ -254,6 +255,9 @@ def ytm(fn):
         raise HTTPException(502, f"YouTube Music: {str(e)[:150]}")
 
 
+ENRICH = Enricher(LIB, ytm, lambda: len(_yt_recent))   # género y fichas de las viejas, de fondo (enrich.py)
+
+
 def ytm_thumb(x):
     thumbs = x.get("thumbnails") or []
     return thumbs[-1]["url"] if thumbs else None
@@ -302,7 +306,7 @@ def youtube_info(vid):
 
 def entry(key, e, where):
     return {"id": key[3:], "title": e.get("title"), "artist": e.get("artist") or "", "album": e.get("album") or "",
-            "duration": e.get("duration"), "thumb": e.get("thumb"), "where": where}
+            "duration": e.get("duration"), "thumb": e.get("thumb"), "genre": e.get("genre") or "", "where": where}
 
 
 def given_key(request: Request):
@@ -502,14 +506,22 @@ def yt_entries(pairs):
 
 
 @app.get("/library", dependencies=[Depends(check_token)])
-def library_page(sort: str = Query("recientes"), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+def library_page(sort: str = Query("recientes"), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
+                 genre: str | None = Query(None, max_length=100)):
     """Toda la música guardada por páginas, para ir cargando según se baja: {total, offset, songs}. sort:
     recientes (la última que sonó primero), populares, nombre (A-Z) o artista (A-Z). Cuando offset + len(songs)
     llega a total, no hay más."""
     if sort not in LIB.SORTS:
         raise HTTPException(400, f"sort tiene que ser uno de: {', '.join(LIB.SORTS)}")
-    total, songs = LIB.page(sort, offset, limit)
+    total, songs = LIB.page(sort, offset, limit, genre)
     return {"total": total, "offset": offset, "songs": yt_entries(songs)}
+
+
+@app.get("/genres", dependencies=[Depends(check_token)])
+def genres():
+    """Los géneros de lo guardado: {genres: [{name, songs}]}, los que más canciones tienen primero. Para filtrar,
+    /library?genre=…. Se van completando solos (enrich.py)."""
+    return {"genres": LIB.genres()}
 
 
 @app.get("/artists", dependencies=[Depends(check_token)])

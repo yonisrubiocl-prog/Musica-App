@@ -131,11 +131,12 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más y **solo si sin ellas no sale nada**. Ver `Library.find`). Con `&yt=1` (por defecto) añade **20 canciones de internet que no estén en el servidor**, de **YouTube Music** (oficiales, con artista, álbum y duración): pide 20; si muchas ya están guardadas, pide más (hasta 100) para juntar 20 nuevas, salvo que YouTube no tenga más. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
 | `GET /search/albums?q=…` | Álbumes de internet (YouTube Music): `{albums: [{id, title, artist, year, type, thumb}]}`. 1 petición la primera vez; luego de memoria. Pide sesión |
 | `GET /search/album/<id>` | Un álbum de internet con sus canciones **en orden** (`track`) y `where` (cuáles ya están guardadas). 1 petición la primera vez. Poner una canción baja solo esa. Pide sesión |
-| `GET /library?sort=…&offset=0&limit=50` | **Toda la música guardada por páginas**, para ir cargando según se baja (scroll infinito): `{total, offset, songs}`. `sort`: `recientes` (la última que sonó primero, por defecto), `populares`, `nombre` (A-Z) o `artista` (A-Z). `limit` hasta 200. No hay más cuando `offset + len(songs)` llega a `total`. Pide sesión |
+| `GET /library?sort=…&offset=0&limit=50` | **Toda la música guardada por páginas**, para ir cargando según se baja (scroll infinito): `{total, offset, songs}`. `sort`: `recientes` (la última que sonó primero, por defecto), `populares`, `nombre` (A-Z) o `artista` (A-Z). `&genre=…` filtra por género. `limit` hasta 200. No hay más cuando `offset + len(songs)` llega a `total`. Pide sesión |
 | `GET /favorites` | **Mis favoritas** (las mismas en la app y en la web), la última marcada primero: canciones como en `/search` más `added`. Las que ya no están guardadas salen con `where: youtube` (al ponerlas se vuelven a bajar). Pide sesión de un usuario (la clave compartida no tiene: 400) |
 | `PUT /favorites/<id>` | Marcar como favorita. Si está guardada, la ficha sale de la biblioteca; si es un resultado de YouTube, mandar en el cuerpo `{title, artist, album, duration, thumb}` |
 | `DELETE /favorites/<id>` | Quitar de favoritas |
 | `GET /history?limit=50` | **Lo último que puse yo** (no lo de todos), lo más reciente primero, con `played`. Se apunta solo al empezar a sonar una canción por `/stream` (los saltos dentro de la canción no cuentan); hasta 200 |
+| `GET /genres` | Géneros de lo guardado: `{genres: [{name, songs}]}`, los que más tienen primero (ver "Género y fichas"). Para filtrar: `/library?genre=…`. Pide sesión |
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero. Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum]}`; álbumes del más nuevo al más viejo. 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista). 404 si no hay. Pide sesión |
@@ -197,6 +198,17 @@ seguidas parecen un bot):
 **Clave:** `/search`, `/stream`, `/me` y `/auth/logout` piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …` o `?token=…`. Mientras no haya app también vale la clave compartida `API_TOKEN`
 (en `server/.env`, fuera de git); se quitará cuando la app tenga login.
+
+**Género y fichas** (`enrich.py`, de fondo y solo): YouTube no da géneros, así que se sacan de **iTunes**
+(Apple, gratis, sin registro y **sin tocar YouTube**): tienda de Chile (géneros en español: "Salsa y tropical",
+"Pop en español", "Urbano latino", "Hard rock"…) y, si no está, la de EE. UU. Solo se acepta si artista y título
+coinciden de verdad (en un ensayo con 20 canciones iTunes devolvía a veces otra canción: Justin Bieber por
+Neutro Shorty); sin artista conocido no se intenta. Títulos al revés ("Beat It - Michael Jackson") se prueban
+también dados la vuelta. Además rellena **artista, álbum y año** de las canciones viejas que no los tenían. Las
+que iTunes no conoce y siguen sin artista: **YouTube Music** por el vídeo exacto (1 petición cada 2 min, solo de
+03:00 a 08:00 de Chile y si YouTube no va cargado). A las que se quedan sin género se les pone el más común de su
+artista (`genre_src: artista`). **Nunca cambia el título ni pisa un dato que ya esté.** La primera pasada
+(~2.000 canciones) tarda unas 4–5 horas; luego cada canción nueva se completa en la siguiente vuelta (cada 5 min).
 
 **Favoritas e historial** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos 600): por
 cuenta, para que la app y la web se vean igual. De cada favorita se guarda su ficha (título, artista, portada…),
@@ -381,6 +393,7 @@ Cada fase funciona por sí sola.
 /home/lainer/MusicApp/
 ├── server/
 │   ├── app.py              la API (FastAPI): puerto 8000 para la app, 8001 para el bot; también reparte el APK
+│   ├── enrich.py           completa de fondo género (iTunes) y artista/álbum de las canciones viejas
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando)
 │   ├── web/                página principal (acceso.html) y el logo (logo.png original; logo-480.webp y
