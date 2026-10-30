@@ -1,10 +1,13 @@
 """Precarga: baja poco a poco los álbumes de estudio de los artistas que más se escuchan (los que tienen
 MIN_SONGS canciones o más guardadas), para que estén en el servidor antes de que alguien los pida.
 
-Va muy despacio para no llamar la atención de YouTube (el bloqueo del 25-10-2026 fue por una importación de golpe):
-de madrugada una operación cada NIGHT_GAP s; de día una cada DAY_GAP s y solo si nadie ha usado YouTube en los
-últimos IDLE s. Si YouTube da cualquier aviso de bloqueo, se para BLOCK_PAUSE. Todo pasa además por el ritmo
-general (yt_turn). Se salta: directos, instrumentales, karaokes, recopilatorios y ediciones repetidas (por el
+Va despacio y **a ritmo de persona**, no de robot (el bloqueo del 25-10-2026 fue por una importación de golpe, y una
+descarga cada X segundos exactos durante horas es justo el patrón de un robot): entre canciones de un álbum espera
+más o menos lo que dura la canción (entre el 40 y el 110 %, al azar: como quien la escucha o se la salta); entre
+álbumes, una pausa de 5 a 30 min y, de vez en cuando, una larga (30-90 min); el siguiente artista se elige al azar
+entre los 3 más escuchados que falten. De madrugada (NIGHT_UTC) siempre; de día un 50 % más lento y solo si nadie ha
+usado YouTube en los últimos IDLE s. Si YouTube da cualquier aviso de bloqueo, se para BLOCK_PAUSE. Todo pasa
+además por el ritmo general (yt_turn). Se salta: directos, instrumentales, karaokes, recopilatorios y ediciones repetidas (por el
 título del álbum), y las canciones que ya están guardadas, también si es otra versión del mismo artista y título.
 
 Estado (lo hecho, la cola y las cuentas) en /data/precarga.json: sobrevive a los reinicios. Ver README.md,
@@ -14,6 +17,7 @@ import datetime
 import json
 import logging
 import os
+import random
 import re
 import threading
 import time
@@ -22,9 +26,13 @@ log = logging.getLogger("musicapp.precarga")
 
 FILE = "/data/precarga.json"
 MIN_SONGS = 5                           # artistas con al menos tantas canciones guardadas
-NIGHT_UTC = (6, 11)                     # 03:00-08:00 en Chile
-NIGHT_GAP = 90                          # segundos entre operaciones de madrugada
-DAY_GAP = 240                           # de día
+NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile
+LISTEN = (0.4, 1.1)                     # entre canciones: esta parte de lo que dura la canción, al azar
+GAP_MIN, GAP_MAX = 45, 420              # ...pero nunca menos de 45 s ni más de 7 min
+LOOK = (20, 90)                         # tras buscar un artista o abrir un álbum (segundos, al azar)
+BREAK = (5 * 60, 30 * 60)               # entre álbumes
+LONG_BREAK, LONG_BREAK_P = (30 * 60, 90 * 60), 1 / 7   # y de vez en cuando una pausa larga
+DAY_SLOWER = 1.5                        # de día, todo más lento
 IDLE = 600                              # de día, solo si nadie usó YouTube en estos segundos
 BLOCK_PAUSE = 24 * 3600                 # tras un aviso de bloqueo
 SKIP_ALBUM = re.compile(r"\b(live|en vivo|ao vivo|en directo|unplugged|instrumental|karaoke|greatest hits|grandes "
@@ -112,19 +120,22 @@ class Precarga:
                 continue
             self.state["queue"].append({"id": vid, "title": t.get("title"), "artist": artist, "album": a.get("title"),
                                         "year": int(a["year"]) if str(a.get("year") or "").isdigit() else None,
-                                        "track": t.get("trackNumber")})
+                                        "track": t.get("trackNumber"), "duration": t.get("duration_seconds")})
             added += 1
         return added
 
     # ---------- una operación cada vez ----------
 
     def _step(self):
-        """Hace UNA cosa (abrir un artista, abrir un álbum o bajar una canción). False si no queda nada."""
+        """Hace UNA cosa (abrir un artista, abrir un álbum o bajar una canción). Devuelve cuánto esperar después
+        (segundos, al azar y a ritmo de persona) o None si no queda nada."""
         s = self.state
         if s["queue"]:
             item = s["queue"].pop(0)
-            if self.lib.peek(f"yt-{item['id']}"):
+            last_of_album = not s["queue"] or s["queue"][0].get("album") != item.get("album")
+            if self.lib.peek(f"yt-{item['id']}"):   # ya estaba: no hay nada que "escuchar", sigue enseguida
                 s["skipped"] += 1
+                return random.uniform(*BREAK) if last_of_album else random.uniform(3, 12)
             else:
                 try:
                     _, path = self.download(f"https://www.youtube.com/watch?v={item['id']}")
@@ -138,21 +149,24 @@ class Precarga:
                         raise
                     s["failed"] += 1
                     log.info("precarga: no pude bajar %s: %s", item["title"], ex)
-            return True
-        for name in self._artists():
+            if last_of_album:   # se acabó el álbum: pausa, a veces larga
+                return random.uniform(*(LONG_BREAK if random.random() < LONG_BREAK_P else BREAK))
+            return min(GAP_MAX, max(GAP_MIN, (item.get("duration") or 210) * random.uniform(*LISTEN)))
+        pending = [n for n in self._artists() if not (s["artists"].get(n) or {}).get("done")]
+        random.shuffle(top := pending[:3])   # el siguiente artista, al azar entre los 3 más escuchados que falten
+        for name in top + pending[3:]:
             a = s["artists"].get(name)
             if a is None:
                 s["artists"][name] = self._plan_artist(name)
-                return True
-            if not a.get("done"):
-                pend = [al for al in a["albums"] if not al.get("opened")]
-                if not pend:
-                    a["done"] = True
-                    continue
-                pend[0]["opened"] = True
-                self._plan_album(name, pend[0])
-                return True
-        return False
+                return random.uniform(*LOOK)
+            pend = [al for al in a["albums"] if not al.get("opened")]
+            if not pend:
+                a["done"] = True
+                continue
+            pend[0]["opened"] = True
+            self._plan_album(name, pend[0])
+            return random.uniform(*LOOK)
+        return None
 
     def _night(self):
         return NIGHT_UTC[0] <= datetime.datetime.now(datetime.timezone.utc).hour < NIGHT_UTC[1]
@@ -174,12 +188,12 @@ class Precarga:
                 if not night and not self.user_idle(IDLE):
                     time.sleep(60)
                     continue
-                more = self._step()
+                wait = self._step()
                 self._save()
                 n += 1
                 if n % 25 == 0:
                     log.info("precarga: %s", self.status())
-                time.sleep((NIGHT_GAP if night else DAY_GAP) if more else 3600)
+                time.sleep(3600 if wait is None else wait * (1 if night else DAY_SLOWER))
             except Exception as ex:
                 code = getattr(ex, "status_code", 0)
                 if code == 503:   # aviso de bloqueo de YouTube
