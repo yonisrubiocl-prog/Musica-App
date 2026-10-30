@@ -951,7 +951,8 @@ wrap.addEventListener('click', e => {
     const s = l.songs[+r.dataset.i];
     if (l.kind === 'radio') return playOne(s);
     const all = l.full || l.songs;   // la lista entera, aunque la fila enseñe menos
-    return playList(all, Math.max(0, all.findIndex(x => x.id === s.id))); }
+    const fila = ['hist', 'favs', 'para_ti', 'vuelve'].includes(r.dataset.l);   // las filas del Inicio dan la vuelta
+    return playList(all, Math.max(0, all.findIndex(x => x.id === s.id)), fila); }
   if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.songs, 0);
   const pl = e.target.closest('[data-pl]'); if (pl) return showPlaylist(pls[+pl.dataset.pl]);
   const g = e.target.closest('[data-genre]'); if (g) return showGenre(g.dataset.genre);
@@ -969,12 +970,13 @@ const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
 let shuffleOn = store.get('aleatorio', false), repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
 function playOne(s) { isRadio = true; queue = [s]; qi = 0; start(); fillRadio(); }
-// Poner una lista desde la canción i: primero esa y luego TODAS las demás. Con aleatorio, mezcladas; sin aleatorio,
-// en su orden desde ahí y, al llegar al final, las de antes (así suena la lista entera empieces donde empieces).
-function playList(songs, i) {
+// Poner una lista desde la canción i. Con aleatorio: esa primero y luego todas las demás mezcladas. Sin aleatorio:
+// en su orden desde ahí; si vuelta (filas del Inicio), al llegar al final siguen las de antes (suena la lista
+// entera empieces donde empieces); si no (Biblioteca: Me gusta, playlist, álbum), desde ahí hacia abajo y ya.
+function playList(songs, i, vuelta = false) {
   isRadio = false; radioRecs = 0;
   if (shuffleOn && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
-  else queue = [...songs.slice(i), ...songs.slice(0, i)];
+  else queue = vuelta ? [...songs.slice(i), ...songs.slice(0, i)] : songs.slice(i);
   qi = 0;
   start();
 }

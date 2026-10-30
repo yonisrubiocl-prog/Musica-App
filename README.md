@@ -110,9 +110,10 @@ hueco entre el contenido y el panel). **En pantallas muy anchas (≥1500 px)**, 
 entonces solo tiene la letra, con un interruptor "Letra · ocultar" / "Mostrar letra" que se recuerda). **Cómo se
 llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, biblioteca, género) es **modo radio**: esa
 canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
-lista (álbum, playlist, Me gusta, Para ti, las filas del Inicio) es **modo lista**: suena **la lista entera**
-(aunque la fila enseñe solo 20), primero la elegida y luego las demás: sin aleatorio, en su orden desde ahí y al
-final las de antes; con aleatorio, mezcladas. La cola solo enseña lo que
+lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas las demás mezcladas; **sin
+aleatorio**, depende de dónde: en las **filas del Inicio** (Escuchado recientemente, Tus favoritas, Para ti, Vuelve
+a escuchar) suena **la lista entera** aunque la fila enseñe solo 20 (en orden desde ahí y al final las de antes);
+en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. La cola solo enseña lo que
 viene desde la canción actual, así que el número cambia según suena. En el móvil, como
 siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
 "Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
