@@ -119,7 +119,9 @@ aleatorio**, en cualquier lista (filas del Inicio, Me gusta, una playlist, un á
 entera**, aunque la fila enseñe solo 20: la elegida pasa al primer puesto y detrás va la lista en su orden normal
 desde el principio, sin repetirla (tocar la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9…). Si **ya suena esa misma lista**, no
 se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya pasaron);
-"▶ Reproducir" sí empieza de cero. **Artistas
+"▶ Reproducir" sí empieza de cero. **La cola es una lista fija**: enseña también las que ya sonaron (en gris; se
+ven las 5 anteriores y más subiendo a mano), y al pasar de canción no se repinta, solo cambia la resaltada (baja lo
+justo si la que suena queda fuera de la vista); tocar una anterior la vuelve a poner. **Artistas
 como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
 (los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien
 no tiene ninguno ve todos); la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),

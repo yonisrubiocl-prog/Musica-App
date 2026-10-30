@@ -161,6 +161,7 @@
   .row { display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 12px; width: 100%; transition: background 200ms; }
   .row:hover { background: rgba(255,255,255,.045); }
   .row.playing .t { color: var(--primary); }
+  .row.past { opacity: .45; } .row.past:hover { opacity: .8; }
   .row .hit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
   .row img, .row .ph { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--raised); flex: none; }
   .row .meta { flex: 1; min-width: 0; }
@@ -998,7 +999,7 @@ let cur = null, queue = [], qi = -1, isRadio = false;
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
 const shuffleNow = () => fromArtist ? shuffleArt : shuffleOn;
 let repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
-function playOne(s) { isRadio = true; fromArtist = false; queueSig = ''; queue = [s]; qi = 0; start(); fillRadio(); }
+function playOne(s) { isRadio = true; fromArtist = false; queueSig = ''; qVer++; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista tocando la canción i (cualquier lista: Inicio, Me gusta, playlist, álbum, artista): esa primero
 // y luego, sin aleatorio, la lista entera en su orden desde el principio, sin repetirla (tocar la 5.ª: 5, 1, 2, 3,
 // 4, 6…); con aleatorio, todas las demás mezcladas. orden (página de un artista): usa el aleatorio del artista.
@@ -1010,9 +1011,9 @@ function playList(songs, i, orden = false, nueva = false) {
   if (!nueva && !isRadio && sig === queueSig && fromArtist === orden) {
     const j = queue.findIndex(x => x.id === songs[i].id);
     if (j === qi) return;   // ya está sonando
-    if (j >= 0) { const [s] = queue.splice(j, 1); if (j < qi) qi--; queue.splice(qi + 1, 0, s); qi++; return start(); }
+    if (j >= 0) { const [s] = queue.splice(j, 1); if (j < qi) qi--; queue.splice(qi + 1, 0, s); qi++; qVer++; return start(); }
   }
-  queueSig = sig;
+  queueSig = sig; qVer++;
   isRadio = false; radioRecs = 0;
   fromArtist = orden;
   if (shuffleNow() && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
@@ -1191,7 +1192,7 @@ async function fillRadio() {
   try {
     const exclude = new Set([...queue.map(s => s.id), ...(historyCache || []).slice(0, 30).map(s => s.id)]);
     const more = (await recommend(queue[queue.length - 1] || cur, exclude)).filter(s => !queue.some(q => q.id === s.id));
-    queue.push(...more); paintQueue(); return more.length;
+    queue.push(...more); qVer++; paintQueue(); return more.length;
   } finally { radioBusy = false; }
 }
 
@@ -1237,7 +1238,7 @@ $('npShuffle').onclick = () => {
   if (fromArtist) { shuffleArt = !shuffleArt; store.set('aleatorio_artista', shuffleArt); }
   else { shuffleOn = !shuffleOn; store.set('aleatorio', shuffleOn); }
   // Activarlo desordena lo que queda; quitarlo mantiene ese orden (como en la app).
-  if (shuffleNow()) queue = [...queue.slice(0, qi + 1), ...shuffled(queue.slice(qi + 1))];
+  if (shuffleNow()) { queue = [...queue.slice(0, qi + 1), ...shuffled(queue.slice(qi + 1))]; qVer++; }
   paintNp();
 };
 $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[repeat]; paintNp(); };
@@ -1269,19 +1270,41 @@ function paintNp() {
   paintHearts();
   if (npTab === 'cola') paintQueue(); else loadLyrics();
 }
+// La cola es una lista fija: se pinta entera (también las que ya sonaron, en gris) solo cuando cambia (qVer); al
+// pasar de canción solo cambia cuál está resaltada, y se baja lo justo si la que suena quedó fuera de la vista.
+// Al pintarla, se ven las 5 anteriores encima de la que suena; más atrás, subiendo a mano.
+let qVer = 0, qPainted = null;
+const scrollBox = el => { for (let p = el.parentElement; p; p = p.parentElement) {
+  const o = getComputedStyle(p).overflowY; if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p; } return null; };
 function paintQueue() {
   const enBarra = tresColumnas.matches;   // ≥1500 px: la cola vive en su barra de la izquierda, siempre a la vista
-  if (!enBarra && (!npVisible() || npTab !== 'cola')) return;
+  if (!enBarra && (!npVisible() || npTab !== 'cola')) { qPainted = null; return; }
   const dest = enBarra ? $('qList') : $('npPanel');
-  if (enBarra && !cur) { dest.innerHTML = '<div class="empty">Cuando suene algo, aquí verás lo que viene después.</div>'; return; }
-  setList('queue', queue, 'lista');
-  const top = isRadio
-    ? `<div class="radio"><span>📻</span><div>Radio de «${esc(queue[0]?.title)}»<small>Detrás van canciones recomendadas; se añaden más solas</small></div></div>`
-    : `<div class="radio"><span>📻</span><div>Seguir con canciones parecidas<small>Al acabarse la lista</small></div><button class="switch${follow ? ' on' : ''}" id="npFollow" aria-label="Seguir con parecidas"></button></div>`;
-  dest.innerHTML = top + `<div class="list">${queue.slice(qi).map((s, k) => { const i = qi + k;
-    return `<div class="row${i === qi ? ' playing' : ''}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
-      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button></div>`; }).join('')}</div>`;
-  if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
+  if (enBarra && !cur) { dest.innerHTML = '<div class="empty">Cuando suene algo, aquí verás lo que viene después.</div>'; qPainted = null; return; }
+  const key = `${enBarra}|${qVer}|${isRadio}|${follow}`;
+  if (qPainted !== key || !dest.querySelector('[data-q]')) {
+    qPainted = key;
+    setList('queue', queue, 'lista');
+    const top = isRadio
+      ? `<div class="radio"><span>📻</span><div>Radio de «${esc(queue[0]?.title)}»<small>Detrás van canciones recomendadas; se añaden más solas</small></div></div>`
+      : `<div class="radio"><span>📻</span><div>Seguir con canciones parecidas<small>Al acabarse la lista</small></div><button class="switch${follow ? ' on' : ''}" id="npFollow" aria-label="Seguir con parecidas"></button></div>`;
+    dest.innerHTML = top + `<div class="list">${queue.map((s, i) =>
+      `<div class="row" data-qrow="${i}"><button class="hit" data-q="${i}">${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
+      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist || '')}</div></span><span class="d">${dur(s.duration)}</span></button></div>`).join('')}</div>`;
+    if ($('npFollow')) $('npFollow').onclick = () => { follow = !follow; store.set('seguir_parecidas', follow); paintQueue(); };
+    markQueue(dest, true);
+  } else markQueue(dest, false);
+}
+function markQueue(dest, fresh) {
+  dest.querySelectorAll('[data-qrow]').forEach(r => { const i = +r.dataset.qrow;
+    r.classList.toggle('playing', i === qi); r.classList.toggle('past', i < qi); });
+  const row = dest.querySelector(`[data-qrow="${qi}"]`), box = row && scrollBox(row);
+  if (!box) return;
+  const b = box.getBoundingClientRect(), rr = row.getBoundingClientRect();
+  if (fresh) {   // recién pintada: 5 anteriores encima de la que suena
+    const first = dest.querySelector(`[data-qrow="${Math.max(0, qi - 5)}"]`);
+    box.scrollTop += first.getBoundingClientRect().top - b.top - 8;
+  } else if (rr.top < b.top || rr.bottom > b.bottom) box.scrollTop += rr.bottom > b.bottom ? rr.bottom - b.bottom + 8 : rr.top - b.top - 8;
 }
 $('qList').addEventListener('click', e => npPanelClick(e));
 $('npPanel').addEventListener('click', e => npPanelClick(e));

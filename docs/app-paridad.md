@@ -54,6 +54,10 @@
    - **Si ya suena esa misma lista** (mismas canciones, mismo sitio), no rehacer la cola: la tocada se saca de donde
      esté en la cola y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya sonaron). "▶ Reproducir"
      sí empieza de cero.
+   - **La cola en pantalla es fija**: toda la cola, con las ya sonadas en gris encima (al abrirla se ven las 5
+     anteriores; más, subiendo a mano). Al pasar de canción **no se reconstruye ni salta**: solo cambia cuál está
+     resaltada (si queda fuera de la vista, bajar lo justo). Solo se repinta si la cola cambia (lista nueva, canción
+     adelantada, aleatorio, radio añadida). Ninguna canción sale dos veces.
    - **Con aleatorio**, siempre: la elegida primero y el resto mezclado.
    - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última).
 2. **Menú de cada canción**: "📻 Iniciar radio", "👎 No me gusta" (evento `no_me_gusta`; si es la que suena, pasar a
