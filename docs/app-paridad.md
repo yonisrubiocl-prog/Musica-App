@@ -1,9 +1,9 @@
 # App Android ↔ servidor y web: lista para igualar
 
-> Lista de lo que la app Android tiene que usar del servidor y de cómo debe comportarse para ser igual que la web
-> (`server/web/web.html`, que sirve de referencia). Hecha el 30-10-2026. Se tacha (o se borra la línea) cuando la
-> app lo tenga. Fuera quedan cosas solo de PC (panel lateral, tres columnas, volumen). Detalle de cada ruta en el
-> `README.md`; plan de recomendaciones en `docs/recomendaciones.md`. Todo con la sesión como `Bearer`.
+> Lo que la app Android tiene que usar del servidor y cómo debe comportarse para ser igual que la web
+> (`server/web/web.html`, la referencia). Al día el 30-10-2026. Cuando la app tenga algo, se borra su línea. Fuera
+> quedan cosas solo de PC (tarjetas laterales, tres columnas, volumen). Detalle de cada ruta en el `README.md`; plan
+> de recomendaciones en `docs/recomendaciones.md`. Todo con la sesión como `Bearer`.
 
 ## A. Rutas del servidor
 
@@ -13,73 +13,87 @@
    tolera faltas y palabras a medio escribir. **`artists`** = los artistas que encajan, también con faltas
    ("cancerbero" → Canserbero): úsalos para la fila de artistas en vez de filtrarlos en la app.
 2. **Sugerencias mientras se escribe** — `GET /suggest?q=…` (~45 ms, sin YouTube) → `{sugerencias: [{tipo:
-   artista|album|cancion, texto, artista, id, canciones, thumb}]}`. **En un desplegable bajo el campo, sin cambiar la
-   lista de abajo**; primera fila "🔎 Buscar «texto»"; tocar: artista → su página, álbum → el álbum, canción → que
-   suene; los resultados completos, al pulsar buscar. Pedirlo con ~120 ms de pausa tras cada tecla.
+   artista|album|cancion, texto, artista, id, canciones, thumb}]}`. Pedirlo con ~120 ms de pausa tras cada tecla.
 3. **Álbumes de internet** — `GET /search/albums?q=…` (solo al abrir esa pestaña: 1 petición a YouTube) y
    `GET /search/album/<id>` (canciones en orden, `track`, y `where` para marcar las guardadas).
 4. **Biblioteca** — `GET /library?sort=recientes|populares|nombre|artista&offset=&limit=&genre=` (scroll infinito),
-   `GET /genres`, `GET /artists`, `GET /artist?name=`, `GET /album?artist=&name=`. Las canciones traen `genre`.
-   **Artistas como en Spotify**: `GET /artists?orden=tuyos` para la Biblioteca → Artistas: **enseñar solo los
-   que traen `tuyo: true`** (ya vienen de más a menos escuchados) y al final "Ver todos los artistas (N)"; si no hay
-   ninguno `tuyo`, todos; en `/artist`, `tuyas` (sección "Tus canciones" arriba) y `todas` (la cola al reproducir).
-   **No agrupar artistas en la app**: usar `/artist` tal cual (cuenta colaboraciones, "feat." del título y
-   canciones sin artista con el nombre en el título; las colaboraciones vienen en `loose` aunque tengan álbum).
-5. **Favoritas** — `GET /favorites`, `PUT /favorites/<id>` (si no está guardada, en el cuerpo `{title, artist, album,
+   `GET /genres`, `GET /album?artist=&name=`. Las canciones traen `genre`.
+5. **Artistas** — **no agrupar artistas en la app**: usar lo que dice el servidor tal cual (cuenta colaboraciones
+   "Apache, Canserbero", "feat." del título y canciones sin artista con el nombre en el título).
+   - `GET /artists?orden=tuyos` → todos, primero los que más escucha esa cuenta, que traen **`tuyo: true`**.
+   - `GET /artist?name=` → `{name, songs, albums, loose}` (las colaboraciones vienen en `loose` aunque tengan
+     álbum) y, con sesión, **`tuyas`** (las suyas en favoritas o playlists) y **`todas`** (la cola del artista: las
+     tuyas y luego las demás, de más a menos puestas).
+6. **Favoritas** — `GET /favorites`, `PUT /favorites/<id>` (si no está guardada, en el cuerpo `{title, artist, album,
    duration, thumb}`), `DELETE /favorites/<id>`.
-6. **Playlists** — `GET /playlists`, `POST /playlists {name}` → `{id}`, `PUT /playlists/<id> {name, songs}` (entera;
+7. **Playlists** — `GET /playlists`, `POST /playlists {name}` → `{id}`, `PUT /playlists/<id> {name, songs}` (entera;
    `songs` = ids o fichas `{id, title, …}`; si falta alguna ficha: 400 `{detail: {error, ids}}`), `DELETE /playlists/<id>`.
-7. **Historial** — `GET /history?limit=50` (lo apunta el servidor solo con cada `/stream`).
-8. **Recomendaciones (fase 1)**
+8. **Historial** — `GET /history?limit=50` (lo apunta el servidor solo con cada `/stream`).
+9. **Recomendaciones (fase 1)**
    - `POST /eventos {eventos: [{tipo: entera|salto|no_me_gusta|ya_no_me_gusta, id, segundo, duracion, contexto,
      causa, cuando}]}` en lote; sin conexión, guardarlos y mandarlos después. **No mandar `inicio`**: lo apunta `/stream`.
-   - `GET /home` → secciones `recientes`, `para_ti`, `vuelve` (las vacías no vienen; si da 404, el Inicio de siempre).
+   - `GET /home` → secciones `{id, titulo, tipo, items}`: `recientes`, `para_ti`, `vuelve` (`tipo: canciones`) y
+     **`artistas`** ("Tus artistas", `tipo: artistas`, items como `/artists`). Las vacías no vienen; si da 404, el
+     Inicio de siempre.
    - `GET /radio?desde=cancion:<id>|artista:<nombre>&ya=<ids>&n=20`; volver a pedir cuando queden 2–3. Si falla
      (500, sin red), seguir con la cola que hay y reintentar más tarde, sin cortar la música.
    - `GET /recomendaciones/preguntar?contexto=` y `POST /recomendaciones/opinion {contexto, semilla, gusto: si|no,
      opciones, texto, canciones}`.
-9. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva).
-10. **Sesiones** — máximo **3 dispositivos** por cuenta (administradores sin límite). Ante un **401**: volver al login
+10. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva).
+11. **Sesiones** — máximo **3 dispositivos** por cuenta (administradores sin límite). Ante un **401**: volver al login
     con "Se inició sesión en otro dispositivo", sin quedarse callada.
 
 ## B. Comportamientos a igualar
 
 1. **Cómo se arma la cola al tocar una canción**
    - **Suelta** (búsqueda, biblioteca entera, un género, "Lo más puesto") → **modo radio**: esa y detrás
-     recomendadas de `/radio`, que se van añadiendo solas.
-   - **Cualquier lista** (filas del Inicio, Me gusta, una playlist, un álbum, la página de un artista) → **la lista
-     entera** aunque la fila enseñe 20: **la elegida pasa al primer puesto y detrás la lista en su orden normal
-     desde el principio, sin repetirla** (10 canciones, tocando la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9, 10). Nada de
-     "desde la elegida hacia abajo".
-   - **Si ya suena esa misma lista** (mismas canciones, mismo sitio), no rehacer la cola: la tocada se saca de donde
-     esté en la cola y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya sonaron). "▶ Reproducir"
-     sí empieza de cero.
-   - **La cola en pantalla es fija**: toda la cola, con las ya sonadas en gris encima (al abrirla se ven las 5
-     anteriores; más, subiendo a mano). Al pasar de canción **no se reconstruye ni salta**: solo cambia cuál está
-     resaltada (si queda fuera de la vista, bajar lo justo). Solo se repinta si la cola cambia (lista nueva, canción
-     adelantada, aleatorio, radio añadida). Ninguna canción sale dos veces.
-   - **Mover canciones de la cola arrastrando**, con un asa **≡** a la derecha de cada una que falta por sonar (en
-     Flutter, `ReorderableListView` + `ReorderableDragStartListener` en el asa, y pulsación larga en la fila): solo las
-     que faltan por sonar, a cualquier sitio después de la que suena; al soltar, la lista no salta de scroll.
-   - **Con aleatorio**, siempre: la elegida primero y el resto mezclado.
-   - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última).
-2. **Menú de cada canción**: "📻 Iniciar radio", "👎 No me gusta" (evento `no_me_gusta`; si es la que suena, pasar a
+     recomendadas de `/radio`, que se van añadiendo solas **al final**.
+   - **De una lista** (filas del Inicio, Me gusta, una playlist, un álbum, la página de un artista) → **la elegida
+     pasa al primer puesto y detrás la lista entera en su orden desde el principio, sin repetirla**, aunque la fila
+     enseñe solo 20 (10 canciones, tocando la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9, 10). Nada de "desde la elegida hacia
+     abajo". **Con aleatorio:** la elegida primero y el resto mezclado.
+   - **Si ya suena esa misma lista** (compara los ids de la lista con los de la que armó la cola), no rehacer la
+     cola: la tocada se saca de donde esté y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya
+     sonaron; si toca la que suena, nada). "▶ Reproducir" o una canción de otra lista sí empiezan de cero.
+     Ejemplo, cola A, B, Religión, Cucú, Bendita, Pop1: toca Religión → Religión, A, B, Cucú, Bendita, Pop1; pasa a
+     A; toca Bendita → Bendita, B, Cucú, Pop1.
+   - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última). Sin él, la cola
+     termina.
+   - **Ninguna canción puede estar dos veces** en la cola (lo que añade la radio tampoco repite ids).
+2. **La cola en pantalla es una lista fija**
+   - Toda la cola, con **las ya sonadas en gris** encima; al abrirla se ven las 5 anteriores a la que suena; más,
+     subiendo a mano. Tocar una anterior la vuelve a poner.
+   - Al pasar de canción **no se reconstruye ni salta**: solo cambia cuál está resaltada (si queda fuera de la vista,
+     bajar lo justo). Solo se repinta si la cola cambia (lista nueva, canción adelantada, aleatorio, radio añadida).
+   - **Reordenar arrastrando:** asa **≡** a la derecha de cada canción que falta por sonar (en Flutter,
+     `ReorderableListView` + `ReorderableDragStartListener` en el asa) y también pulsación larga en la fila. Solo
+     las que faltan, a cualquier sitio después de la que suena; al soltar, la lista no salta de scroll.
+3. **Artistas como en Spotify**
+   - **Inicio:** la sección `artistas` de `/home` ("Tus artistas") en vez de la fila de todos los artistas.
+   - **Biblioteca → Artistas:** `/artists?orden=tuyos` enseñando **solo los que traen `tuyo: true`** (ya vienen
+     ordenados) y al final "Ver todos los artistas (N)"; si ninguno es `tuyo`, todos.
+   - **Página de un artista**, en este orden: **"Tus canciones"** (`tuyas`, si hay), **"Populares"** (`todas` sin
+     las de `tuyas`; 10 y "Ver todas (N)"; si no hay `tuyas`, se llama "Canciones") y **al final los álbumes**.
+     Botón "▶ Reproducir" arriba. "▶ Reproducir" y tocar cualquiera de sus canciones usan **`todas`** con la regla
+     del punto 1.
+   - **Aleatorio del artista, independiente del general:** dos interruptores guardados aparte. El general vale para
+     Inicio, Biblioteca, playlists, álbumes y canciones sueltas; el del artista, solo para lo que suena desde la
+     página de un artista, y **empieza apagado**. El botón 🔀 cambia el de lo que está sonando.
+4. **Inicio**: las secciones de `/home` (Para ti, Vuelve a escuchar, Tus artistas) junto a las de siempre.
+5. **Menú de cada canción**: "📻 Iniciar radio", "👎 No me gusta" (evento `no_me_gusta`; si es la que suena, pasar a
    la siguiente) y, si suena una radio, "💬 Opinar sobre estas recomendaciones".
-3. **"¿Qué te parecieron?"**: tras 10 recomendadas seguidas, si `/recomendaciones/preguntar` dice que sí: 👍/👎,
+6. **"¿Qué te parecieron?"**: tras 10 recomendadas seguidas, si `/recomendaciones/preguntar` dice que sí: 👍/👎,
    opciones `repetitivas`, `no_me_gustaron`, `quiero_nuevas`, `muy_raras`, `generos_no_pegan`, `mas_reciente`,
    `versiones_raras`, texto libre y "Ahora no".
-4. **Inicio**: las secciones de `/home` (Para ti, Vuelve a escuchar) junto a las de siempre, y **"Tus artistas"**
-   (`id: artistas`, `tipo: artistas`, items como `/artists`) en vez de la fila de todos los artistas.
-5. **Página de un artista**, en este orden: **"Tus canciones"** (`tuyas`, si hay), **"Populares"** (`todas` sin las
-   de `tuyas`, ya vienen de más a menos puestas: 10 y "Ver todas") y **al final los álbumes**. "▶ Reproducir" y tocar cualquiera de sus
-   canciones usan **`todas`** con la misma regla (la tocada primero y luego `todas` desde el principio), con **un aleatorio propio del artista, independiente del general**
-   (Inicio, Biblioteca…): empieza apagado, cada uno se recuerda por separado y el botón cambia el de lo que suena.
-6. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
+7. **Buscar**: las sugerencias de `/suggest` **en un desplegable bajo el campo, sin cambiar la lista de abajo**;
+   primera fila "🔎 Buscar «texto»"; tocar: artista → su página, álbum → el álbum, canción → que suene; los
+   resultados completos, al pulsar buscar.
+8. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
    fondo desenfocado "respira" (9 s). Solo mientras suena; sin animación si el sistema pide reducir movimiento.
    (En Flutter: `ClipRRect` + `Transform` con un `AnimationController` de 24 s `repeat(reverse: true)`; fondo con
    `ImageFilter.blur` ~80 y opacidad 0,4–0,65.)
-7. **Letra**: si se puede ocultar, que se recuerde; y que la barra de pestañas (Siguiente/Letra) **se quede pegada
+9. **Letra**: si se puede ocultar, que se recuerde; y que la barra de pestañas (Siguiente/Letra) **se quede pegada
    arriba** al bajar por la letra.
-8. **Eventos para las recomendaciones**: al cambiar antes del 80 %, `salto` con el segundo; al pasar del 80 %,
-   `entera`; si falló la reproducción, `salto` con `causa: "error"`. `contexto` según de dónde vino (`radio`,
-   `para_ti`, `vuelve`, `busqueda`, `biblioteca`, `playlist`, `favoritas`).
+10. **Eventos para las recomendaciones**: al cambiar antes del 80 %, `salto` con el segundo; al pasar del 80 %,
+    `entera`; si falló la reproducción, `salto` con `causa: "error"`. `contexto` según de dónde vino (`radio`,
+    `para_ti`, `vuelve`, `busqueda`, `biblioteca`, `playlist`, `favoritas`).

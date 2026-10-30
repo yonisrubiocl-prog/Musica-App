@@ -22,8 +22,9 @@ sin publicarlo ni cobrar nada.
 - **Por usuario:** favoritas, historial y playlists (iguales en la app y la web), máximo 3 dispositivos por cuenta.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
-- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.17 (build 18) publicada**, con aviso de
-  actualización propio. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar.
+- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.26 (build 27) publicada**, con aviso de
+  actualización propio. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
+  es la referencia de cómo debe comportarse la app (`docs/app-paridad.md`).
 
 **Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
@@ -63,7 +64,7 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
 
 ### Canciones
 
-La **API es la dueña de la música**: una carpeta `/var/lib/music` (~2.200 canciones, 8,4 GB el 30-10-2026) con su catálogo
+La **API es la dueña de la música**: una carpeta `/var/lib/music` (~2.300 canciones, 8,2 GB el 30-10-2026) con su catálogo
 `index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
 YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
 `u-<resumen del enlace>`). **Tope de 50 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió a 40 y luego a 50 para la precarga de álbumes, que añade ~6.000 canciones / ~26 GB): al pasarlo borra lo que hace
@@ -97,52 +98,55 @@ sesión se guarda en el navegador (`localStorage`): la próxima vez entra direct
 dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
 **App web** (`server/web/web.html`, hecha en el servidor con el estilo de la app; la sesión que guarda la
-página principal está en `localStorage` con la clave `musica_sesion`). Se probó también la app Flutter compilada
-para web (30-10-2026) y se descartó y borró: Flutter en el navegador dibuja la app del móvil en un lienzo (se ve
-como un emulador, ~10 MB, no se comporta como una web). Para el navegador, mejor una web propia: toda la lógica
-vive en la API y la web solo la enseña. Idea pendiente: diseño de escritorio (menú lateral, cuadrícula,
-reproductor a lo ancho abajo). Tiene tres pestañas
-abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
-favoritas", artistas y "Lo más puesto". **En pantallas anchas (≥1100 px, PC):** el contenido a la izquierda y el **reproductor grande fijo a la
-derecha** (portada viva, controles, volumen, cola y letra), como Spotify en el ordenador, en una **tarjeta flotante
-redondeada** con aire alrededor, brillo violeta y un **ecualizador animado** junto a "Reproduciendo" (se mueve solo
-mientras suena); sin canción enseña "Aquí
-sonará tu música". La barra pequeña de abajo se oculta ahí (el panel tiene los controles). Márgenes simétricos (sin
-hueco entre el contenido y el panel). **En pantallas muy anchas (≥1500 px)**, tres tarjetas iguales: **la cola
-("Siguiente") a la izquierda**, siempre a la vista, el contenido en medio y el reproductor a la derecha (que
-entonces solo tiene la letra, con un interruptor "Letra · ocultar" / "Mostrar letra" que se recuerda y se queda
-pegado arriba del panel mientras la letra baja). **Cómo se
-llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, biblioteca, género) es **modo radio**: esa
-canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
-lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas las demás mezcladas; **sin
-aleatorio**, en cualquier lista (filas del Inicio, Me gusta, una playlist, un álbum, un artista) suena **la lista
-entera**, aunque la fila enseñe solo 20: la elegida pasa al primer puesto y detrás va la lista en su orden normal
-desde el principio, sin repetirla (tocar la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9…). Si **ya suena esa misma lista**, no
-se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya pasaron);
-"▶ Reproducir" sí empieza de cero. **La cola es una lista fija**: enseña también las que ya sonaron (en gris; se
-ven las 5 anteriores y más subiendo a mano), y al pasar de canción no se repinta, solo cambia la resaltada (baja lo
-justo si la que suena queda fuera de la vista); tocar una anterior la vuelve a poner. **Mover canciones de la
-cola arrastrando**: desde el asa **≡** de la derecha (empieza al momento, ratón o dedo) o manteniendo pulsada la
-fila (en el móvil ~0,35 s quieto, vibra), y soltar donde se quiera; una línea marca
-el sitio, cerca del borde la lista se desplaza sola. Solo las que faltan, y siempre después de la que suena. **Artistas
-como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
-(los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien
-no tiene ninguno ve todos); la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),
-luego **"Populares"** (las más puestas, sin repetir las tuyas: 10 y "Ver todas") y **al final los álbumes**; y "▶ Reproducir" o tocar cualquiera de sus canciones suena con **su propio aleatorio** (aparte del general
-de Inicio y Biblioteca; empieza apagado y cada uno se recuerda por separado; el botón cambia el de lo que suena): primero las tuyas y luego las demás, las más puestas primero. La cola solo enseña lo que
-viene desde la canción actual, así que el número cambia según suena. En el móvil, como
-siempre. **Buscar**: al escribir sale un **cuadro flotante de sugerencias** (como Spotify:
-"Buscar «…»", artistas, álbumes y canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se
-escribe); los resultados completos salen con Enter (botón aparte "Buscar en YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
-artista). **Biblioteca**: Favoritas, Historial y Artistas → álbumes → canciones. ♡ en cada canción y en el
-reproductor (`/favorites`, sincronizado con la app). Cristal (fondo translúcido con desenfoque) en tarjetas,
-reproductor y barra de pestañas; el fondo toma los colores de la portada de lo que suena. Barras de scroll finas y discretas (y sin scroll horizontal). Minirreproductor con
-barra violeta, anterior/siguiente, **volumen** (en la barra en pantallas anchas y en el reproductor grande; flechas
-arriba/abajo; se recuerda; en el móvil manda el volumen del teléfono) y controles en la pantalla de bloqueo (Media
-Session). En Android enseña arriba
-"Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
-(móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
+página principal está en `localStorage` con la clave `musica_sesion`). Toda la lógica vive en la API y la web solo
+la enseña. (Se probó la app Flutter compilada para web y se descartó: dibuja la app del móvil en un lienzo, ~10 MB.)
+Probada en Chromium (móvil y PC); **sin probar en iPhone/Safari** (el audio es Opus en `.webm`). Para probar
+cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwright en Docker, imagen
+`mcr.microsoft.com/playwright:v1.48.2-jammy`, ~1,5 GB; usa el `web.html` del disco sin reiniciar la API).
 
+- **Pestañas** (abajo, como en la app):
+  - **Inicio:** saludo con nombre y foto, "Escuchado recientemente" (`/history`), Para ti y Vuelve a escuchar
+    (`/home`), álbumes recientes, "Tus favoritas", géneros, **"Tus artistas"** y "Lo más puesto".
+  - **Buscar:** al escribir, un **cuadro flotante de sugerencias** como Spotify ("Buscar «…»", artistas, álbumes y
+    canciones con foto; flechas y Enter; la lista de abajo no cambia mientras se escribe). Los resultados completos
+    salen con Enter (botón aparte "Buscar en YouTube"). Sin texto, toda la biblioteca con scroll infinito
+    (`/library`: Recientes, Populares, A–Z, Por artista) y chips de género.
+  - **Biblioteca:** Playlists, Me gusta, Historial y Artistas. ♡ en cada canción y en el reproductor
+    (`/favorites`, igual en la app).
+- **Artistas como en Spotify:**
+  - Biblioteca → Artistas enseña **solo los tuyos** (los que escuchas o tienes en Me gusta o playlists, los que
+    más primero), con "Ver todos los artistas" al final; quien no tiene ninguno ve todos.
+  - **Página de un artista:** "Tus canciones" (las suyas en tus Me gusta o playlists), luego "Populares" (las más
+    puestas, sin repetir las tuyas: 10 y "Ver todas") y al final los álbumes.
+  - Suena con **su propio aleatorio**, aparte del general (empieza apagado y cada uno se recuerda por separado;
+    el botón 🔀 cambia el de lo que suena). "▶ Reproducir": primero las tuyas y luego las populares.
+- **Cómo se llena la cola:**
+  - **Canción suelta** (búsqueda, Lo más puesto, un género) → **modo radio**: esa y detrás recomendadas, que se
+    añaden solas al final (~10 cuando quedan 2–3).
+  - **Una lista** (filas del Inicio, Me gusta, playlist, álbum, artista) → la elegida pasa al primer puesto y detrás
+    **la lista entera en su orden desde el principio**, sin repetirla, aunque la fila enseñe solo 20 (tocar la 7.ª:
+    7, 1, 2, 3, 4, 5, 6, 8, 9…). Con aleatorio: la elegida y el resto mezclado.
+  - **Si ya suena esa misma lista**, no se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue
+    igual (no vuelven las que ya sonaron). "▶ Reproducir" sí empieza de cero.
+  - Al acabarse una lista, interruptor **"Seguir con canciones parecidas"** (radio de la última). Nunca entra una
+    canción dos veces.
+- **La cola en pantalla es una lista fija:** enseña también las que ya sonaron (en gris; al abrirla, las 5
+  anteriores; más, subiendo a mano). Al pasar de canción no se repinta: solo cambia la resaltada (baja lo justo si
+  queda fuera de la vista). Tocar una anterior la vuelve a poner. **Se reordena arrastrando:** desde el asa ≡
+  (al momento, ratón o dedo) o manteniendo pulsada la fila (en el móvil ~0,35 s quieto, vibra); una línea marca el
+  sitio y cerca del borde la lista se desplaza sola. Solo las que faltan, siempre después de la que suena.
+- **En el PC:**
+  - **≥1100 px:** contenido a la izquierda y el **reproductor grande fijo a la derecha** (portada viva, controles,
+    volumen, cola y letra) en una tarjeta flotante con un ecualizador animado mientras suena; sin canción, "Aquí
+    sonará tu música". La barra pequeña de abajo se oculta.
+  - **≥1500 px:** tres tarjetas iguales: **la cola ("Siguiente") a la izquierda**, siempre a la vista, el contenido
+    en medio y a la derecha solo la letra, con "Letra · ocultar" / "Mostrar letra" (se recuerda) y su barra pegada
+    arriba al bajar.
+- **Lo demás:** cristal (fondo translúcido con desenfoque) en tarjetas, reproductor y barras; el fondo toma los
+  colores de la portada. Barras de scroll finas, sin scroll horizontal. Minirreproductor con anterior/siguiente y
+  **volumen** (flechas arriba/abajo; se recuerda; en el móvil manda el del teléfono). Controles en la pantalla de
+  bloqueo (Media Session). En Android, arriba "Instala la app" y en el menú del avatar "Descargar app Android"
+  (`/app/enlace`).
 
 **Portada viva** (reproductor grande de la web; la app debería hacer lo mismo): la portada se acerca y se mueve muy
 despacio dentro de su marco (Ken Burns, 24 s, ida y vuelta) y sus colores desenfocados del fondo "respiran"; **solo
@@ -312,33 +316,30 @@ como él ("Apache" de The Sugarhill Gang). **Buscar artistas tolera faltas** (`L
 primero por cómo empieza cada palabra ("raw" → Rawayana); si no hay ninguno, el más parecido ("cancerbero" →
 Canserbero, "chayane" → Chayanne).
 
-**Precarga de álbumes** (`precarga.py`): baja poco a poco los **álbumes de estudio** de los artistas con **5 o más
-canciones guardadas**, **como mucho los 6 más escuchados de cada uno** (`MAX_ALBUMS`;
-sin gastar peticiones: primero los que tienen los éxitos del artista según YouTube Music, luego los que ya tienen
-canciones guardadas aquí, luego los más nuevos; AC/DC: *Back In Black*, *The Razors Edge*, *Highway to Hell*…) (~107 el 30-10-2026; ~6.000 canciones, ~27 GB). **A ritmo de persona, no de robot** (una
-descarga cada X segundos exactos durante horas es el patrón de un robot): entre canciones de un álbum espera más o
-menos lo que dura la canción (40–110 %, al azar, como quien la escucha o se la salta); entre álbumes, una pausa de
-5 a 30 min y, 1 de cada 7 veces, una larga de 30 a 90 min; el siguiente artista se elige al azar entre los 3 más
-escuchados que falten. De madrugada (**01:00–09:00 de Chile**) siempre; de día un 50 % más lento y solo si nadie ha
-usado YouTube en los últimos 10 min. Si YouTube avisa de bloqueo, para 24 h. Unas 15–20 canciones por hora mientras
-trabaja: los artistas más escuchados en pocos días, el total en unas 5–6 semanas. Se salta directos,
-instrumentales, karaokes, recopilatorios ("Greatest Hits", "Uniquehits", "Lo Mejor De…", "Vol. 1") y ediciones
-repetidas (por el título del álbum) y las canciones que ya
-están, también si es otra versión del mismo artista y título (ensayo con Rawayana: 7 álbumes de estudio, 78 nuevas,
-28 que ya estaban). **Baja las pistas del disco, no los videoclips:** en algunos álbumes YouTube Music enlaza cada
-pista a su videoclip (el 30-10-2026, "City Walls" de *Breach* bajó como el vídeo de 9:55 con intro en vez de la
-canción de 5:23); por eso usa la **lista de audio** del álbum (`audioPlaylistId`, 1 petición más por álbum). Las
-bajadas quedan con **título limpio** ("City Walls", no "Twenty One Pilots - City Walls (Official Video)"), la
-**portada del álbum** como foto, artista, álbum, año y número de pista (`track_no`). Estado en
-`server/data/precarga.json`; cómo va: `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`.
-Para pararla: quitar la línea `PRECARGA = …` de `app.py`. **Saltar un álbum** (o uno que ya
-esté bajando): añadir una línea `Artista | Álbum` a `server/data/precarga-saltar.txt` (sin distinguir mayúsculas
-ni tildes); se lee en cada paso, sin reiniciar, y lo que ya estaba en cola de ese álbum sale al momento. Lo que ya
-se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltados el 30-10-2026: Rawayana |
-ASTROPICAL; Milo j | 166 y Milo j | 111 (el resto de Milo j). **Quitar un artista entero**: `Artista | *`.
-**Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que los demás (en
-el orden del archivo) en cuanto acabe el álbum que esté bajando, sin reiniciar. Pedido el 30-10-2026: Maná. Las dos
-cosas se hacen también desde el panel (`:P`, ver más abajo).
+**Precarga de álbumes** (`precarga.py`, dentro de la API): baja poco a poco los **álbumes de estudio** de los
+artistas con **5 o más canciones guardadas** (120 el 30-10-2026; en total ~6.000 canciones, ~27 GB, unas 5–6
+semanas).
+
+- **Qué baja:** como mucho **6 álbumes por artista** (`MAX_ALBUMS`), los más escuchados, sin gastar peticiones:
+  primero los que tienen los éxitos del artista según YouTube Music, luego los que ya tienen canciones aquí, luego
+  los más nuevos. Se salta directos, instrumentales, karaokes, recopilatorios ("Greatest Hits", "Uniquehits", "Lo
+  Mejor De…", "Vol. 1") y ediciones repetidas, y las canciones que ya están (también otra versión del mismo título).
+- **Pistas del disco, no videoclips:** usa la **lista de audio** del álbum (`audioPlaylistId`; si no, "City Walls"
+  de *Breach* bajaba como el vídeo de 9:55). Quedan con **título limpio** ("City Walls"), la **portada del álbum**,
+  artista, álbum, año y número de pista (`track_no`).
+- **A ritmo de persona, no de robot:** entre canciones espera el 40–110 % de lo que dura la canción (al azar); entre
+  álbumes, 5–30 min y, 1 de cada 7 veces, 30–90 min. De madrugada (**01:00–09:00 de Chile**) siempre; de día un 50 %
+  más lento y solo si nadie usó YouTube en 10 min. Si YouTube avisa de bloqueo, para 24 h. Unas 15–20 canciones/hora.
+- **Orden:** primero los adelantados (`server/data/precarga-primero.txt`, un artista por línea, en ese orden; el
+  30-10-2026: Maná) y luego uno al azar entre los 3 más escuchados que falten. Se adelanta en cuanto acabe el álbum
+  que esté bajando.
+- **Saltar:** una línea `Artista | Álbum` en `server/data/precarga-saltar.txt` (sin distinguir mayúsculas ni
+  tildes), o `Artista | *` para el artista entero. Lo que ya estaba en cola sale al momento; lo ya bajado se borra a
+  mano (`DELETE /interno/song/<clave>`). Saltados el 30-10-2026: Rawayana | ASTROPICAL, Milo j | 166 y Milo j | 111.
+- Los dos archivos se leen en cada paso, **sin reiniciar**, y se manejan también desde el panel (`:P`, `:A`, `:X`).
+- **Estado:** `server/data/precarga.json` (con `now` = lo que hace ahora y `lista` = los artistas, para el panel);
+  `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`. Para pararla: quitar la línea
+  `PRECARGA = …` de `app.py`.
 
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
 600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
@@ -375,19 +376,24 @@ acceso a Gmail, Drive, contactos, etc.: Google da un justificante firmado de qui
 no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo demás que trae el justificante
 (nombre y apellido por separado, idioma…) no se guarda.
 
-**Panel** para aprobar rápido (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`. Lista numerada
-(pendientes primero, se actualiza sola); `:1` aprueba al 1, `:1 3 4` a varios, `:B 2` bloquea (pide confirmar),
-`:H` ayuda, `:Q` sale. Los números no se mueven mientras escribes. **`:P`** cambia a **los artistas de la
-precarga** (los 120 en el orden en que irán, con canciones, estado —bajando, adelantado, pendiente, hecho,
-quitado— y álbumes abiertos/elegidos; ↑↓ y RePág/AvPág): `:A 5` adelanta al 5 (lo pone el primero de
-`precarga-primero.txt`), `:X 5` lo quita (pide confirmar; escribe `Artista | *` en `precarga-saltar.txt`; otra vez
-`:X` lo devuelve) y `:P` vuelve a usuarios. La lista la deja la precarga en `precarga.json` (`lista`) en cada paso. Además de cuándo pidió acceso y su último
-login, enseña **cuándo pidió su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en las
-últimas 24 h**, para ver quién está activo. Arriba, una línea con **la precarga de álbumes**: qué artista y álbum
-está bajando, cuándo baja la siguiente, cuántas lleva, cola y artistas hechos (cian si trabaja, gris si espera a que
-nadie use YouTube, rojo si YouTube avisó y está parada). Abajo, **las opiniones sobre las recomendaciones** de los
-últimos 7 días (👍/👎 y lo que más se marca). Sale del historial (`userdata.json`): cuenta la app y la web, no
-Discord, y empezó a apuntarse el 30-10-2026 (antes de eso sale "nunca"). Por debajo usa `users.py`:
+**Panel** (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`, en el servidor (no en Docker). Todo
+con comandos que empiezan por `:` y Enter (Esc cancela); los números no se mueven mientras escribes.
+
+- **Usuarios** (la vista de entrada): lista numerada, pendientes primero, se actualiza sola. `:1` aprueba al 1,
+  `:1 3 4` a varios, `:B 2` bloquea (pide confirmar). De cada uno: cuándo pidió acceso, último login, **cuándo pidió
+  su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en 24 h** (del historial: app y web,
+  no Discord; se apunta desde el 30-10-2026).
+- **`:P` — artistas de la precarga:** los 120 en el orden en que irán, con canciones, estado (bajando, adelantado,
+  pendiente, hecho, quitado) y álbumes abiertos/elegidos; ↑↓ y RePág/AvPág. `:A 5` adelanta al 5 (primero en
+  `precarga-primero.txt`), `:X 5` lo quita (pide confirmar; `Artista | *` en `precarga-saltar.txt`) y otra vez `:X`
+  lo devuelve. `:P` vuelve a usuarios.
+- **Siempre a la vista:** arriba, la precarga (qué artista y álbum, incluso cuando lo está abriendo; cuándo baja la
+  siguiente, cuántas lleva, cola y artistas hechos; cian si trabaja, gris si espera, rojo si YouTube la paró).
+  Abajo, YouTube (normal o BLOQUEADO hasta…, y peticiones de la última hora) y las opiniones sobre las
+  recomendaciones de 7 días.
+- `:H` ayuda, `:Q` sale (la API sigue igual).
+
+Por debajo usa `users.py`:
 
 ```bash
 docker exec musicapp-api python users.py                       # lista
@@ -554,11 +560,11 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)
-│   ├── userdata.py         favoritas e historial de cada usuario
+│   ├── userdata.py         favoritas, historial y playlists de cada usuario
 │   ├── web/                página principal (acceso.html), app web (web.html) y el logo (logo.png original; logo-480.webp y
 │   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,
 │   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
-│   ├── panel.py            panel de terminal para aprobar/bloquear usuarios (se ejecuta en el servidor, no en Docker)
+│   ├── panel.py            panel de terminal: usuarios (aprobar/bloquear) y artistas de la precarga (:P); fuera de Docker
 │   ├── Dockerfile
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
@@ -568,6 +574,9 @@ responde un momento, una importación da esa canción por fallida (debería espe
 ├── docs/
 │   ├── recomendaciones.md   plan y estado del recomendador
 │   └── app-paridad.md       lo que la app Android tiene que usar y copiar de la web (para igualarlas)
+├── tools/
+│   ├── probar-web.sh        prueba la web en un Chromium de verdad (Playwright en Docker, contra la API local)
+│   └── prueba-cola.js       la prueba de la cola: arrastrar con ratón y con dedo (PC y móvil)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
