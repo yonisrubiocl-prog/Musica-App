@@ -212,8 +212,20 @@
   .np .in { position: relative; width: 100%; max-width: 560px; padding: 14px 22px calc(30px + env(safe-area-inset-bottom)); }
   .np .top { display: flex; align-items: center; color: var(--muted); font-size: .9rem; }
   .np .top span { flex: 1; text-align: center; }
-  .np .cover { width: min(100%, 420px); aspect-ratio: 1; margin: 16px auto 0; border-radius: 20px; object-fit: cover;
+  .np .cover { width: min(100%, 420px); aspect-ratio: 1; margin: 16px auto 0; border-radius: 20px; overflow: hidden;
                background: var(--raised); box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+  /* Portada viva: la portada se acerca y se mueve muy despacio (Ken Burns) y el fondo "respira", solo mientras suena.
+     Todo CSS: sin vídeo ni peticiones. (Se probó también un Canvas con trozos de videoclip: precioso pero demasiado;
+     ver README, "Portada viva".) */
+  .np .cover img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 45%;
+                   animation: portadaViva 24s ease-in-out infinite alternate; animation-play-state: paused; }
+  .np .tint { animation: respira 9s ease-in-out infinite alternate; animation-play-state: paused; }
+  .np.sonando .cover img, .np.sonando .tint { animation-play-state: running; }
+  @keyframes portadaViva { 0% { transform: scale(1.02) translate(0, 0) rotate(0deg); }
+                           50% { transform: scale(1.12) translate(2.5%, -2%) rotate(.5deg); }
+                           100% { transform: scale(1.2) translate(-2.5%, 1.5%) rotate(-.5deg); } }
+  @keyframes respira { from { opacity: .4; transform: scale(1); } to { opacity: .65; transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { .np .cover img, .np .tint { animation: none; } }
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   .np .titles div { flex: 1; min-width: 0; }
   .np h3 { font-size: 1.45rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -298,7 +310,7 @@
   <div class="in">
     <div class="top"><button class="back" id="npClose" aria-label="Cerrar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <span>Reproduciendo</span><button class="kebab" id="npMore" aria-label="Más"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
-    <img class="cover" id="npImg" alt="">
+    <div class="cover"><img id="npImg" alt=""></div>
     <div class="titles"><div><h3 id="npT"></h3><span class="art" id="npA"></span>
       <div class="albl" id="npAl" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg><span id="npAlT"></span></div></div><button class="heart" id="npFav" aria-label="Me gusta"></button></div>
     <input type="range" class="seek" id="npSeek" min="0" max="1000" value="0">
@@ -934,7 +946,8 @@ addEventListener('keydown', e => {   // flechas arriba/abajo (fuera de un campo 
   e.preventDefault(); ponVolumen(vol + (e.key === 'ArrowUp' ? 5 : -5)); if (vol) volAntes = vol;
 });
 audio.onerror = () => { if (playing) playing.error = true; if (cur) toast('No se pudo reproducir «' + cur.title + '»'); };
-const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause; };
+const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause;
+  $('np').classList.toggle('sonando', !p); };   // la portada viva solo se mueve mientras suena
 audio.onplay = () => ico(false); audio.onpause = () => ico(true);
 let seeking = false;
 audio.ontimeupdate = () => {

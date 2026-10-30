@@ -112,17 +112,13 @@ Session). En Android enseña arriba
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
 
 
-**Portada viva y Canvas (prueba, 30-10-2026):** `https://musica.yoneapolis.com/demo-canvas` (`server/web/demo-canvas.html`)
-enseña las dos ideas para el reproductor grande, con una canción cada una:
-- **A · Portada viva:** la portada del álbum se acerca y se desplaza muy despacio (Ken Burns, 24 s) y detrás sus
-  colores desenfocados "respiran". Solo CSS: sin vídeo, sin espacio, sin peticiones; vale para todas.
-- **B · Canvas:** un trozo de **7 s del videoclip**, vertical (540×960), sin sonido y en bucle, en
-  `/var/lib/music/canvas/<id>.mp4` (~400 KB; `GET /canvas/<id>` con sesión, 404 si no tiene). Se hace con yt-dlp
-  bajando **solo ese tramo** (`download_ranges`, 3–4 peticiones) y ffmpeg: quita las bandas negras que traiga el
-  propio vídeo (`cropdetect`), recorta en vertical al centro, H.264 sin audio. El de prueba es Mariposa
-  Traicionera (Maná), desde el segundo 95 (~35 %, para saltarse intros). Si se adopta: de madrugada y a ritmo de
-  persona, primero lo más escuchado; las pistas de audio (sin vídeo) necesitan buscar su videoclip (1 petición) o se
-  quedan con la portada viva. Sin decidir.
+**Portada viva** (reproductor grande de la web; la app debería hacer lo mismo): la portada se acerca y se mueve muy
+despacio dentro de su marco (Ken Burns, 24 s, ida y vuelta) y sus colores desenfocados del fondo "respiran"; **solo
+mientras suena** (en pausa, quieta) y nada si el sistema pide reducir movimiento. Es solo CSS: el servidor no hace
+nada (la portada ya va en `thumb`), sin vídeo, sin espacio ni peticiones. Se probó también un **Canvas** como el de
+Spotify (7 s del videoclip, vertical, en bucle, ~400 KB por canción, 3–4 peticiones a YouTube cada una): precioso,
+pero se descartó por ser demasiado (30-10-2026). Si algún día se quiere, está en el commit `c3f3a23` (página
+`/demo-canvas` y ruta `/canvas/<id>`; yt-dlp con `download_ranges` + ffmpeg con `cropdetect`).
 
 **Publicar la app Android:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
 sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).

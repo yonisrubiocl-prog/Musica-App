@@ -414,23 +414,6 @@ def web_app(path: str = ""):
         return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
 
 
-@app.get("/demo-canvas", response_class=HTMLResponse)
-def demo_canvas():
-    """Página de prueba: portada viva (opción A) frente a Canvas (opción B). Ver README, "Portada viva y Canvas"."""
-    with open(os.path.join(WEB, "demo-canvas.html")) as f:
-        return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/canvas/{vid}", dependencies=[Depends(check_token)])
-def canvas(vid: str):
-    """El Canvas de una canción (trozo de su videoclip, vertical, sin sonido, en bucle): /music/canvas/<id>.mp4. 404 si
-    no tiene (entonces, portada viva)."""
-    path = os.path.join(MUSIC_DIR, "canvas", f"{valid_vid(vid)}.mp4")
-    if not os.path.isfile(path):
-        raise HTTPException(404, "sin canvas")
-    return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "private, max-age=604800"})
-
-
 @app.get("/logo{rest}", include_in_schema=False)
 def logo(rest: str):
     """El logo: logo.png (original, 512 px) y logo-480.webp / logo-96.webp (los que usa la página: 25 KB y 3 KB)."""
