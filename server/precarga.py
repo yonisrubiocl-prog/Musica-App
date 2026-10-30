@@ -27,6 +27,7 @@ log = logging.getLogger("musicapp.precarga")
 
 FILE = "/data/precarga.json"
 SKIP_FILE = "/data/precarga-saltar.txt"  # "Artista | Álbum" por línea: álbumes que no se bajan (se lee en cada paso)
+FIRST_FILE = "/data/precarga-primero.txt"  # un artista por línea: van antes que los demás, en ese orden
 MIN_SONGS = 5                           # artistas con al menos tantas canciones guardadas
 MAX_ALBUMS = 6                          # álbumes por artista como mucho: los más escuchados (ver _rank_albums)
 NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile
@@ -156,6 +157,14 @@ class Precarga:
             return set()
         return {(self.lib._norm(a), self.lib._norm(b)) for a, b in rows}
 
+    def _firsts(self):
+        """Artistas que alguien quiere antes (FIRST_FILE), normalizados y en orden."""
+        try:
+            with open(FIRST_FILE, encoding="utf-8") as f:
+                return [self.lib._norm(x) for x in f if x.strip() and not x.lstrip().startswith("#")]
+        except OSError:
+            return []
+
     def _plan_album(self, artist, album):
         """Abre un álbum y pone en la cola sus canciones que no estén ya. Las pistas de un álbum a veces apuntan al
         videoclip (City Walls de Breach: 9:55 con intro, en vez de 5:23); por eso se usa la **lista de audio** del
@@ -228,7 +237,9 @@ class Precarga:
             return min(GAP_MAX, max(GAP_MIN, (item.get("duration") or 210) * random.uniform(*LISTEN)))
         pending = [n for n in self._artists() if not (s["artists"].get(n) or {}).get("done")]
         random.shuffle(top := pending[:3])   # el siguiente artista, al azar entre los 3 más escuchados que falten
-        for name in top + pending[3:]:
+        firsts = self._firsts()              # ...salvo los pedidos en FIRST_FILE, que van antes
+        asked = sorted((n for n in pending if self.lib._norm(n) in firsts), key=lambda n: firsts.index(self.lib._norm(n)))
+        for name in asked + [n for n in top + pending[3:] if n not in asked]:
             a = s["artists"].get(name)
             if a is None:
                 s["artists"][name] = self._plan_artist(name)

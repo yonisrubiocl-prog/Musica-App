@@ -324,7 +324,9 @@ Para pararla: quitar la línea `PRECARGA = …` de `app.py`. **Saltar un álbum*
 esté bajando): añadir una línea `Artista | Álbum` a `server/data/precarga-saltar.txt` (sin distinguir mayúsculas
 ni tildes); se lee en cada paso, sin reiniciar, y lo que ya estaba en cola de ese álbum sale al momento. Lo que ya
 se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltado el 30-10-2026: Rawayana |
-ASTROPICAL.
+ASTROPICAL. **Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que
+los demás (en el orden del archivo) en cuanto acabe el álbum que esté bajando, sin reiniciar. Pedido el 30-10-2026:
+Maná.
 
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
 600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
@@ -546,7 +548,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
-│                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
+│                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), precarga-primero.txt (artistas antes), youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
 ├── docs/
 │   ├── recomendaciones.md   plan y estado del recomendador
 │   └── app-paridad.md       lo que la app Android tiene que usar y copiar de la web (para igualarlas)
