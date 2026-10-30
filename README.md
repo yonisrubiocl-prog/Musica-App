@@ -75,23 +75,31 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
   segundos y suena en Discord como 💾 Local sin volver a bajarse; una bajada desde Discord la encuentra la app
   al buscar. Probado el 29-10-2026 (Culpables · KAROL G: primera vez 🌐 Online, la segunda 💾 Local).
 
-### Repartir la app
+### Repartir la app y versión web
 
-La app (Android) se baja desde la página principal: `https://musica.yoneapolis.com/` (también `/acceso`;
-`https://yoneapolis.com` lleva aquí). Quien entra con
-Google y **ya está aprobado** empieza a bajarla sola, sin ver ningún enlace (por si el navegador bloquea la
-descarga automática hay un "¿No empezó? toca aquí"); el resto, lo de siempre (pendiente o sin acceso). Por
-debajo es un enlace de 10 min sin la sesión dentro. No es de un solo uso a propósito: los navegadores de Android
-a veces piden el archivo dos veces o retoman una descarga cortada, y gastarían el enlace. Tampoco hace falta
-más: lo que protege la música es el login dentro de la app; un APK pasado por WhatsApp no reproduce nada sin una
-cuenta aprobada. Mientras no haya APK, al aprobado le dice "todavía no está lista".
+**Flujo de la página principal** (`https://musica.yoneapolis.com/`; `https://yoneapolis.com` lleva aquí):
+entrar con Google → si está **aprobado**, se abre la **app web** (`/web`); si no, queda pendiente o sin acceso. La
+sesión se guarda en el navegador (`localStorage`): la próxima vez entra directo. Cuenta como uno de los 3
+dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
-**Publicar una versión:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
+**App web** (`server/web/web.html`, **prototipo** hecho en el servidor para ver cómo queda): saludo con nombre y
+foto, buscador (solo lo guardado mientras se escribe, y botón "Buscar en YouTube"), filtros Recientes / Populares
+/ Artistas / A–Z con scroll infinito (`/library`), artistas → álbumes → canciones, y minirreproductor con barra
+violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
+"Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
+(móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
+La idea es que la definitiva sea la **app Flutter compilada para web** (una sola app que mantener); este
+prototipo sirve de referencia y mientras tanto.
+
+**Publicar la app Android:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
 sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).
-La carpeta está montada solo lectura en la API como `/app-dist`. Sin reiniciar nada: el siguiente que entre en
-la página baja la nueva, y la app instalada lo ve en `/app/version` y avisa. **No hacer pruebas en esa carpeta**
-(una prueba ya borró un APK publicado): probar con otro nombre de archivo. Solo Android: en iPhone no se
-pueden instalar apps fuera de la tienda. El actualizador de la app usa este mismo archivo.
+La carpeta está montada solo lectura en la API como `/app-dist`. Sin reiniciar nada. La app instalada lo ve en
+`/app/version` y avisa. El enlace de descarga (`/app/enlace`) sirve 10 min y no lleva la sesión dentro; no es
+de un solo uso a propósito (los navegadores de Android a veces piden el archivo dos veces). Lo que protege la
+música es el login: un APK pasado por WhatsApp no reproduce nada sin una cuenta aprobada. **No hacer pruebas en
+esa carpeta** (una prueba ya borró un APK publicado): probar con otro nombre de archivo. Solo Android: en iPhone
+no se pueden instalar apps fuera de la tienda (para ellos, la app web). En Samsung, el "Bloqueo automático"
+(Ajustes → Seguridad y privacidad) impide instalar fuera de la tienda: hay que apagarlo.
 
 Restos de antes de juntar las carpetas (se pueden borrar cuando se quiera, con `sudo`):
 `/var/lib/musicbot/cache` (los mismos archivos que la biblioteca, enlazados: borrarla casi no libera espacio
@@ -109,7 +117,8 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /auth/google` | Cuerpo `{"id_token": "…"}` (y `"web": true` desde la página de acceso: sesión de 10 min que no cuenta como dispositivo) (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
-| `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, con el estilo Dark Premium de la app y el logo del perrito). Página para pasar a los amigos: entran con Google y les dice si quedaron pendientes o ya aprobados. **Al aprobado le empieza a bajar la app sola** (ver "Repartir la app"); su sesión solo se usa para pedir ese enlace y se cierra al momento. No reproduce nada. Sin clave |
+| `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
+| `GET /web` | La app en el navegador (prototipo, `server/web/web.html`). Usa la sesión que guardó la página principal; sin ella, vuelve a `/`. Sin clave (la página en sí no tiene datos) |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK: `{"build": 3, "version": "1.0.2"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |

@@ -303,6 +303,14 @@ def access_page():
         return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
+@app.get("/web", response_class=HTMLResponse)
+def web_app():
+    """Prototipo de la app en el navegador (web/web.html): biblioteca, búsqueda, artistas, reproductor y la
+    descarga para Android. Usa la sesión que guarda la página principal al entrar."""
+    with open(os.path.join(WEB, "web.html")) as f:
+        return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/logo{rest}", include_in_schema=False)
 def logo(rest: str):
     """El logo: logo.png (original, 512 px) y logo-480.webp / logo-96.webp (los que usa la página: 25 KB y 3 KB)."""
