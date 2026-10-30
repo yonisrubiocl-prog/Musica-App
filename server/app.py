@@ -10,7 +10,6 @@ import hmac
 import secrets
 import json
 import logging
-import mimetypes
 import os
 import re
 import threading
@@ -20,7 +19,7 @@ import unicodedata
 import uvicorn
 import yt_dlp
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
@@ -44,8 +43,6 @@ SEARCHES = "/data/youtube-searches.json"   # búsquedas a YouTube ya hechas (ver
 SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
 SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")   # página principal y logo
-WEBAPP = "/web-app"                     # la app web de Flutter (en el servidor: /var/lib/musicapp/web-app)
-WEB_FLUTTER = os.environ.get("WEB_FLUTTER") == "1"   # 1: /web/ sirve la de Flutter; si no, el prototipo
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -405,39 +402,13 @@ def access_page():
         return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
 
 
-@app.get("/web-prototipo", response_class=HTMLResponse)
-def web_prototype():
-    """El prototipo de la app en el navegador (web/web.html), hecho en el servidor antes de la app web de verdad."""
+@app.get("/web", response_class=HTMLResponse)
+@app.get("/web/{path:path}", response_class=HTMLResponse)
+def web_app(path: str = ""):
+    """La app en el navegador (web/web.html): Inicio, Buscar, Biblioteca, favoritas, reproductor y la descarga para
+    Android. Usa la sesión que guarda la página principal al entrar. Cualquier ruta bajo /web/ da la misma página."""
     with open(os.path.join(WEB, "web.html")) as f:
         return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/web", include_in_schema=False)
-def web_root():
-    return RedirectResponse("/web/")
-
-
-@app.get("/web/{path:path}", include_in_schema=False)
-def web_app(path: str, request: Request):
-    """La app web (Flutter compilada para web, la publica la sesión de la app en /var/lib/musicapp/web-app con
-    tools/publicar_web.ps1). Lo que no sea un archivo devuelve index.html (las rutas de la app). Sin caché larga a
-    propósito: Flutter no pone huella en los nombres (main.dart.js se llama igual en cada versión), así que todo
-    va con 'no-cache' + ETag: el navegador lo guarda pero pregunta si cambió (304 si no). Sin app publicada, o con
-    WEB_FLUTTER apagado (docker-compose.yml), el prototipo."""
-    if not WEB_FLUTTER or not os.path.isfile(os.path.join(WEBAPP, "index.html")):
-        return web_prototype()
-    full = os.path.realpath(os.path.join(WEBAPP, path))
-    if not full.startswith(os.path.realpath(WEBAPP) + os.sep) or not os.path.isfile(full):
-        full = os.path.join(WEBAPP, "index.html")
-    st = os.stat(full)
-    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
-    headers = {"Cache-Control": "no-cache", "ETag": etag}
-    if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304, headers=headers)
-    ext = os.path.splitext(full)[1].lower()
-    media = {".wasm": "application/wasm", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json",
-             ".html": "text/html; charset=utf-8"}.get(ext) or mimetypes.guess_type(full)[0] or "application/octet-stream"
-    return FileResponse(full, media_type=media, headers=headers)
 
 
 @app.get("/logo{rest}", include_in_schema=False)

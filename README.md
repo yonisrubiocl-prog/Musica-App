@@ -23,8 +23,7 @@ sin publicarlo ni cobrar nada.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
 - **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.17 (build 18) publicada**, con aviso de
-  actualización propio. **App web** (la misma app, compilada para web) en `/web/`, a la que lleva la página
-  principal tras entrar.
+  actualización propio. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar.
 
 **Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
@@ -55,7 +54,7 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
 | Pieza | Dónde | Qué es |
 |---|---|---|
 | **Servidor** (`server/`) | Este servidor, en Docker | API de música, dueña de la biblioteca. Si se cae, el bot sigue tocando lo guardado pero no puede bajar nada nuevo |
-| **App** | PC del usuario | Flutter (Android; la web y el PC algún día). Se desarrolla allí porque este servidor no tiene pantalla para el emulador. La **app web** prototipo vive en el servidor (`server/web/web.html`) |
+| **App** | PC del usuario | Flutter, para Android. Se desarrolla allí porque este servidor no tiene pantalla para el emulador. La **app web** es aparte y vive en el servidor (`server/web/web.html`) |
 | **Túnel** | Contenedor `cloudflared` aquí + Cloudflare | Da la dirección pública con HTTPS sin abrir puertos. Dominio `yoneapolis.com` (mío, en Cloudflare), pensado para todos mis proyectos con un subdominio cada uno |
 | **Canciones** | `/var/lib/music` (la biblioteca única) | Fuera del proyecto: `/home` tiene poco espacio, `/var` tiene de sobra. Ver "Canciones" abajo |
 
@@ -90,17 +89,16 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 ### Repartir la app y versión web
 
 **Flujo de la página principal** (`https://musica.yoneapolis.com/`; `https://yoneapolis.com` lleva aquí):
-entrar con Google → si está **aprobado**, se abre la **app web** (`/web/`, la de Flutter); si no, queda pendiente o sin acceso. La
+entrar con Google → si está **aprobado**, se abre la **app web** (`/web/`); si no, queda pendiente o sin acceso. La
 sesión se guarda en el navegador (`localStorage`): la próxima vez entra directo. Cuenta como uno de los 3
 dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
-**App web: ahora se sirve el prototipo** (`server/web/web.html`) en `/web/` (y en `/web-prototipo`). La app
-Flutter compilada para web se probó en `/web/` el 30-10-2026 y no convenció: Flutter en el navegador dibuja la
-app del móvil en un lienzo (se ve como un emulador, ~10 MB, no se comporta como una web). La sesión de la app la
-está rehaciendo; sigue publicada en `/var/lib/musicapp/web-app` y se vuelve a servir con `WEB_FLUTTER: "1"` en
-`docker-compose.yml`. Para el navegador (sobre todo en PC) la opinión fue: una web propia con diseño de escritorio
-(menú lateral, cuadrícula, reproductor abajo a lo ancho), ya que toda la lógica vive en la API. La sesión que
-guarda la página principal está en `localStorage` con la clave `musica_sesion`. El prototipo: tres pestañas
+**App web** (`server/web/web.html`, hecha en el servidor con el estilo de la app; la sesión que guarda la
+página principal está en `localStorage` con la clave `musica_sesion`). Se probó también la app Flutter compilada
+para web (30-10-2026) y se descartó y borró: Flutter en el navegador dibuja la app del móvil en un lienzo (se ve
+como un emulador, ~10 MB, no se comporta como una web). Para el navegador, mejor una web propia: toda la lógica
+vive en la API y la web solo la enseña. Idea pendiente: diseño de escritorio (menú lateral, cuadrícula,
+reproductor a lo ancho abajo). Tiene tres pestañas
 abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
 favoritas", artistas y "Lo más puesto". **Buscar**: solo lo guardado mientras se escribe (botón aparte "Buscar en
 YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
@@ -110,7 +108,7 @@ reproductor y barra de pestañas; el fondo toma los colores de la portada de lo 
 barra violeta, anterior/siguiente y controles en la pantalla de bloqueo (Media Session). En Android enseña arriba
 "Instala la app" y en el menú del avatar está **"Descargar app Android"** (`/app/enlace`). Probado en Chromium
 (móvil y PC): carga, reproduce y pasa de canción. **Sin probar en iPhone/Safari** (el audio es Opus en `.webm`).
-Se queda como referencia.
+
 
 **Publicar la app Android:** lo hace la sesión de la app desde el PC (`tools/publicar.ps1` del proyecto Flutter):
 sube el APK firmado a `/var/lib/musicapp/app/musica.apk` y escribe al lado `version.json` (`build` y `version`).
@@ -139,8 +137,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
-| `GET /web/…` | **La app web** (Flutter compilada para web; la publica la sesión de la app en `/var/lib/musicapp/web-app` con `tools/publicar_web.ps1`). Solo con `WEB_FLUTTER: "1"` (ahora apagado: sirve el prototipo). Lo que no sea un archivo devuelve `index.html` (rutas de la app); `.wasm` como `application/wasm`. **Sin caché larga a propósito**: Flutter no pone huella en los nombres (`main.dart.js` se llama igual en cada versión), así que todo va con `no-cache` + ETag: el navegador lo guarda y pregunta si cambió (304 sin reenviarlo si no). Con caché larga se quedaría la versión vieja días, o se mezclaría un `main.dart.js` nuevo con un motor viejo. `/web` → redirige a `/web/`. Sin app publicada, el prototipo. Sin clave |
-| `GET /web-prototipo` | El prototipo de la app en el navegador hecho en el servidor (`server/web/web.html`). Sin clave |
+| `GET /web/…` | **La app en el navegador** (`server/web/web.html`): Inicio, Buscar, Biblioteca, favoritas y reproductor. Cualquier ruta bajo `/web/` da la misma página. Usa la sesión que guardó la página principal; sin ella, vuelve a `/`. Sin clave (la página en sí no tiene datos) |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
@@ -475,6 +472,5 @@ responde un momento, una importación da esa canción por fallida (debería espe
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
-(/var/lib/musicapp/web-app/        la app web (Flutter), la publica la sesión de la app; fuera de git)
 └── .gitignore    ignora .env, data/ y __pycache__/
 ```
