@@ -324,9 +324,10 @@ Para pararla: quitar la línea `PRECARGA = …` de `app.py`. **Saltar un álbum*
 esté bajando): añadir una línea `Artista | Álbum` a `server/data/precarga-saltar.txt` (sin distinguir mayúsculas
 ni tildes); se lee en cada paso, sin reiniciar, y lo que ya estaba en cola de ese álbum sale al momento. Lo que ya
 se bajó de él se borra a mano (p. ej. `DELETE /interno/song/<clave>`). Saltados el 30-10-2026: Rawayana |
-ASTROPICAL; Milo j | 166 y Milo j | 111 (el resto de Milo j). **Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que
-los demás (en el orden del archivo) en cuanto acabe el álbum que esté bajando, sin reiniciar. Pedido el 30-10-2026:
-Maná.
+ASTROPICAL; Milo j | 166 y Milo j | 111 (el resto de Milo j). **Quitar un artista entero**: `Artista | *`.
+**Adelantar un artista**: su nombre en una línea de `server/data/precarga-primero.txt`; va antes que los demás (en
+el orden del archivo) en cuanto acabe el álbum que esté bajando, sin reiniciar. Pedido el 30-10-2026: Maná. Las dos
+cosas se hacen también desde el panel (`:P`, ver más abajo).
 
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
 600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
@@ -365,7 +366,11 @@ no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo dem�
 
 **Panel** para aprobar rápido (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`. Lista numerada
 (pendientes primero, se actualiza sola); `:1` aprueba al 1, `:1 3 4` a varios, `:B 2` bloquea (pide confirmar),
-`:H` ayuda, `:Q` sale. Los números no se mueven mientras escribes. Además de cuándo pidió acceso y su último
+`:H` ayuda, `:Q` sale. Los números no se mueven mientras escribes. **`:P`** cambia a **los artistas de la
+precarga** (los 120 en el orden en que irán, con canciones, estado —bajando, adelantado, pendiente, hecho,
+quitado— y álbumes abiertos/elegidos; ↑↓ y RePág/AvPág): `:A 5` adelanta al 5 (lo pone el primero de
+`precarga-primero.txt`), `:X 5` lo quita (pide confirmar; escribe `Artista | *` en `precarga-saltar.txt`; otra vez
+`:X` lo devuelve) y `:P` vuelve a usuarios. La lista la deja la precarga en `precarga.json` (`lista`) en cada paso. Además de cuándo pidió acceso y su último
 login, enseña **cuándo pidió su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en las
 últimas 24 h**, para ver quién está activo. Arriba, una línea con **la precarga de álbumes**: qué artista y álbum
 está bajando, cuándo baja la siguiente, cuántas lleva, cola y artistas hechos (cian si trabaja, gris si espera a que

@@ -14,12 +14,15 @@ import os
 import subprocess
 import threading
 import time
+import unicodedata
 from datetime import datetime
 
 D = os.path.dirname(os.path.abspath(__file__))
 USERS = os.path.join(D, "data", "users.json")
 USERDATA = os.path.join(D, "data", "userdata.json")   # historial de cada uno (última canción que pidió)
 PRECARGA = os.path.join(D, "data", "precarga.json")   # cómo va la precarga de álbumes (precarga.py)
+PRIMERO = os.path.join(D, "data", "precarga-primero.txt")   # artistas que la precarga baja antes (:A)
+SALTAR = os.path.join(D, "data", "precarga-saltar.txt")     # álbumes o artistas enteros ("X | *") que no baja (:X)
 OPINIONES = "/var/lib/musicapp/recomendar/opiniones.jsonl"
 YT_ESTADO = os.path.join(D, "data", "youtube-estado.json")   # lo escribe la API cada 30 s y al bloquearnos   # "¿qué te parecieron las recomendaciones?"
 CONT = "musicapp-api"
@@ -34,6 +37,9 @@ AYUDA = [
     ("Comandos", ""),
     (":<n>", "Aprobar al número n.  Ej:  :1    Varios:  :1 3 4"),
     (":B <n>", "Bloquear al número n (pide confirmar). Cierra sus sesiones al momento."),
+    (":P", "Ver los artistas de la precarga (y volver a usuarios). ↑↓ y RePág/AvPág para moverse."),
+    (":A <n>", "En :P, adelantar al artista n: el siguiente en bajarse (si hay varios, el último adelantado primero)."),
+    (":X <n>", "En :P, quitar al artista n de la precarga (pide confirmar). Otra vez :X lo devuelve."),
     (":H", "Esta ayuda."),
     (":Q", "Salir del panel (la API sigue igual)."),
     ("Para pedir acceso", ""),
@@ -93,6 +99,80 @@ def precarga():
     sig = "ahora" if falta < 60 else f"en {int(falta // 60)} min"
     donde = f"{now.get('artist', '')} – {now.get('album', '')}" if now.get("artist") else "buscando álbumes"
     return f"Precarga ({now.get('mode', '?')}): {donde} · siguiente {sig} · {cuentas}", CIAN
+
+
+def norm(t):
+    """Igual que Library._norm: sin mayúsculas, tildes ni signos ("Maná" == "mana")."""
+    t = unicodedata.normalize("NFKD", (t or "").lower())
+    return " ".join("".join(c if c.isalnum() else " " for c in t if not unicodedata.combining(c)).split())
+
+
+def lineas(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().splitlines()
+    except OSError:
+        return []
+
+
+def escribir(path, rows):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("\n".join(rows) + "\n")
+    os.replace(tmp, path)
+
+
+def primeros():
+    return [norm(x) for x in lineas(PRIMERO) if x.strip() and not x.lstrip().startswith("#")]
+
+
+def saltados():
+    """{(artista, álbum)} normalizados de SALTAR; el artista entero ("Artista | *") queda como (artista, "")."""
+    return {(norm(a), norm(b)) for a, _, b in (x.partition("|") for x in lineas(SALTAR)
+                                               if "|" in x and not x.lstrip().startswith("#"))}
+
+
+def artistas_precarga():
+    """Los artistas de la precarga en el orden en que irán: [(nombre, canciones, estado, álbumes)]."""
+    try:
+        with open(PRECARGA, encoding="utf-8") as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return []
+    plan, now = st.get("artists", {}), st.get("now") or {}
+    lista = st.get("lista") or [[n, "?"] for n in plan]
+    first, skip = primeros(), saltados()
+    rows = []
+    for name, songs in lista:
+        a, n = plan.get(name), norm(name)
+        albums = [x for x in (a or {}).get("albums", []) if x.get("opened") or (n, norm(x["title"])) not in skip]
+        abiertos = sum(1 for x in albums if x.get("opened"))
+        albumes = "sin mirar" if a is None else f"{abiertos}/{len(albums)} álbumes"
+        acabado = a and (a.get("done") or abiertos == len(albums)) and not (now.get("artist") == name and st.get("queue"))
+        estado = ("quitado" if (n, "") in skip else "hecho" if acabado else
+                  "bajando" if now.get("artist") == name and st.get("queue") else
+                  "adelantado" if n in first else "pendiente")
+        rows.append((name, songs, estado, albumes))
+    turno = {"bajando": 0, "adelantado": 1, "pendiente": 2, "hecho": 3, "quitado": 4}
+    return sorted(rows, key=lambda r: (turno[r[2]], first.index(norm(r[0])) if r[2] == "adelantado" else 0))
+
+
+def adelantar(name):
+    """Lo pone el primero de PRIMERO (sin repetirlo); los comentarios se quedan arriba."""
+    rows = lineas(PRIMERO)
+    com = [x for x in rows if x.lstrip().startswith("#")] or [
+        "# Un artista por línea: la precarga baja sus álbumes antes que los de los demás (en este orden)"]
+    resto = [x for x in rows if x.strip() and not x.lstrip().startswith("#") and norm(x) != norm(name)]
+    escribir(PRIMERO, com + [name] + resto)
+
+
+def quitar(name, fuera=True):
+    """Añade "Artista | *" a SALTAR (o lo borra si fuera=False) y lo saca de PRIMERO."""
+    rows = [x for x in lineas(SALTAR) if not ("|" in x and not x.lstrip().startswith("#")
+                                              and norm(x.partition("|")[0]) == norm(name) and not norm(x.partition("|")[2]))]
+    escribir(SALTAR, rows + ([f"{name} | *"] if fuera else []))
+    if fuera and norm(name) in primeros():   # quitado ya no se adelanta
+        escribir(PRIMERO, [x for x in lineas(PRIMERO) if x.lstrip().startswith("#") or norm(x) != norm(name)])
 
 
 def youtube():
@@ -165,6 +245,7 @@ class UI:
         s.msg, s.msg_color, s.msg_hora = "", 0, 0
         s.conf = None   # (texto, acción)
         s.lista = leer()
+        s.vista, s.arts, s.desde = "usuarios", [], 0   # :P cambia a "precarga"; desde = primera fila que se ve
 
     def aviso(s, texto, color=0):
         s.msg, s.msg_color, s.msg_hora = texto, color, time.time()
@@ -194,7 +275,7 @@ class UI:
             s.lista = leer()
         act = ultimas()
         n = {st: sum(u["status"] == st for _, u in s.lista) for st in ORDEN}
-        s.put(0, 0, " MusicApp · usuarios".ljust(W - 9) + time.strftime("%H:%M:%S"), 0, True)
+        s.put(0, 0, f" MusicApp · {s.vista}".ljust(W - 9) + time.strftime("%H:%M:%S"), 0, True)
         s.scr.chgat(0, 0, W, curses.A_REVERSE | curses.A_BOLD)
         s.put(1, 1, f"{n['pendiente']} pendientes", AMARILLO, True)
         s.put(1, 17, f"{n['aprobado']} aprobados", VERDE)
@@ -206,6 +287,11 @@ class UI:
         s.put(H - 3, 2, texto, color, color == ROJO)
         texto, color = opiniones()
         s.put(H - 2, 2, texto, color)
+        if s.vista == "precarga":
+            s.dibujar_precarga(H, W)
+            if s.ayuda:
+                s.dibujar_ayuda(H, W)
+            return s.linea_cmd(H, W)
         s.caja(2, 0, H - 5, W, "USUARIOS")
         s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'último login':<13} "
                     f"{'última canción':<14} {'24 h'}", GRIS, True)
@@ -227,6 +313,22 @@ class UI:
             s.dibujar_ayuda(H, W)
         s.linea_cmd(H, W)
 
+    def dibujar_precarga(s, H, W):
+        if not s.modo_cmd and not s.conf:   # los números no se mueven mientras se escribe
+            s.arts = artistas_precarga()
+        filas = max(1, H - 9)
+        s.desde = max(0, min(s.desde, len(s.arts) - filas))
+        s.caja(2, 0, H - 5, W, f"PRECARGA · {len(s.arts)} ARTISTAS  (en orden; de los 3 primeros pendientes, uno al azar)")
+        s.put(3, 2, f"{'#':>3}  {'estado':<11} {'artista':<36} {'canciones':>9}  {'álbumes'}", GRIS, True)
+        color = {"bajando": CIAN, "adelantado": AMARILLO, "hecho": VERDE, "quitado": ROJO, "pendiente": 0}
+        for i, (name, songs, estado, albumes) in enumerate(s.arts[s.desde: s.desde + filas], start=s.desde + 1):
+            y = 3 + i - s.desde
+            s.put(y, 2, f"{i:>3}  ", 0, True)
+            s.put(y, 7, f"{estado:<11} ", color[estado], estado in ("bajando", "adelantado"))
+            s.put(y, 19, f"{name[:35]:<36} {songs:>9}  {albumes}", GRIS if estado in ("hecho", "quitado") else 0)
+        if len(s.arts) > filas:
+            s.put(H - 5, 4, f" {s.desde + 1}–{min(len(s.arts), s.desde + filas)} de {len(s.arts)} · ↑↓ RePág AvPág ", GRIS)
+
     def linea_cmd(s, H, W):
         if s.conf:
             s.put(H - 1, 0, f"{s.conf[0]}   s = sí · n = no", AMARILLO, True)
@@ -241,7 +343,9 @@ class UI:
         elif s.msg and time.time() - s.msg_hora < 8:
             s.put(H - 1, 0, s.msg, s.msg_color, True)
         else:
-            s.put(H - 1, 0, ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :H ayuda  ·  :Q salir", GRIS)
+            s.put(H - 1, 0, ":A 3 adelantar el 3  ·  :X 3 quitarlo  ·  :P volver a usuarios  ·  :H ayuda  ·  :Q salir"
+                  if s.vista == "precarga" else
+                  ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :P precarga  ·  :H ayuda  ·  :Q salir", GRIS)
         try:
             curses.curs_set(0)
         except curses.error:
@@ -290,6 +394,11 @@ class UI:
             s.salir = True
         elif cmd == "H":
             s.ayuda = True
+        elif cmd == "P":
+            s.vista = "usuarios" if s.vista == "precarga" else "precarga"
+            s.desde = 0
+        elif s.vista == "precarga":
+            s.ejecutar_precarga(cmd, linea)
         elif cmd.startswith("B ") or cmd == "B":
             elegidos = s.elegir(linea[1:])
             if not elegidos:
@@ -310,6 +419,25 @@ class UI:
         elif linea:
             s.aviso(f"Comando desconocido: :{linea}   (:H ayuda)", ROJO)
 
+    def ejecutar_precarga(s, cmd, linea):
+        try:
+            k = int(linea[1:].strip())
+            assert k >= 1 and cmd[:1] in ("A", "X")
+            name, _, estado, _ = s.arts[k - 1]
+        except (ValueError, IndexError, AssertionError):
+            return s.aviso("En :P:  :A <n> adelantar  ·  :X <n> quitar / devolver  ·  :P volver a usuarios", ROJO)
+        if cmd[0] == "A":
+            if estado == "quitado":
+                return s.aviso(f"{name} está quitado: :X {k} para devolverlo antes", ROJO)
+            adelantar(name)
+            s.aviso(f"{name}: el siguiente en la precarga (cuando acabe el álbum que esté bajando)", VERDE)
+        elif estado == "quitado":
+            quitar(name, fuera=False)
+            s.aviso(f"{name} vuelve a la precarga", VERDE)
+        else:
+            s.conf = (f"¿Quitar a {name} de la precarga? (lo ya bajado se queda)",
+                      lambda: (quitar(name), s.aviso(f"{name} fuera de la precarga", ROJO)))
+
     # -- teclado
     def tecla(s, k):
         if s.ayuda:
@@ -326,6 +454,9 @@ class UI:
         if not s.modo_cmd:
             if k == ":":
                 s.modo_cmd, s.buf = True, ""
+            elif s.vista == "precarga":   # moverse por la lista de artistas
+                paso = {curses.KEY_UP: -1, curses.KEY_DOWN: 1, curses.KEY_PPAGE: -15, curses.KEY_NPAGE: 15}.get(k, 0)
+                s.desde = max(0, s.desde + paso)
             return
         if k == "\x1b":
             s.modo_cmd = False

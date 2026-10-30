@@ -26,7 +26,8 @@ import time
 log = logging.getLogger("musicapp.precarga")
 
 FILE = "/data/precarga.json"
-SKIP_FILE = "/data/precarga-saltar.txt"  # "Artista | Álbum" por línea: álbumes que no se bajan (se lee en cada paso)
+SKIP_FILE = "/data/precarga-saltar.txt"  # "Artista | Álbum" por línea: álbumes que no se bajan ("Artista | *": nada
+                                         # de ese artista); se lee en cada paso
 FIRST_FILE = "/data/precarga-primero.txt"  # un artista por línea: van antes que los demás, en ese orden
 MIN_SONGS = 5                           # artistas con al menos tantas canciones guardadas
 MAX_ALBUMS = 6                          # álbumes por artista como mucho: los más escuchados (ver _rank_albums)
@@ -90,7 +91,11 @@ class Precarga:
     # ---------- qué bajar ----------
 
     def _artists(self):
-        return [a["name"] for a in self.lib.artists() if a["songs"] >= MIN_SONGS]
+        return [a["name"] for a in self._candidates()]
+
+    def _candidates(self):
+        """Artistas con canciones de sobra para la precarga, los que más tienen primero: [{name, songs, …}]."""
+        return [a for a in self.lib.artists() if a["songs"] >= MIN_SONGS]
 
     def _have(self, artist, title):
         """¿Ya hay una canción de este artista con este título (cualquier versión)?"""
@@ -155,7 +160,7 @@ class Precarga:
                 rows = [x.split("|", 1) for x in f if "|" in x and not x.lstrip().startswith("#")]
         except OSError:
             return set()
-        return {(self.lib._norm(a), self.lib._norm(b)) for a, b in rows}
+        return {(self.lib._norm(a), self.lib._norm(b)) for a, b in rows}   # "Artista | *" queda (artista, "")
 
     def _firsts(self):
         """Artistas que alguien quiere antes (FIRST_FILE), normalizados y en orden."""
@@ -204,7 +209,8 @@ class Precarga:
         skips = self._skips()
         if skips:   # álbumes que alguien no quiere: fuera de la cola sin esperar
             n0 = len(s["queue"])
-            s["queue"] = [q for q in s["queue"] if (self.lib._norm(q["artist"]), self.lib._norm(q["album"])) not in skips]
+            s["queue"] = [q for q in s["queue"] if (self.lib._norm(q["artist"]), self.lib._norm(q["album"])) not in skips
+                          and (self.lib._norm(q["artist"]), "") not in skips]
             if len(s["queue"]) < n0:
                 s["skipped"] += n0 - len(s["queue"])
                 log.info("precarga: %d canciones fuera (álbum en %s)", n0 - len(s["queue"]), SKIP_FILE)
@@ -235,7 +241,8 @@ class Precarga:
             if last_of_album:   # se acabó el álbum: pausa, a veces larga
                 return random.uniform(*(LONG_BREAK if random.random() < LONG_BREAK_P else BREAK))
             return min(GAP_MAX, max(GAP_MIN, (item.get("duration") or 210) * random.uniform(*LISTEN)))
-        pending = [n for n in self._artists() if not (s["artists"].get(n) or {}).get("done")]
+        pending = [n for n in self._artists() if not (s["artists"].get(n) or {}).get("done")
+                   and (self.lib._norm(n), "") not in skips]
         random.shuffle(top := pending[:3])   # el siguiente artista, al azar entre los 3 más escuchados que falten
         firsts = self._firsts()              # ...salvo los pedidos en FIRST_FILE, que van antes
         asked = sorted((n for n in pending if self.lib._norm(n) in firsts), key=lambda n: firsts.index(self.lib._norm(n)))
@@ -281,8 +288,10 @@ class Precarga:
                     continue
                 wait = self._step()
                 now = self.state.setdefault("now", {})
+                cands = self._candidates()
                 now.update(mode="noche" if night else "día", next_at=time.time() + (wait or 3600) * (1 if night else DAY_SLOWER),
-                           artists_total=len(self._artists()))   # para el panel (panel.py lee este archivo)
+                           artists_total=len(cands))   # para el panel (panel.py lee este archivo)
+                self.state["lista"] = [[a["name"], a["songs"]] for a in cands]   # la vista :P del panel
                 self._save()
                 n += 1
                 if n % 25 == 0:
