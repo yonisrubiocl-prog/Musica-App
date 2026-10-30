@@ -45,6 +45,7 @@ SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
 SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")   # página principal y logo
 WEBAPP = "/web-app"                     # la app web de Flutter (en el servidor: /var/lib/musicapp/web-app)
+WEB_FLUTTER = os.environ.get("WEB_FLUTTER") == "1"   # 1: /web/ sirve la de Flutter; si no, el prototipo
 TMP = "/tmp/musicapp"
 TOKEN = os.environ.get("API_TOKEN", "")          # clave compartida provisional, hasta que la app tenga login
 BOT_KEY = os.environ.get("BOT_API_KEY", "")      # clave del bot para /interno
@@ -421,9 +422,9 @@ def web_app(path: str, request: Request):
     """La app web (Flutter compilada para web, la publica la sesión de la app en /var/lib/musicapp/web-app con
     tools/publicar_web.ps1). Lo que no sea un archivo devuelve index.html (las rutas de la app). Sin caché larga a
     propósito: Flutter no pone huella en los nombres (main.dart.js se llama igual en cada versión), así que todo
-    va con 'no-cache' + ETag: el navegador lo guarda pero pregunta si cambió (304 si no). Sin app publicada, el
-    prototipo."""
-    if not os.path.isfile(os.path.join(WEBAPP, "index.html")):
+    va con 'no-cache' + ETag: el navegador lo guarda pero pregunta si cambió (304 si no). Sin app publicada, o con
+    WEB_FLUTTER apagado (docker-compose.yml), el prototipo."""
+    if not WEB_FLUTTER or not os.path.isfile(os.path.join(WEBAPP, "index.html")):
         return web_prototype()
     full = os.path.realpath(os.path.join(WEBAPP, path))
     if not full.startswith(os.path.realpath(WEBAPP) + os.sep) or not os.path.isfile(full):

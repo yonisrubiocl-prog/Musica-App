@@ -94,9 +94,13 @@ entrar con Google → si está **aprobado**, se abre la **app web** (`/web/`, la
 sesión se guarda en el navegador (`localStorage`): la próxima vez entra directo. Cuenta como uno de los 3
 dispositivos; si la cierran (4.º dispositivo), vuelve a la página con el aviso "se cerró tu sesión".
 
-**App web:** la definitiva es la **app Flutter compilada para web**, servida en `/web/` (ver la tabla de rutas). La
-sesión que guarda la página principal está en `localStorage` con la clave `musica_sesion`. El **prototipo**
-(`server/web/web.html`, en `/web-prototipo`) fue la referencia hecha en el servidor: tres pestañas
+**App web: ahora se sirve el prototipo** (`server/web/web.html`) en `/web/` (y en `/web-prototipo`). La app
+Flutter compilada para web se probó en `/web/` el 30-10-2026 y no convenció: Flutter en el navegador dibuja la
+app del móvil en un lienzo (se ve como un emulador, ~10 MB, no se comporta como una web). La sesión de la app la
+está rehaciendo; sigue publicada en `/var/lib/musicapp/web-app` y se vuelve a servir con `WEB_FLUTTER: "1"` en
+`docker-compose.yml`. Para el navegador (sobre todo en PC) la opinión fue: una web propia con diseño de escritorio
+(menú lateral, cuadrícula, reproductor abajo a lo ancho), ya que toda la lógica vive en la API. La sesión que
+guarda la página principal está en `localStorage` con la clave `musica_sesion`. El prototipo: tres pestañas
 abajo como en la app. **Inicio**: saludo con nombre y foto, "Escuchado recientemente" (el mío, `/history`), "Tus
 favoritas", artistas y "Lo más puesto". **Buscar**: solo lo guardado mientras se escribe (botón aparte "Buscar en
 YouTube") y, sin texto, toda la biblioteca con scroll infinito (`/library`: Recientes, Populares, A–Z, Por
@@ -135,7 +139,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
-| `GET /web/…` | **La app web** (Flutter compilada para web; la publica la sesión de la app en `/var/lib/musicapp/web-app` con `tools/publicar_web.ps1`). Lo que no sea un archivo devuelve `index.html` (rutas de la app); `.wasm` como `application/wasm`. **Sin caché larga a propósito**: Flutter no pone huella en los nombres (`main.dart.js` se llama igual en cada versión), así que todo va con `no-cache` + ETag: el navegador lo guarda y pregunta si cambió (304 sin reenviarlo si no). Con caché larga se quedaría la versión vieja días, o se mezclaría un `main.dart.js` nuevo con un motor viejo. `/web` → redirige a `/web/`. Sin app publicada, el prototipo. Sin clave |
+| `GET /web/…` | **La app web** (Flutter compilada para web; la publica la sesión de la app en `/var/lib/musicapp/web-app` con `tools/publicar_web.ps1`). Solo con `WEB_FLUTTER: "1"` (ahora apagado: sirve el prototipo). Lo que no sea un archivo devuelve `index.html` (rutas de la app); `.wasm` como `application/wasm`. **Sin caché larga a propósito**: Flutter no pone huella en los nombres (`main.dart.js` se llama igual en cada versión), así que todo va con `no-cache` + ETag: el navegador lo guarda y pregunta si cambió (304 sin reenviarlo si no). Con caché larga se quedaría la versión vieja días, o se mezclaría un `main.dart.js` nuevo con un motor viejo. `/web` → redirige a `/web/`. Sin app publicada, el prototipo. Sin clave |
 | `GET /web-prototipo` | El prototipo de la app en el navegador hecho en el servidor (`server/web/web.html`). Sin clave |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
