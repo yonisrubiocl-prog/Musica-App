@@ -27,6 +27,7 @@ import userdata
 from enrich import Enricher
 from genres import Genres
 from precarga import Precarga
+from versiones import Versiones
 from recomendar import Recomendar
 import users
 from library import KEY, Library, artist_of, key_of, music_meta
@@ -320,6 +321,8 @@ LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
 REC = Recomendar(LIB, userdata) if os.environ.get("RECOMENDAR", "1") == "1" else None
 PRECARGA = Precarga(LIB, ytm, download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
                     lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
+VERSIONES = Versiones(LIB, ytm, download, userdata, lambda: _yt_blocked_until > time.time(),   # vídeo -> disco
+                      lambda s: time.time() - _yt_last_user > s)                               # (versiones.py)
 
 
 def ytm_thumb(x):
@@ -978,6 +981,25 @@ def i_youtube():
     """Cómo está YouTube: {bloqueado_hasta (0 si no), peticiones_hora, tope_hora, ultimo_bloqueo}. El bot lo consulta
     para avisar en el canal de registro cuando nos bloquea y cuando se pasa."""
     return yt_state()
+
+
+@internal.get("/interno/versiones")
+def i_versiones():
+    """Cómo va el cambio de versiones de vídeo por las de disco (versiones.py), por cuenta."""
+    return VERSIONES.status()
+
+
+@internal.post("/interno/versiones")
+def i_versiones_start(email: str = Body(embed=True, max_length=200), deshacer: bool = Body(False, embed=True)):
+    """Empieza a cambiar las favoritas y playlists en versión vídeo de esa cuenta por la versión de disco (o, con
+    deshacer, pone otra vez las de antes). Las que ya están guardadas, al momento; las demás, despacio."""
+    users.USERS.reload()
+    sub = next((s for s, u in users.USERS.data.items() if u.get("email") == email.strip().lower()), None)
+    if not sub:
+        raise HTTPException(404, "no hay ninguna cuenta con ese email")
+    if deshacer:
+        return {"deshechas": VERSIONES.undo(sub)}
+    return {"pendientes": VERSIONES.start(sub, email)}
 
 
 @internal.get("/interno/precarga")

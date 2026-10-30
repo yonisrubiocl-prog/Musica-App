@@ -139,8 +139,17 @@ class Library:
                 continue
             if path != self.file:
                 log.warning("biblioteca: uso la copia anterior del catálogo (%s)", path)
+            for e in data.values():   # años guardados como texto ("2002", de YouTube Music): a número
+                if isinstance(e, dict) and isinstance(e.get("year"), str):
+                    e["year"] = self.year(e["year"])
             return data
         return {}
+
+    @staticmethod
+    def year(y):
+        """Año como número ("1998", "1998-05-01" o 1998 -> 1998); None si no hay."""
+        m = re.match(r"\d{4}", str(y or ""))
+        return int(m.group()) if m else None
 
     @staticmethod
     def _text(e):
@@ -589,6 +598,8 @@ class Library:
             if e is None:
                 return
             changed = False
+            if "year" in fields:
+                fields = {**fields, "year": self.year(fields["year"])}
             for f, v in fields.items():
                 if v not in (None, "") and not e.get(f):
                     e[f] = v

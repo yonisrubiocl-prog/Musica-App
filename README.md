@@ -341,6 +341,22 @@ semanas).
   `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`. Para pararla: quitar la línea
   `PRECARGA = …` de `app.py`.
 
+**Versiones de disco** (`versiones.py`, dentro de la API): cambia en las favoritas y playlists de una cuenta las
+versiones de **vídeo o de letra** ("Official Music Video", "Video Oficial", "(Letra)"…) por **la canción del disco**,
+sin intros ni escenas habladas. Los directos no se tocan.
+
+- **Cómo:** si la versión de disco ya está guardada (la precarga baja álbumes), se cambia al momento sin YouTube; si
+  no, se busca en YouTube Music como canción y se baja, con el mismo freno y horario que la precarga (60–200 s
+  entre canciones; de día, solo si nadie usa YouTube; 24 h quieto si hay bloqueo).
+- **Es la misma canción** solo si coincide el artista y el título limpio, no es remix, acústica ni directo si la
+  otra no lo es, y dura como el vídeo o menos (no menos del 45 %). Si no hay ninguna, se queda la de vídeo.
+- **No se pierde nada:** la nueva ocupa el sitio exacto de la vieja en Me gusta (misma fecha y orden) y en cada
+  playlist; no se duplica. Cada cambio queda en `server/data/versiones.json` para deshacerlo.
+- **Uso** (con `BOT_API_KEY`, puerto 8091): empezar `curl -X POST -H "Authorization: Bearer $BOT_API_KEY" -H
+  "Content-Type: application/json" -d '{"email":"…"}' 127.0.0.1:8091/interno/versiones`; deshacer, lo mismo con
+  `"deshacer": true`; cómo va, `GET /interno/versiones`. El 30-10-2026, para yonisrubiocl: 172 de 500 favoritas
+  (55 ya tenían versión de disco guardada); respaldo de antes en `server/data/userdata.antes-versiones.json`.
+
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
 600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
 artista, portada…), así sigue saliendo aunque la canción se borre del servidor (al ponerla se vuelve a bajar).
@@ -557,6 +573,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── enrich.py           completa de fondo artista/álbum/año de las canciones viejas (iTunes, YouTube Music)
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
+│   ├── versiones.py        cambia en favoritas/playlists las versiones de vídeo por la canción del disco
 │   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)

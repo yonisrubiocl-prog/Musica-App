@@ -7,7 +7,7 @@ COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 RUN python -m venv /opt/venv && pip install --no-cache-dir fastapi "uvicorn[standard]" "yt-dlp[default]" google-auth requests ytmusicapi \
     && chown -R 1000:1000 /opt/venv
 WORKDIR /app
-COPY app.py users.py library.py userdata.py enrich.py precarga.py genres.py recomendar.py ./
+COPY app.py users.py library.py userdata.py enrich.py precarga.py genres.py recomendar.py versiones.py ./
 COPY web/ ./web/
 USER 1000:1000
 # Cada arranque actualiza yt-dlp: YouTube cambia a menudo y lo rompe. app.py escucha en 8000 (app) y 8001 (bot).

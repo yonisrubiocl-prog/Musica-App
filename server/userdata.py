@@ -122,6 +122,31 @@ def remove_favorite(sub, vid):
     return False
 
 
+def replace_song(sub, old, new, info):
+    """Cambia la canción `old` por `new` (con su ficha `info`) en las favoritas y playlists de un usuario: en
+    favoritas conserva cuándo se marcó (sigue en su sitio); en cada playlist, su posición. Si `new` ya estaba, no
+    se repite (se queda la primera). Ver versiones.py."""
+    with _lock:
+        u = _user(sub)
+        favs = u["favorites"]
+        if old in favs:   # la nueva, en el sitio exacto de la vieja (hay muchas con la misma fecha: importadas)
+            was, dup = favs[old], new in favs and new != old
+            entry = {**{k: info.get(k) for k in FIELDS}, "added": was.get("added") or int(time.time())}
+            u["favorites"] = favs = {(new if k == old else k): (entry if k == old else v)
+                                     for k, v in favs.items() if not (dup and k == new)}
+        for p in u["playlists"].values():
+            if not any(s["id"] == old for s in p["songs"]):
+                continue
+            out, seen = [], set()
+            for s in p["songs"]:
+                s = {"id": new, **{k: info.get(k) for k in FIELDS}} if s["id"] == old else s
+                if s["id"] not in seen:
+                    seen.add(s["id"])
+                    out.append(s)
+            p["songs"] = out
+        _save()
+
+
 def played(sub, vid):
     """Apunta que este usuario puso esta canción (la más reciente al principio, sin repetir)."""
     with _lock:
