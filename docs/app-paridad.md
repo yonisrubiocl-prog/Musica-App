@@ -47,10 +47,10 @@
 1. **Cómo se arma la cola al tocar una canción**
    - **Suelta** (búsqueda, biblioteca entera, un género, "Lo más puesto") → **modo radio**: esa y detrás
      recomendadas de `/radio`, que se van añadiendo solas.
-   - **Filas del Inicio** (Escuchado recientemente, Tus favoritas, Para ti, Vuelve a escuchar) → **la lista entera**
-     aunque la fila enseñe 20: **la elegida y luego la lista en su orden normal desde el principio** (10 canciones,
-     tocando la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9, 10).
-   - **Biblioteca** (Me gusta, una playlist, un álbum) → **desde la elegida hacia abajo** (7, 8, 9, 10).
+   - **Cualquier lista** (filas del Inicio, Me gusta, una playlist, un álbum, la página de un artista) → **la lista
+     entera** aunque la fila enseñe 20: **la elegida pasa al primer puesto y detrás la lista en su orden normal
+     desde el principio, sin repetirla** (10 canciones, tocando la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9, 10). Nada de
+     "desde la elegida hacia abajo".
    - **Con aleatorio**, siempre: la elegida primero y el resto mezclado.
    - Al acabarse una lista: interruptor **"Seguir con canciones parecidas"** (radio de la última).
 2. **Menú de cada canción**: "📻 Iniciar radio", "👎 No me gusta" (evento `no_me_gusta`; si es la que suena, pasar a
@@ -62,7 +62,7 @@
    (`id: artistas`, `tipo: artistas`, items como `/artists`) en vez de la fila de todos los artistas.
 5. **Página de un artista**, en este orden: **"Tus canciones"** (`tuyas`, si hay), **"Populares"** (`todas` sin las
    de `tuyas`, ya vienen de más a menos puestas: 10 y "Ver todas") y **al final los álbumes**. "▶ Reproducir" y tocar cualquiera de sus
-   canciones usan **`todas`** desde esa canción hacia abajo, con **un aleatorio propio del artista, independiente del general**
+   canciones usan **`todas`** con la misma regla (la tocada primero y luego `todas` desde el principio), con **un aleatorio propio del artista, independiente del general**
    (Inicio, Biblioteca…): empieza apagado, cada uno se recuerda por separado y el botón cambia el de lo que suena.
 6. **Portada viva** en el reproductor grande: la portada se acerca y se mueve muy despacio (24 s, ida y vuelta) y el
    fondo desenfocado "respira" (9 s). Solo mientras suena; sin animación si el sistema pide reducir movimiento.

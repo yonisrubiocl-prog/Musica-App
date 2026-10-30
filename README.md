@@ -115,10 +115,9 @@ pegado arriba del panel mientras la letra baja). **Cómo se
 llena la cola:** tocar una canción suelta (Lo más puesto, búsqueda, biblioteca, género) es **modo radio**: esa
 canción y detrás recomendadas, que se van añadiendo solas (~10, y más cuando quedan 2–3); tocar algo que es una
 lista es **modo lista**, primero la elegida y luego: **con aleatorio**, todas las demás mezcladas; **sin
-aleatorio**, depende de dónde: en las **filas del Inicio** (Escuchado recientemente, Tus favoritas, Para ti, Vuelve
-a escuchar) suena **la lista entera** aunque la fila enseñe solo 20: la elegida y luego la lista en su orden normal
-desde el principio (7, 1, 2, 3…);
-en la **Biblioteca** (Me gusta, una playlist, un álbum) desde ahí hacia abajo, sin volver al principio. **Artistas
+aleatorio**, en cualquier lista (filas del Inicio, Me gusta, una playlist, un álbum, un artista) suena **la lista
+entera**, aunque la fila enseñe solo 20: la elegida pasa al primer puesto y detrás va la lista en su orden normal
+desde el principio, sin repetirla (tocar la 7.ª: 7, 1, 2, 3, 4, 5, 6, 8, 9…). **Artistas
 como en Spotify**: el Inicio tiene **"Tus artistas"** (los que más escuchas) y la Biblioteca → Artistas enseña **solo los tuyos**
 (los que escuchas o tienes en Me gusta / playlists, los que más primero; "Ver todos los artistas" al final; quien
 no tiene ninguno ve todos); la página de un artista va **"Tus canciones"** (las suyas que tienes en Me gusta o en una playlist),
