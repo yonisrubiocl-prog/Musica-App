@@ -5,6 +5,7 @@ Canciones: una sola biblioteca en /music con su catálogo (ver library.py). El b
 directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pide aquí. Ver README.md, "Canciones".
 """
 import asyncio
+import collections
 import hmac
 import secrets
 import json
@@ -46,6 +47,10 @@ PUBLIC_PORT, INTERNAL_PORT = 8000, 8001
 YT_RESULTS = 5
 MAX_PLAYLIST = 5000                     # tope de canciones al leer una lista (el bot pide menos para la cola)
 YT_PAUSE = 15 * 60                      # tras un bloqueo de YouTube no se le pide nada durante este tiempo
+# Ritmo con YouTube (ver yt_turn): lo que hace saltar su "no eres un bot" son las ráfagas, no el uso normal.
+YT_GAP = 4                              # segundos como mínimo entre dos peticiones a YouTube
+YT_PER_HOUR = 120                       # peticiones como mucho en una hora
+YT_MAX_WAIT = 45                        # si el turno tarda más que esto, se contesta "espera" (429) en vez de colgar
 VIDEO_ID = re.compile(r"[\w-]{11}")
 # Lo que el bot necesita de la respuesta de yt-dlp (el resto, como la lista de formatos, pesa mucho).
 INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live", "url", "http_headers",
@@ -70,6 +75,34 @@ def is_yt(url):
     return "youtu" in url
 
 
+_yt_turns = threading.Lock()
+_yt_next = 0.0                          # cuándo puede salir la siguiente petición
+_yt_recent = collections.deque()        # cuándo salieron las de la última hora
+
+
+def yt_turn():
+    """Espera su turno para pedirle algo a YouTube: una cada YT_GAP s y como mucho YT_PER_HOUR por hora, venga
+    de la app, del bot o de una importación. Lo recordado (búsquedas, canciones guardadas) no pasa por aquí."""
+    global _yt_next
+    with _yt_turns:
+        now = time.time()
+        while _yt_recent and _yt_recent[0] < now - 3600:
+            _yt_recent.popleft()
+        start = max(now, _yt_next)
+        if len(_yt_recent) >= YT_PER_HOUR:
+            start = max(start, _yt_recent[-YT_PER_HOUR] + 3600)
+        wait = start - now
+        if wait > YT_MAX_WAIT:
+            log.warning("ritmo con YouTube: %d en la última hora; la siguiente tendría que esperar %d s", len(_yt_recent), wait)
+            raise HTTPException(429, f"muchas peticiones a YouTube seguidas; prueba en ~{max(1, round(wait / 60))} min")
+        _yt_next = start + YT_GAP
+        _yt_recent.append(start)
+    if wait > 0:
+        if wait > 10:
+            log.info("ritmo con YouTube: espero %d s", wait)
+        time.sleep(wait)
+
+
 def youtube(fn, yt=True):
     """Llama a YouTube salvo que nos tenga bloqueados (pide 'confirmar que no eres un bot'): insistir lo alarga.
     yt=False: es otra web (SoundCloud, una radio…), no cuenta el bloqueo."""
@@ -77,6 +110,8 @@ def youtube(fn, yt=True):
     left = _yt_blocked_until - time.time()
     if yt and left > 0:
         raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
+    if yt:
+        yt_turn()
     try:
         return fn()
     except yt_dlp.utils.DownloadError as e:

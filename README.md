@@ -147,6 +147,20 @@ seguidas parecen un bot):
   3.000): la misma búsqueda, desde la app o desde el bot, no vuelve a preguntarle a YouTube. Sin distinguir
   mayúsculas, tildes ni espacios ("Karol G" = "karol g"). El registro dice cuántas salieron de memoria.
 - Una canción se baja **una sola vez** para todos (biblioteca única) y su ficha se pide una sola vez.
+- **Ritmo con YouTube** (`yt_turn` en `app.py`): lo que hace saltar el bloqueo son las ráfagas (el del 25-10-2026
+  fue una importación de 1.236 canciones seguidas), no el uso normal. Toda petición a YouTube (búsqueda, descarga
+  o ficha; de la app, del bot o de una importación) espera su turno: **una cada 4 s y como mucho 120 por hora**.
+  Si el turno tardaría más de 45 s, contesta 429 "muchas peticiones a YouTube, prueba en ~N min" (el bot lo
+  trata como un bloqueo: una importación espera y sigue). Lo recordado (búsquedas, canciones guardadas) no pasa
+  por aquí. Constantes `YT_GAP`, `YT_PER_HOUR`, `YT_MAX_WAIT`.
+- **Por dónde sale:** la API sale a YouTube solo por **IPv4** (la pública de casa; los contenedores no tienen
+  IPv6). La tele, los móviles y los navegadores de casa suelen ir a YouTube por IPv6, así que un bloqueo por culpa
+  del servidor casi no se notaría en casa (no es seguro al 100 %). **Último recurso** si bloquean la IPv4:
+  apagar el router un rato suele dar otra IP (depende del proveedor: a veces devuelve la misma si vuelve
+  pronto). El túnel de Cloudflare se reconecta solo con la IP nueva.
+- **Ideas pendientes** si hiciera falta más: generador de "PO tokens" para yt-dlp (`bgutil-ytdlp-pot-provider`,
+  que YouTube nos vea como un navegador) y **Cloudflare WARP** como salida de reserva o para picos (sus IP las
+  comparten miles: YouTube desconfía más de ellas; por ahí, sin cookies).
 - Si YouTube pide "confirmar que no eres un bot", el servidor deja de preguntarle 15 min (insistir alarga el
   bloqueo); lo guardado sigue sonando.
 
