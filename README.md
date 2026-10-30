@@ -261,7 +261,11 @@ usado YouTube en los últimos 10 min. Si YouTube avisa de bloqueo, para 24 h. Un
 trabaja: los artistas más escuchados en pocos días, el total en unas 5–6 semanas. Se salta directos,
 instrumentales, karaokes, recopilatorios y ediciones repetidas (por el título del álbum) y las canciones que ya
 están, también si es otra versión del mismo artista y título (ensayo con Rawayana: 7 álbumes de estudio, 78 nuevas,
-28 que ya estaban). Las bajadas quedan con su álbum, año y número de pista (`track_no`). Estado en
+28 que ya estaban). **Baja las pistas del disco, no los videoclips:** en algunos álbumes YouTube Music enlaza cada
+pista a su videoclip (el 30-10-2026, "City Walls" de *Breach* bajó como el vídeo de 9:55 con intro en vez de la
+canción de 5:23); por eso usa la **lista de audio** del álbum (`audioPlaylistId`, 1 petición más por álbum). Las
+bajadas quedan con **título limpio** ("City Walls", no "Twenty One Pilots - City Walls (Official Video)"), la
+**portada del álbum** como foto, artista, álbum, año y número de pista (`track_no`). Estado en
 `server/data/precarga.json`; cómo va: `curl -H "Authorization: Bearer $BOT_API_KEY" 127.0.0.1:8091/interno/precarga`.
 Para pararla: quitar la línea `PRECARGA = …` de `app.py`.
 

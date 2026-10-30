@@ -54,7 +54,19 @@ class Precarga:
             self.state = {}
         for k, v in (("artists", {}), ("queue", []), ("done", 0), ("skipped", 0), ("failed", 0), ("paused_until", 0)):
             self.state.setdefault(k, v)
+        if self.state.get("v", 1) < 2:
+            self._redo_videos()
         threading.Thread(target=self._run, daemon=True, name="precarga").start()
+
+    def _redo_videos(self):
+        """Lo bajado antes del 30-10-2026 04:40 eran videoclips (ver _plan_album): se borra y se vuelve a empezar."""
+        with self.lib.lock:
+            mine = [k for k, e in self.lib.index.items() if "precarga" in (e.get("enriched") or [])]
+        for k in mine:
+            self.lib.remove(k)
+        log.info("precarga: borradas %d canciones bajadas como videoclip; se empieza de nuevo con las del disco", len(mine))
+        self.state.update(artists={}, queue=[], done=0, skipped=0, failed=0, now={}, v=2)
+        self._save()
 
     def _save(self):
         with self.lock:
@@ -111,17 +123,32 @@ class Precarga:
         return {"done": False, "albums": albums}
 
     def _plan_album(self, artist, album):
-        """Abre un álbum y pone en la cola sus canciones que no estén ya."""
+        """Abre un álbum y pone en la cola sus canciones que no estén ya. Las pistas de un álbum a veces apuntan al
+        videoclip (City Walls de Breach: 9:55 con intro, en vez de 5:23); por eso se usa la **lista de audio** del
+        álbum (audioPlaylistId: las pistas del disco, 1 petición más), y si no la hay, las del álbum."""
         a = self.ytm(lambda y: y.get_album(album["id"]))
+        tracks = a.get("tracks") or []
+        if a.get("audioPlaylistId"):
+            try:
+                audio = (self.ytm(lambda y: y.get_playlist(a["audioPlaylistId"], limit=None)) or {}).get("tracks") or []
+                if audio:
+                    tracks = [dict(t, trackNumber=i) for i, t in enumerate(audio, 1)]
+            except Exception as ex:
+                if getattr(ex, "status_code", 0) in (503, 429):
+                    raise
+                log.info("precarga: sin lista de audio de %s: %s", a.get("title"), ex)
+        thumbs = a.get("thumbnails") or []
+        cover = thumbs[-1]["url"] if thumbs else None
         added = 0
-        for t in a.get("tracks") or []:
+        for t in tracks:
             vid = t.get("videoId")
             if not vid or self.lib.peek(f"yt-{vid}") or self._have(artist, t.get("title")):
                 self.state["skipped"] += 1
                 continue
             self.state["queue"].append({"id": vid, "title": t.get("title"), "artist": artist, "album": a.get("title"),
                                         "year": int(a["year"]) if str(a.get("year") or "").isdigit() else None,
-                                        "track": t.get("trackNumber"), "duration": t.get("duration_seconds")})
+                                        "track": t.get("trackNumber"), "duration": t.get("duration_seconds"),
+                                        "cover": cover})
             added += 1
         return added
 
@@ -142,8 +169,12 @@ class Precarga:
                 try:
                     _, path = self.download(f"https://www.youtube.com/watch?v={item['id']}")
                     if path:
-                        self.lib.fill(f"yt-{item['id']}", {"album": item["album"], "year": item["year"],
-                                                           "track_no": item["track"], "artist": item["artist"]}, "precarga")
+                        key = f"yt-{item['id']}"
+                        self.lib.fill(key, {"album": item["album"], "year": item["year"],
+                                            "track_no": item["track"], "artist": item["artist"]}, "precarga")
+                        # título limpio ("City Walls", no "Twenty One Pilots - City Walls (Official Audio)") y la
+                        # portada del álbum en vez del fotograma del vídeo
+                        self.lib.set_fields(key, {"title": item["title"], "thumb": item.get("cover")})
                         s["done"] += 1
                 except Exception as ex:
                     if getattr(ex, "status_code", 0) in (503, 429):

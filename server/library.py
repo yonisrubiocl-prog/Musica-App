@@ -532,6 +532,17 @@ class Library:
                 self._index_add(key, self._text(e))
             self.dirty = True
 
+    def set_fields(self, key, fields):
+        """Cambia datos de una canción aunque ya los tenga (solo para lo que baja la precarga: título limpio de
+        YouTube Music y portada del álbum en vez del título y el fotograma del vídeo)."""
+        with self.lock:
+            e = self.index.get(key)
+            if e is None:
+                return
+            e.update({f: v for f, v in fields.items() if v not in (None, "")})
+            self._index_add(key, self._text(e))
+            self.dirty = True
+
     def genres(self):
         """[{name, songs}] de los géneros que hay, los que más canciones tienen primero."""
         with self.lock:
