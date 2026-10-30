@@ -319,13 +319,36 @@ async function search() {
     + `<button class="yt glass">🔎 Buscar «${esc(q)}» en YouTube</button>`;
 }
 async function searchYouTube(b) {
-  const q = lastQ; b.textContent = 'Buscando en YouTube…'; b.disabled = true;
+  const q = lastQ; b.textContent = 'Buscando en internet…'; b.disabled = true;
   try {
     const j = await api('/search?yt=1&q=' + encodeURIComponent(q));
     if (q !== lastQ) return;
     list = j.results;
-    $('res').innerHTML = `<div class="list fade">${rows(list)}</div>`;
-  } catch (e) { b.textContent = String(e.message || e); }
+    const saved = list.filter(x => x.where === 'guardada').length;
+    $('res').innerHTML = `<div class="chips" id="netChips"><button class="chip glass on" data-net="songs">Canciones</button>
+        <button class="chip glass" data-net="albums">Álbumes</button></div><div id="net" class="fade">
+      ${saved ? `<h2>En el servidor <small>${saved}</small></h2><div class="list">${rows(list.slice(0, saved))}</div>` : ''}
+      <h2>De internet <small>${list.length - saved}</small></h2><div class="list">${rows(list.slice(saved), saved)}</div></div>`;
+    $('netChips').onclick = e => { const c = e.target.closest('.chip'); if (c) netTab(c.dataset.net, j.results); };
+  } catch (e) { b.textContent = String(e.message || e); b.disabled = false; }
+}
+async function netTab(which, songs) {
+  document.querySelectorAll('#netChips .chip').forEach(c => c.classList.toggle('on', c.dataset.net === which));
+  if (which === 'songs') { list = songs; return searchYouTube(Object.assign(document.createElement('button'))); }
+  $('net').innerHTML = '<div class="empty">Buscando álbumes…</div>';
+  const j = await api('/search/albums?q=' + encodeURIComponent(lastQ));   // 1 petición a YouTube, luego de memoria
+  $('net').innerHTML = j.albums.length ? '<div class="grid fade">' + j.albums.map(a => `<button class="card glass" data-netalbum="${esc(a.id)}">
+      <img src="${esc(a.thumb || '')}" loading="lazy" alt=""><div><b>${esc(a.title)}</b><small>${esc(a.artist)}${a.year ? ' · ' + a.year : ''}</small></div></button>`).join('') + '</div>'
+    : '<div class="empty">No encontré álbumes.</div>';
+}
+async function showNetAlbum(id) {
+  const a = await api('/search/album/' + encodeURIComponent(id));
+  list = a.songs;
+  const n = a.songs.filter(x => x.where === 'guardada').length;
+  wrap.innerHTML = `<div class="fade"><h2><button class="back glass" data-back aria-label="Volver">←</button>${esc(a.title)}</h2>
+    <p class="sub">${esc(a.artist)}${a.year ? ' · ' + a.year : ''} · ${a.songs.length} canciones${n ? ` · ${n} ya en el servidor` : ''}</p>
+    <div class="list">${rows(a.songs.map(x => ({...x, title: (x.track ? x.track + '. ' : '') + x.title})))}</div></div>`;
+  scrollTo({top: 0});
 }
 
 let libTab = 'favoritas';
@@ -384,6 +407,7 @@ wrap.addEventListener('click', e => {
   const c = e.target.closest('[data-rail]'); if (c) return playFrom(rails[c.dataset.rail], +c.dataset.i);
   const t = e.target.closest('[data-artist]'); if (t) return showArtist(t.dataset.artist);
   const al = e.target.closest('[data-album]'); if (al) return showAlbum(al.dataset.by, al.dataset.album);
+  const na = e.target.closest('[data-netalbum]'); if (na) return showNetAlbum(na.dataset.netalbum);
   if (e.target.closest('[data-back]')) return go(tab);
   const y = e.target.closest('.yt'); if (y) return searchYouTube(y);
 });

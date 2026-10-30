@@ -128,7 +128,9 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK: `{"build": 3, "version": "1.0.2"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
-| `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más y **solo si sin ellas no sale nada**: si no, "hope" traía "hype", "open" y "nope". Ver `Library.find`), luego 5 de YouTube, sin repetir. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado |
+| `GET /search?q=…` | Primero lo guardado (hasta 20; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más y **solo si sin ellas no sale nada**. Ver `Library.find`). Con `&yt=1` (por defecto) añade **20 canciones de internet que no estén en el servidor**, de **YouTube Music** (oficiales, con artista, álbum y duración): pide 20; si muchas ya están guardadas, pide más (hasta 100) para juntar 20 nuevas, salvo que YouTube no tenga más. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
+| `GET /search/albums?q=…` | Álbumes de internet (YouTube Music): `{albums: [{id, title, artist, year, type, thumb}]}`. 1 petición la primera vez; luego de memoria. Pide sesión |
+| `GET /search/album/<id>` | Un álbum de internet con sus canciones **en orden** (`track`) y `where` (cuáles ya están guardadas). 1 petición la primera vez. Poner una canción baja solo esa. Pide sesión |
 | `GET /library?sort=…&offset=0&limit=50` | **Toda la música guardada por páginas**, para ir cargando según se baja (scroll infinito): `{total, offset, songs}`. `sort`: `recientes` (la última que sonó primero, por defecto), `populares`, `nombre` (A-Z) o `artista` (A-Z). `limit` hasta 200. No hay más cuando `offset + len(songs)` llega a `total`. Pide sesión |
 | `GET /favorites` | **Mis favoritas** (las mismas en la app y en la web), la última marcada primero: canciones como en `/search` más `added`. Las que ya no están guardadas salen con `where: youtube` (al ponerlas se vuelven a bajar). Pide sesión de un usuario (la clave compartida no tiene: 400) |
 | `PUT /favorites/<id>` | Marcar como favorita. Si está guardada, la ficha sale de la biblioteca; si es un resultado de YouTube, mandar en el cuerpo `{title, artist, album, duration, thumb}` |
@@ -164,6 +166,13 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 seguidas parecen un bot):
 
 - La app lista **solo lo guardado** (`/search?…&yt=0`, al instante) y tiene un botón aparte "buscar en YouTube".
+- **YouTube Music para buscar** (`ytmusicapi`): 20 canciones = 2 peticiones, igual que la búsqueda normal, pero
+  trae las oficiales con sus datos; álbumes = 1 petición; abrir un álbum = 1. Medido el 30-10-2026: con yt-dlp,
+  pedir 5 o 20 resultados cuesta lo mismo (2 peticiones) y 40 cuesta 3; YouTube da ~20 por página. Quitar las
+  que ya están en el servidor es gratis (se mira el catálogo). Lo que sí cuesta más: juntar 20 nuevas de un
+  artista del que ya hay mucho guardado (hay que pedir más resultados: ~5 peticiones en vez de 2). Si
+  `ytmusicapi` falla (no es oficial; YouTube cambia), `/search` vuelve sola a la búsqueda de yt-dlp. El bot sigue
+  usando yt-dlp para buscar (`/interno/resolve`).
 - **Búsquedas recordadas 7 días** (`YouTubeSearches` en `app.py`, en `server/data/youtube-searches.json`, hasta
   3.000): la misma búsqueda, desde la app o desde el bot, no vuelve a preguntarle a YouTube. Sin distinguir
   mayúsculas, tildes ni espacios ("Karol G" = "karol g"). El registro dice cuántas salieron de memoria.

@@ -176,19 +176,30 @@ class YouTubeSearches:
         t = "".join(c for c in t if not unicodedata.combining(c))
         return f"{n}:{' '.join(re.findall(r'[a-z0-9]+', t))}"
 
-    def get(self, text, n):
-        """Resultados de buscar 'text' en YouTube (n como mucho), de memoria si se buscó hace poco."""
-        k = self.key(text, n)
+    def recall(self, k):
         with self.lock:
             hit = self.data.get(k)
             if hit and hit["until"] > time.time():
                 self.hits += 1
                 return hit["info"]
+        return None
+
+    def get(self, text, n):
+        """Resultados de buscar 'text' en YouTube con yt-dlp (n como mucho), de memoria si se buscó hace poco.
+        La usa el bot ('?' y nombres)."""
+        k = self.key(text, n)
+        hit = self.recall(k)
+        if hit is not None:
+            return hit
 
         def run():
             with ydl(extract_flat="in_playlist") as y:
                 return y.extract_info(f"ytsearch{n}:{text}", download=False)
         info = small_info(youtube(run))
+        self.store(k, info, text)
+        return info
+
+    def store(self, k, info, text):
         with self.lock:
             self.misses += 1
             self.data.pop(k, None)   # al final = la más reciente
@@ -206,10 +217,78 @@ class YouTubeSearches:
                 log.warning("no pude guardar las búsquedas: %s", e)
             log.info("búsqueda en YouTube: %r (de memoria %d, a YouTube %d desde que arrancó)",
                      text, self.hits, self.misses)
-        return info
 
 
 SEARCHES_YT = YouTubeSearches(SEARCHES)
+
+
+# ---------- YouTube Music (ytmusicapi): canciones oficiales con sus datos, álbumes y sus pistas ----------
+# Cuesta lo mismo o menos que la búsqueda de yt-dlp (20 canciones = 2 peticiones; álbumes = 1; abrir uno = 1) y
+# trae artista, álbum, duración y número de pista. Pasa por el mismo ritmo y bloqueo que yt-dlp, y se recuerda
+# igual (SEARCHES_YT). Si falla por otra cosa que un bloqueo, /search vuelve a la búsqueda de yt-dlp.
+YTM_NEW = 20                            # canciones de internet que /search?yt=1 enseña (que no estén guardadas)
+YTM_MAX = 100                           # como mucho se le piden tantas a YouTube Music para juntar YTM_NEW nuevas
+ALBUM_ID = re.compile(r"MPREb_[\w-]{5,40}")
+_ytm = None
+
+
+def ytm(fn):
+    """Llama a YouTube Music con el mismo cuidado que a YouTube: bloqueo, turno (yt_turn) y errores."""
+    global _ytm, _yt_blocked_until
+    left = _yt_blocked_until - time.time()
+    if left > 0:
+        raise HTTPException(503, f"YouTube nos bloqueó un rato; vuelvo a probar en ~{max(1, round(left / 60))} min")
+    yt_turn()
+    try:
+        if _ytm is None:
+            from ytmusicapi import YTMusic
+            _ytm = YTMusic()
+        return fn(_ytm)
+    except Exception as e:
+        t = str(e).lower()
+        if "429" in t or "not a bot" in t:
+            _yt_blocked_until = time.time() + YT_PAUSE
+            log.warning("YouTube Music nos bloqueó: no le pido nada a YouTube durante %d min", YT_PAUSE // 60)
+            raise HTTPException(503, "YouTube nos bloqueó un rato")
+        log.warning("YouTube Music: %s", e)
+        raise HTTPException(502, f"YouTube Music: {str(e)[:150]}")
+
+
+def ytm_thumb(x):
+    thumbs = x.get("thumbnails") or []
+    return thumbs[-1]["url"] if thumbs else None
+
+
+def ytm_song(s, album=None):
+    """Una canción de YouTube Music con el formato de /search."""
+    return {"id": s.get("videoId"), "title": s.get("title"),
+            "artist": ", ".join(a["name"] for a in s.get("artists") or [] if a.get("name")),
+            "album": ((s.get("album") or {}).get("name") if isinstance(s.get("album"), dict) else s.get("album"))
+            or (album or {}).get("title") or "",   # en una búsqueda viene como {name}; dentro de un álbum, como texto
+            "duration": s.get("duration_seconds"), "thumb": ytm_thumb(s) or (album or {}).get("thumb"),
+            "track": s.get("trackNumber"), "where": "youtube"}
+
+
+def ytm_songs(text, limit):
+    """Las primeras 'limit' canciones de YouTube Music para 'text', de memoria si se buscaron hace poco."""
+    k = "ytm-songs:" + YouTubeSearches.key(text, limit)
+    hit = SEARCHES_YT.recall(k)
+    if hit is None:
+        hit = [ytm_song(s) for s in ytm(lambda y: y.search(text, filter="songs", limit=limit)) if s.get("videoId")]
+        SEARCHES_YT.store(k, hit, f"{text} (YouTube Music, {limit})")
+    return hit
+
+
+def new_songs(text, skip):
+    """YTM_NEW canciones de internet que no estén en 'skip' (las guardadas): si en las primeras 20 hay muchas
+    guardadas, se piden más (40, 60…) hasta juntar YTM_NEW o llegar a YTM_MAX o a que YouTube no tenga más."""
+    limit = YTM_NEW
+    while True:
+        songs = ytm_songs(text, limit)
+        fresh = [s for s in songs if f"yt-{s['id']}" not in skip]
+        if len(fresh) >= YTM_NEW or len(songs) < limit or limit >= YTM_MAX:
+            return fresh[:YTM_NEW]
+        limit = min(YTM_MAX, limit + 2 * (YTM_NEW - len(fresh)))
 
 
 def youtube_info(vid):
@@ -371,12 +450,50 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
             seen.add(k)
             out.append(entry(k, e, "guardada"))
     if youtube_too:
-        for e in SEARCHES_YT.get(q, YT_RESULTS).get("entries") or []:
-            if e and e.get("id") and f"yt-{e['id']}" not in seen:
-                seen.add(f"yt-{e['id']}")
-                out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
-                            "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
+        try:
+            out += new_songs(q, seen)
+        except HTTPException as ex:
+            if ex.status_code in (503, 429):
+                raise
+            log.warning("YouTube Music falló; busco con yt-dlp")
+            for e in SEARCHES_YT.get(q, YT_RESULTS).get("entries") or []:
+                if e and e.get("id") and f"yt-{e['id']}" not in seen:
+                    seen.add(f"yt-{e['id']}")
+                    out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
+                                "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
     return {"results": out}
+
+
+@app.get("/search/albums", dependencies=[Depends(check_token)])
+def search_albums(q: str = Query(min_length=1, max_length=200)):
+    """Álbumes de internet (YouTube Music) para 'q': {albums: [{id, title, artist, year, thumb, type}]}. 1 petición
+    a YouTube la primera vez; después, de memoria. La app lo pide solo si se abre la pestaña de álbumes."""
+    k = "ytm-albums:" + YouTubeSearches.key(q, 20)
+    hit = SEARCHES_YT.recall(k)
+    if hit is None:
+        hit = [{"id": a.get("browseId"), "title": a.get("title"), "year": a.get("year"), "type": a.get("type"),
+                "artist": ", ".join(x["name"] for x in a.get("artists") or [] if x.get("name")), "thumb": ytm_thumb(a)}
+               for a in ytm(lambda y: y.search(q, filter="albums", limit=20)) if a.get("browseId")]
+        SEARCHES_YT.store(k, hit, f"{q} (álbumes)")
+    return {"albums": hit}
+
+
+@app.get("/search/album/{album_id}", dependencies=[Depends(check_token)])
+def search_album(album_id: str):
+    """Un álbum de internet con sus canciones en orden (track) y cuáles ya están guardadas (where). 1 petición
+    a YouTube la primera vez. Poner una canción baja solo esa."""
+    if not ALBUM_ID.fullmatch(album_id):
+        raise HTTPException(400, "id de álbum no válido")
+    k = "ytm-album:" + album_id
+    al = SEARCHES_YT.recall(k)
+    if al is None:
+        a = ytm(lambda y: y.get_album(album_id))
+        al = {"id": album_id, "title": a.get("title"), "year": a.get("year"), "thumb": ytm_thumb(a),
+              "artist": ", ".join(x["name"] for x in a.get("artists") or [] if x.get("name"))}
+        al["songs"] = [ytm_song(t, al) for t in a.get("tracks") or [] if t.get("videoId")]
+        SEARCHES_YT.store(k, al, f"álbum {al['title']}")
+    songs = [dict(s, where="guardada") if LIB.peek(f"yt-{s['id']}") else s for s in al["songs"]]
+    return {**al, "songs": songs}
 
 
 def yt_entries(pairs):
