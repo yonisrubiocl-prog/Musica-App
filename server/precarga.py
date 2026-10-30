@@ -13,6 +13,7 @@ título del álbum), y las canciones que ya están guardadas, también si es otr
 Estado (lo hecho, la cola y las cuentas) en /data/precarga.json: sobrevive a los reinicios. Ver README.md,
 "Precarga de álbumes".
 """
+import collections
 import datetime
 import json
 import logging
@@ -27,6 +28,7 @@ log = logging.getLogger("musicapp.precarga")
 FILE = "/data/precarga.json"
 SKIP_FILE = "/data/precarga-saltar.txt"  # "Artista | Álbum" por línea: álbumes que no se bajan (se lee en cada paso)
 MIN_SONGS = 5                           # artistas con al menos tantas canciones guardadas
+MAX_ALBUMS = 6                          # álbumes por artista como mucho: los más escuchados (ver _rank_albums)
 NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile
 LISTEN = (0.4, 1.1)                     # entre canciones: esta parte de lo que dura la canción, al azar
 GAP_MIN, GAP_MAX = 45, 420              # ...pero nunca menos de 45 s ni más de 7 min
@@ -39,7 +41,8 @@ BLOCK_PAUSE = 24 * 3600                 # tras un aviso de bloqueo
 SKIP_ALBUM = re.compile(r"\b(live|en vivo|ao vivo|en directo|unplugged|instrumental|karaoke|greatest hits|grandes "
                         r"[eé]xitos|[eé]xitos|best of|the best|essential|collection|colecci[oó]n|antolog|remaster|"
                         r"anniversary|aniversario|deluxe|expanded|edition|edici[oó]n|mixtape|sessions?|acoustic|"
-                        r"ac[uú]stico|remixes|cercle|tribute|tributo)\b", re.I)
+                        r"lo mejor de|vol\.? ?\d|volumen \d|ac[uú]stico|remixes|cercle|tribute|tributo)\b"
+                        r"|hits\b", re.I)   # "hits" también pegado ("Uniquehits"); lo demás, palabra entera ("Olive" no es "live")
 NOISE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]|\s+(?:ft\.?|feat\.?|featuring)\s.*$|\s+-\s+.*$", re.I)
 
 
@@ -120,8 +123,29 @@ class Precarga:
                 continue
             seen.add(base)
             albums.append({"id": a["browseId"], "title": t, "year": a.get("year")})
-        log.info("precarga: %s, %d álbumes de estudio", name, len(albums))
+        total = len(albums)
+        albums = self._rank_albums(name, art, albums)[:MAX_ALBUMS]
+        log.info("precarga: %s, %d álbumes de estudio (bajo los %d más escuchados: %s)", name, total, len(albums),
+                 ", ".join(a["title"] for a in albums))
         return {"done": False, "albums": albums}
+
+    def _rank_albums(self, name, art, albums):
+        """Los álbumes más escuchados primero, sin gastar peticiones: 1) los que tienen éxitos del artista (YouTube
+        Music da sus canciones más escuchadas con su álbum en la misma respuesta de get_artist); 2) los que ya
+        tienen canciones guardadas aquí (lo que os gusta); 3) a igualdad, los más nuevos."""
+        hits = collections.Counter()
+        for s in ((art.get("songs") or {}).get("results") or []):
+            al = s.get("album") or {}
+            if al.get("id"):
+                hits[al["id"]] += 1
+            if al.get("name"):
+                hits[self.lib._norm(al["name"])] += 1
+        mine = {self.lib._norm(a["name"]): a["songs"] for a in (self.lib.artist(name) or {}).get("albums", [])}
+        def score(a):
+            n = self.lib._norm(NOISE.sub("", a["title"]))
+            return (3 * (hits[a["id"]] + hits[n]) + 2 * mine.get(n, 0) + mine.get(self.lib._norm(a["title"]), 0),
+                    int(a["year"]) if str(a.get("year") or "").isdigit() else 0)
+        return sorted(albums, key=score, reverse=True)
 
     def _skips(self):
         """{(artista, álbum)} normalizados que no hay que bajar (SKIP_FILE)."""

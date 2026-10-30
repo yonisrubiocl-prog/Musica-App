@@ -266,14 +266,17 @@ que da iTunes se guarda aparte (`itunes_genre`) solo como pista para el paso 3.
 su nombre (un dúo de verdad, "Simon & Garfunkel", no se parte).
 
 **Precarga de álbumes** (`precarga.py`): baja poco a poco los **álbumes de estudio** de los artistas con **5 o más
-canciones guardadas** (~107 el 30-10-2026; ~6.000 canciones, ~27 GB). **A ritmo de persona, no de robot** (una
+canciones guardadas**, **como mucho los 6 más escuchados de cada uno** (`MAX_ALBUMS`;
+sin gastar peticiones: primero los que tienen los éxitos del artista según YouTube Music, luego los que ya tienen
+canciones guardadas aquí, luego los más nuevos; AC/DC: *Back In Black*, *The Razors Edge*, *Highway to Hell*…) (~107 el 30-10-2026; ~6.000 canciones, ~27 GB). **A ritmo de persona, no de robot** (una
 descarga cada X segundos exactos durante horas es el patrón de un robot): entre canciones de un álbum espera más o
 menos lo que dura la canción (40–110 %, al azar, como quien la escucha o se la salta); entre álbumes, una pausa de
 5 a 30 min y, 1 de cada 7 veces, una larga de 30 a 90 min; el siguiente artista se elige al azar entre los 3 más
 escuchados que falten. De madrugada (**01:00–09:00 de Chile**) siempre; de día un 50 % más lento y solo si nadie ha
 usado YouTube en los últimos 10 min. Si YouTube avisa de bloqueo, para 24 h. Unas 15–20 canciones por hora mientras
 trabaja: los artistas más escuchados en pocos días, el total en unas 5–6 semanas. Se salta directos,
-instrumentales, karaokes, recopilatorios y ediciones repetidas (por el título del álbum) y las canciones que ya
+instrumentales, karaokes, recopilatorios ("Greatest Hits", "Uniquehits", "Lo Mejor De…", "Vol. 1") y ediciones
+repetidas (por el título del álbum) y las canciones que ya
 están, también si es otra versión del mismo artista y título (ensayo con Rawayana: 7 álbumes de estudio, 78 nuevas,
 28 que ya estaban). **Baja las pistas del disco, no los videoclips:** en algunos álbumes YouTube Music enlaza cada
 pista a su videoclip (el 30-10-2026, "City Walls" de *Breach* bajó como el vídeo de 9:55 con intro en vez de la
