@@ -382,6 +382,13 @@ class Library:
             members = [m.strip() for m in self.JOINT.split(a) if m.strip()] if a else []
             if not a:
                 a = self._artist_in_title(title, solo)
+            elif not (e.get("artist") or "").strip() and self.DASH.search(title):
+                # sin artista en la ficha y "Canción – Artista" ("Numb (Official Music Video) – Linkin Park"): si lo
+                # de detrás es un artista que existe o el canal que la subió, es ese (no lo de delante)
+                post = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", self.DASH.split(title, 1)[1]).strip()
+                channel = self.CHANNEL.sub("", re.sub(r"\s*-\s*topic$", "", e.get("channel") or "", flags=re.I))
+                if post and (self._norm(post) in solo or self._norm(post) == self._norm(channel)):
+                    a = post
             if self.DASH.search(title):
                 pre = self.DASH.split(title, 1)[0].strip()
                 if self._norm(pre) in solo and self._norm(a) not in self._norm(title):

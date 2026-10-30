@@ -307,7 +307,9 @@ Jackson", se prueban dados la vuelta) y, las que sigan sin artista, con **YouTub
 petición cada 2 min, de 03:00 a 08:00 de Chile). Nunca cambia el título ni pisa un dato que ya esté. El género
 que da iTunes se guarda aparte (`itunes_genre`) solo como pista para el paso 3.
 
-**Artistas con colaboraciones**: "Diomedes Díaz & Juancho Rois" cuenta para Diomedes Díaz si él tiene canciones a
+**Sin artista en la ficha** (vídeos subidos sin datos de música): se toma del título. "Artista – Canción" es lo
+normal, pero si lo de **detrás** del guion es un artista que existe o el canal que lo subió ("Numb (Official Music
+Video) [4K] – Linkin Park"), manda ese lado. **Artistas con colaboraciones**: "Diomedes Díaz & Juancho Rois" cuenta para Diomedes Díaz si él tiene canciones a
 su nombre (un dúo de verdad, "Simon & Garfunkel", no se parte), y **sale también en la página de los demás**
 (Juancho Rois, si tiene canciones propias), igual que quien va en un **"feat./ft." del título** ("HIGH feat.
 Apache" sale en Apache; cada canción una vez aunque el nombre esté en el artista y en el "ft."). **Nombres de
