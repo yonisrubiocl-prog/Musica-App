@@ -752,13 +752,31 @@ def i_fetch(url: str = Body(embed=True, max_length=2000), by: int | None = Body(
 
 @internal.post("/interno/resolve")
 def i_resolve(query: str = Body(embed=True, max_length=2000), limit: int = Body(100, embed=True, le=MAX_PLAYLIST)):
-    """Buscar en YouTube ('ytsearch5:…' o un nombre) o leer un enlace (video, lista, SoundCloud…) sin bajar nada:
-    título, duración, miniatura y, si es lista o búsqueda, sus 'entries'. Las búsquedas se recuerdan
-    (YouTubeSearches); los enlaces no."""
+    """Buscar ('ytsearch5:…' o un nombre) o leer un enlace (video, lista, SoundCloud…) sin bajar nada: título,
+    duración, miniatura y, si es lista o búsqueda, sus 'entries'. Los nombres se buscan en **YouTube Music**
+    (canciones oficiales, sin directos ni covers; misma búsqueda y memoria que la app); si no hay nada, o el
+    texto empieza por 'yt:', en YouTube normal (remixes, memes, directos…). Los enlaces se respetan tal cual."""
     m = re.fullmatch(r"ytsearch(\d*):(.+)", query, re.S)
     if m or not re.match(r"https?://", query):
         n, text = (int(m.group(1) or 1), m.group(2)) if m else (1, query)
-        return SEARCHES_YT.get(text, min(n, 50))
+        text, n = text.strip(), min(n, 50)
+        if text.lower().startswith("yt:"):
+            return SEARCHES_YT.get(text[3:].strip(), n)
+        try:
+            songs = ytm_songs(text, 20)[:n]
+        except HTTPException as ex:
+            if ex.status_code in (503, 429):
+                raise
+            songs = []
+        if not songs:
+            return SEARCHES_YT.get(text, n)
+        # con la forma de una búsqueda de yt-dlp, que es lo que entiende el bot
+        return {"title": text, "entries": [
+            {"id": s["id"], "title": s["title"], "url": f"https://www.youtube.com/watch?v={s['id']}",
+             "webpage_url": f"https://www.youtube.com/watch?v={s['id']}", "ie_key": "Youtube",
+             "duration": s["duration"], "thumbnail": s["thumb"], "artist": s["artist"],
+             "artists": [x for x in s["artist"].split(", ") if x], "channel": s["artist"], "album": s["album"]}
+            for s in songs]}
 
     def run():
         with ydl(extract_flat="in_playlist", playlistend=limit, default_search="ytsearch") as y:

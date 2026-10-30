@@ -156,7 +156,7 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `GET /interno/search?q=…&limit=` | Texto tal cual en título/artista/álbum, recientes primero |
 | `GET /interno/albums`, `GET /interno/album?q=…` | Álbumes y sus canciones |
 | `GET /interno/stats` | `{songs, bytes, max_bytes}` |
-| `POST /interno/resolve` | `{"query": …, "limit": n}`: buscar en YouTube (un nombre o `ytsearch5:…`) o leer un enlace (video, lista, SoundCloud…) sin bajar nada. Título, duración, miniatura y `entries` si es lista o búsqueda |
+| `POST /interno/resolve` | `{"query": …, "limit": n}`: buscar un nombre (`ytsearch5:…` o el nombre a secas: **YouTube Music**; con `yt:` delante o si no hay nada, YouTube normal) o leer un enlace (video, lista, SoundCloud…) sin bajar nada. Título, duración, miniatura, artista y `entries` si es lista o búsqueda |
 | `GET /interno/song/<clave>` | Ficha sin contarla como puesta |
 | `POST /interno/played/<clave>` | Sonó: suma una vez puesta y actualiza el último uso |
 | `POST /interno/fetch` | `{"url": …, "by": <id de Discord>}`: "dame esta canción". Guardada → `source: local`; si no, la baja → `online`; directos → `live`, sin archivo y con `info.url` para escucharlo |
@@ -172,8 +172,12 @@ seguidas parecen un bot):
   pedir 5 o 20 resultados cuesta lo mismo (2 peticiones) y 40 cuesta 3; YouTube da ~20 por página. Quitar las
   que ya están en el servidor es gratis (se mira el catálogo). Lo que sí cuesta más: juntar 20 nuevas de un
   artista del que ya hay mucho guardado (hay que pedir más resultados: ~5 peticiones en vez de 2). Si
-  `ytmusicapi` falla (no es oficial; YouTube cambia), `/search` vuelve sola a la búsqueda de yt-dlp. El bot sigue
-  usando yt-dlp para buscar (`/interno/resolve`).
+  `ytmusicapi` falla (no es oficial; YouTube cambia), `/search` vuelve sola a la búsqueda de yt-dlp. **El bot
+  también busca los nombres en YouTube Music** (`/interno/resolve`, misma búsqueda y memoria que la app); si no hay
+  nada, o el texto empieza por `yt:`, en YouTube normal (remixes, memes, "sped up", directos que no están en
+  YouTube Music). Los enlaces (un vídeo o una playlist) se respetan tal cual. **YouTube Music no tiene archivos
+  propios**: cada canción es un vídeo de YouTube con el mismo id y el mismo audio; lo que cambia es qué vídeo se
+  elige (la pista oficial del disco en vez de un videoclip con intro, un directo o un cover).
 - **Búsquedas recordadas 7 días** (`YouTubeSearches` en `app.py`, en `server/data/youtube-searches.json`, hasta
   3.000): la misma búsqueda, desde la app o desde el bot, no vuelve a preguntarle a YouTube. Sin distinguir
   mayúsculas, tildes ni espacios ("Karol G" = "karol g"). El registro dice cuántas salieron de memoria.
