@@ -114,7 +114,7 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | Ruta | Qué hace |
 |---|---|
 | `GET /health` | `{"ok": true}`, sin clave |
-| `POST /auth/google` | Cuerpo `{"id_token": "…"}` (y `"web": true` desde la página de acceso: sesión de 10 min que no cuenta como dispositivo) (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
+| `POST /auth/google` | Cuerpo `{"id_token": "…"}` (con `"web": true`: sesión de 10 min que no cuenta como dispositivo, para algo que solo baje la app; hoy no se usa) (el que da Google a la app). Aprobado → `{"session": …, "user": …}` (sesión de 90 días); nuevo o pendiente → 403 `pendiente`; bloqueado → 403 `bloqueado`. Sin clave |
 | `GET /me` | Quién es el dueño de la sesión |
 | `POST /auth/logout` | Cierra la sesión usada |
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
@@ -189,8 +189,8 @@ cierra sus sesiones al momento.
 un 4.º cierra la sesión **más antigua** (ese dispositivo recibe 401 y tiene que volver a entrar con Google). No se
 rechaza el 4.º porque al reinstalar la app la sesión del móvil viejo sigue "viva" 90 días y dejaría fuera al
 dueño. Quien comparta su cuenta se irá echando con los demás, y el registro de la API lo dice ("entró en otro
-dispositivo; cierro el más antiguo"). La sesión de la página de acceso (`"web": true` en `/auth/google`) dura
-10 min y no cuenta. `docker exec musicapp-api python users.py` enseña los dispositivos de cada uno.
+dispositivo; cierro el más antiguo"). La app web cuenta como un dispositivo más. (`"web": true` en `/auth/google` da una sesión de 10 min que no
+cuenta; hoy no la usa nadie.) `docker exec musicapp-api python users.py` enseña los dispositivos de cada uno.
 
 **Qué sabemos de cada uno** (solo el permiso básico "perfil y email" de Google; es lo que enseña la pantalla
 de Google al entrar):
