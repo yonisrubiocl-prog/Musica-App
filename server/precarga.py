@@ -67,7 +67,8 @@ class Precarga:
         s = self.state
         return {"artists_done": sum(1 for a in s["artists"].values() if a.get("done")),
                 "artists_total": len(self._artists()), "queue": len(s["queue"]), "done": s["done"],
-                "skipped": s["skipped"], "failed": s["failed"], "paused_until": s["paused_until"]}
+                "skipped": s["skipped"], "failed": s["failed"], "paused_until": s["paused_until"],
+                "now": s.get("now") or {}}
 
     # ---------- qué bajar ----------
 
@@ -133,6 +134,7 @@ class Precarga:
         if s["queue"]:
             item = s["queue"].pop(0)
             last_of_album = not s["queue"] or s["queue"][0].get("album") != item.get("album")
+            s["now"] = {"artist": item["artist"], "album": item["album"], "song": item["title"]}
             if self.lib.peek(f"yt-{item['id']}"):   # ya estaba: no hay nada que "escuchar", sigue enseguida
                 s["skipped"] += 1
                 return random.uniform(*BREAK) if last_of_album else random.uniform(3, 12)
@@ -186,9 +188,15 @@ class Precarga:
                     continue
                 night = self._night()
                 if not night and not self.user_idle(IDLE):
+                    if self.state.get("now", {}).get("mode") != "esperando":
+                        self.state.setdefault("now", {})["mode"] = "esperando"
+                        self._save()
                     time.sleep(60)
                     continue
                 wait = self._step()
+                now = self.state.setdefault("now", {})
+                now.update(mode="noche" if night else "día", next_at=time.time() + (wait or 3600) * (1 if night else DAY_SLOWER),
+                           artists_total=len(self._artists()))   # para el panel (panel.py lee este archivo)
                 self._save()
                 n += 1
                 if n % 25 == 0:

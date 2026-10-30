@@ -304,7 +304,9 @@ no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo dem�
 (pendientes primero, se actualiza sola); `:1` aprueba al 1, `:1 3 4` a varios, `:B 2` bloquea (pide confirmar),
 `:H` ayuda, `:Q` sale. Los números no se mueven mientras escribes. Además de cuándo pidió acceso y su último
 login, enseña **cuándo pidió su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en las
-últimas 24 h**, para ver quién está activo. Sale del historial (`userdata.json`): cuenta la app y la web, no
+últimas 24 h**, para ver quién está activo. Arriba, una línea con **la precarga de álbumes**: qué artista y álbum
+está bajando, cuándo baja la siguiente, cuántas lleva, cola y artistas hechos (cian si trabaja, gris si espera a que
+nadie use YouTube, rojo si YouTube avisó y está parada). Sale del historial (`userdata.json`): cuenta la app y la web, no
 Discord, y empezó a apuntarse el 30-10-2026 (antes de eso sale "nunca"). Por debajo usa `users.py`:
 
 ```bash

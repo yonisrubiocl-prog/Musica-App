@@ -19,6 +19,7 @@ from datetime import datetime
 D = os.path.dirname(os.path.abspath(__file__))
 USERS = os.path.join(D, "data", "users.json")
 USERDATA = os.path.join(D, "data", "userdata.json")   # historial de cada uno (última canción que pidió)
+PRECARGA = os.path.join(D, "data", "precarga.json")   # cómo va la precarga de álbumes (precarga.py)
 CONT = "musicapp-api"
 ORDEN = {"pendiente": 0, "aprobado": 1, "bloqueado": 2}
 VERDE, AMARILLO, ROJO, CIAN, GRIS = 1, 2, 3, 4, 5
@@ -37,6 +38,8 @@ AYUDA = [
     ("", "https://musica.yoneapolis.com/acceso  (entran con Google y quedan pendientes)"),
     ("Colores", ""),
     ("", "amarillo = pendiente · verde = aprobado · rojo = bloqueado"),
+    ("Precarga", ""),
+    ("", "Arriba: qué artista y álbum está bajando la precarga, cuándo baja la siguiente y cuántas lleva."),
     ("Última canción", ""),
     ("", "Cuándo pidió su última canción en la app o la web (no cuenta Discord). Verde: hace menos de 1 h."),
 ]
@@ -62,6 +65,29 @@ def ultimas():
     ahora = time.time()
     return {sub: (h[0][1], sum(1 for _, t in h if ahora - t < 86400))
             for sub, d in data.items() if (h := d.get("history"))}
+
+
+def precarga():
+    """Una línea con cómo va la precarga de álbumes, y su color."""
+    try:
+        with open(PRECARGA, encoding="utf-8") as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        return "Precarga: sin empezar", GRIS
+    now = s.get("now") or {}
+    hechos = sum(1 for a in s.get("artists", {}).values() if a.get("done"))
+    total = now.get("artists_total") or "?"
+    cuentas = f"{s.get('done', 0)} bajadas · {len(s.get('queue', []))} en cola · artistas {hechos}/{total}"
+    if s.get("failed"):
+        cuentas += f" · {s['failed']} fallidas"
+    if s.get("paused_until", 0) > time.time():
+        return f"Precarga PARADA (YouTube avisó) hasta {fecha(s['paused_until'])} · {cuentas}", ROJO
+    if now.get("mode") == "esperando":
+        return f"Precarga esperando (de día solo si nadie usa YouTube) · {cuentas}", GRIS
+    falta = max(0, (now.get("next_at") or 0) - time.time())
+    sig = "ahora" if falta < 60 else f"en {int(falta // 60)} min"
+    donde = f"{now.get('artist', '')} – {now.get('album', '')}" if now.get("artist") else "buscando álbumes"
+    return f"Precarga ({now.get('mode', '?')}): {donde} · siguiente {sig} · {cuentas}", CIAN
 
 
 def hace(t):
@@ -130,6 +156,8 @@ class UI:
         s.put(1, 1, f"{n['pendiente']} pendientes", AMARILLO, True)
         s.put(1, 17, f"{n['aprobado']} aprobados", VERDE)
         s.put(1, 31, f"{n['bloqueado']} bloqueados", ROJO)
+        texto, color = precarga()
+        s.put(1, 46, "│ " + texto, color)
 
         s.caja(2, 0, H - 3, W, "USUARIOS")
         s.put(3, 2, f"{'#':>3}  {'estado':<10} {'email':<34} {'nombre':<22} {'pidió':<12} {'último login':<13} "
