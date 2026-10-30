@@ -471,7 +471,9 @@ let tab = 'inicio';
 // lo que se ve ahora: cada lista de la pantalla, por clave. Las filas llevan data-l (lista) y data-i (posición).
 // kind: 'radio' = tocar una canción pone esa sola y detrás recomendadas; 'lista' = pone la lista desde ahí.
 let lists = {};
-const setList = (key, songs, kind) => { lists[key] = {songs, kind}; return key; };
+// full: la lista entera cuando la fila solo enseña una parte (p. ej. "Tus favoritas" del Inicio enseña 20 pero
+// al tocar una canción suenan todas)
+const setList = (key, songs, kind, full) => { lists[key] = {songs, kind, full}; return key; };
 // de qué tipo es cada lista, para los eventos de las recomendaciones (docs/recomendaciones.md, sección 9)
 let listCtx = 'biblioteca';
 const ctxOf = key => ({para_ti: 'para_ti', vuelve: 'vuelve', favs: 'favoritas', fav: 'favoritas', res: 'busqueda', res5: 'busqueda',
@@ -653,8 +655,8 @@ async function inicio() {
   const recHtml = recs.secciones.filter(s => s.id === 'para_ti' || s.id === 'vuelve').map(s => {
     setList(s.id, s.items.map(x => ({...x, _rec: true})), 'lista');
     return `<h2>${esc(s.titulo)}</h2><div class="rail">${songCards(s.id)}</div>`; }).join('');
-  setList('hist', hist.songs.slice(0, 20), 'lista');
-  setList('favs', [...favs.values()].slice(0, 20), 'lista');
+  setList('hist', hist.songs.slice(0, 20), 'lista', hist.songs);
+  setList('favs', [...favs.values()].slice(0, 20), 'lista', [...favs.values()]);
   setList('pop', pop.songs, 'radio');
   let h = '';
   if (lists.hist.songs.length) h += `<h2>Escuchado recientemente</h2><div class="rail">${songCards('hist')}</div>`;
@@ -946,7 +948,10 @@ wrap.addEventListener('click', e => {
     try { await savePl(p); showPlaylist(p); } catch (err) { p.songs.splice(i, 0, s); toast('No se pudo guardar'); } }}] : []); }
   const r = e.target.closest('.hit, [data-card]');
   if (r) { const l = lists[r.dataset.l]; listCtx = ctxOf(r.dataset.l);
-    return l.kind === 'radio' ? playOne(l.songs[+r.dataset.i]) : playList(l.songs, +r.dataset.i); }
+    const s = l.songs[+r.dataset.i];
+    if (l.kind === 'radio') return playOne(s);
+    const all = l.full || l.songs;   // la lista entera, aunque la fila enseñe menos
+    return playList(all, Math.max(0, all.findIndex(x => x.id === s.id))); }
   if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.songs, 0);
   const pl = e.target.closest('[data-pl]'); if (pl) return showPlaylist(pls[+pl.dataset.pl]);
   const g = e.target.closest('[data-genre]'); if (g) return showGenre(g.dataset.genre);
@@ -964,10 +969,13 @@ const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
 let shuffleOn = store.get('aleatorio', false), repeat = 'off', follow = store.get('seguir_parecidas', true), radioBusy = false;
 function playOne(s) { isRadio = true; queue = [s]; qi = 0; start(); fillRadio(); }
+// Poner una lista desde la canción i: primero esa y luego TODAS las demás. Con aleatorio, mezcladas; sin aleatorio,
+// en su orden desde ahí y, al llegar al final, las de antes (así suena la lista entera empieces donde empieces).
 function playList(songs, i) {
   isRadio = false; radioRecs = 0;
-  if (shuffleOn && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; qi = 0; }
-  else { queue = songs.slice(); qi = i; }
+  if (shuffleOn && songs.length > 1) { const rest = songs.slice(); const [first] = rest.splice(i, 1); queue = [first, ...shuffled(rest)]; }
+  else queue = [...songs.slice(i), ...songs.slice(0, i)];
+  qi = 0;
   start();
 }
 // ---------- eventos para las recomendaciones (lo que se escucha entero y lo que se salta) ----------
