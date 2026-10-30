@@ -436,10 +436,14 @@ Cada fase funciona por sí sola.
 | 3 | **Reproductor de verdad:** cola, siguiente/anterior, segundo plano y pantalla de bloqueo (`just_audio`, `audio_service`) | Pendiente |
 | 4 | Listas, favoritos, historial, letras y portadas | Favoritas, historial, playlists, artistas/álbumes y géneros hechos en el servidor; faltan letras |
 | 5 | Descargas para escuchar sin conexión, ver qué escuchan los amigos, escuchar juntos | Pendiente |
+| 6 | **Recomendaciones:** Radio, Para ti, mixes, descubrir (plan en `docs/recomendaciones.md`) | Planificado, sin empezar |
 
 ## 5. Pendiente
 
 **Del servidor:**
+- **Recomendaciones** (fase 6): plan completo en `docs/recomendaciones.md` (señales, perfil doble, versiones
+  agrupadas, secciones, rutas, coste en rendimiento: pequeño, y cómo apagarlo o quitarlo). La fase 1 necesita que
+  la app mande eventos (saltos, escuchas enteras).
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
 - Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
@@ -483,6 +487,8 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
 │                           precarga.json, youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
+├── docs/
+│   └── recomendaciones.md   plan del recomendador (sin hacer)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)
 (/var/lib/musicapp/app/            musica.apk + version.json, lo publica la sesión de la app; fuera de git)
