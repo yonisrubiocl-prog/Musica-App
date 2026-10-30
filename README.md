@@ -180,7 +180,10 @@ seguidas parecen un bot):
 - Una canción se baja **una sola vez** para todos (biblioteca única) y su ficha se pide una sola vez.
 - **Ritmo con YouTube** (`yt_turn` en `app.py`): lo que hace saltar el bloqueo son las ráfagas (el del 25-10-2026
   fue una importación de 1.236 canciones seguidas), no el uso normal. Toda petición a YouTube (búsqueda, descarga
-  o ficha; de la app, del bot o de una importación) espera su turno: **una cada 4 s y como mucho 120 por hora**.
+  o ficha; de la app, del bot o de una importación) espera su turno: **una operación cada 4 s y como mucho 300
+  peticiones reales por hora**. Cada operación cuenta lo que de verdad cuesta (medido el 30-10-2026): descarga 4,
+  búsqueda 2 (más si pide más de 20 resultados), ficha 2, álbumes o abrir un álbum 1; una lista larga, una más
+  por cada 100 canciones.
   Si el turno tardaría más de 45 s, contesta 429 "muchas peticiones a YouTube, prueba en ~N min" (el bot lo
   trata como un bloqueo: una importación espera y sigue). Lo recordado (búsquedas, canciones guardadas) no pasa
   por aquí. Constantes `YT_GAP`, `YT_PER_HOUR`, `YT_MAX_WAIT`.
