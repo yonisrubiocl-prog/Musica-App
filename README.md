@@ -133,8 +133,8 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     si ya estaba más adelante, se mueve. Sale marcada "Añadida" en la cola. Sin nada sonando, suena ya.
   - Al acabarse una lista, interruptor **"Seguir con canciones parecidas"** (radio de la última). Nunca entra una
     canción dos veces.
-- **La cola en pantalla es una lista fija:** enseña también las que ya sonaron (en gris; al abrirla, las 5
-  anteriores; más, subiendo a mano). Al pasar de canción no se repinta: solo cambia la resaltada (baja lo justo si
+- **La cola en pantalla es una lista fija:** enseña como máximo las **2 últimas reproducidas en gris**, la actual y
+  todas las siguientes. Las más antiguas se ocultan; el botón Anterior sigue permitiendo volver a ellas. Al pasar de canción no se repinta: solo cambia la resaltada (baja lo justo si
   queda fuera de la vista). Tocar una anterior la vuelve a poner. **Se reordena arrastrando:** desde el asa ≡
   (al momento, ratón o dedo) o manteniendo pulsada la fila (en el móvil ~0,35 s quieto, vibra); una línea marca el
   sitio y cerca del borde la lista se desplaza sola. Solo las que faltan, siempre después de la que suena.

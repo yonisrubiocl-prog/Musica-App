@@ -65,8 +65,8 @@
      termina.
    - **Ninguna canción puede estar dos veces** en la cola (lo que añade la radio tampoco repite ids).
 2. **La cola en pantalla es una lista fija**
-   - Toda la cola, con **las ya sonadas en gris** encima; al abrirla se ven las 5 anteriores a la que suena; más,
-     subiendo a mano. Tocar una anterior la vuelve a poner.
+   - Mostrar como máximo **las 2 últimas reproducidas en gris**, la actual y todas las siguientes. Las más
+     antiguas se ocultan sin quitarlas de la cola interna: Anterior permite volver a ellas. Tocar una visible la vuelve a poner.
    - Al pasar de canción **no se reconstruye ni salta**: solo cambia cuál está resaltada (si queda fuera de la vista,
      bajar lo justo). Solo se repinta si la cola cambia (lista nueva, canción adelantada, aleatorio, radio añadida).
    - **Reordenar arrastrando:** asa **≡** a la derecha de cada canción que falta por sonar (en Flutter,

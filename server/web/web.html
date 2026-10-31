@@ -161,6 +161,7 @@
   .row { display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 12px; width: 100%; transition: background 200ms; }
   .row:hover { background: rgba(255,255,255,.045); }
   .row.playing .t { color: var(--primary); }
+  .row[hidden] { display: none; }
   .row.past { opacity: .45; } .row.past:hover { opacity: .8; }
   .row .tag { color: var(--primary); font-weight: 600; font-size: .78em; }
   [data-qrow] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
@@ -1290,9 +1291,9 @@ function paintNp() {
   paintHearts();
   if (npTab === 'cola') paintQueue(); else loadLyrics();
 }
-// La cola es una lista fija: se pinta entera (también las que ya sonaron, en gris) solo cuando cambia (qVer); al
-// pasar de canción solo cambia cuál está resaltada, y se baja lo justo si la que suena quedó fuera de la vista.
-// Al pintarla, se ven las 5 anteriores encima de la que suena; más atrás, subiendo a mano.
+// La cola conserva sus filas e índices: solo se reconstruye cuando cambia (qVer).
+// Se muestran como máximo las dos anteriores en gris, la actual y todas las siguientes.
+// Las anteriores ocultas siguen disponibles con Anterior, sin cambiar el orden de reproducción.
 let qVer = 0, qPainted = null, qKeepScroll = false;
 const scrollBox = el => { for (let p = el.parentElement; p; p = p.parentElement) {
   const o = getComputedStyle(p).overflowY; if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p; } return null; };
@@ -1317,12 +1318,13 @@ function paintQueue() {
 }
 function markQueue(dest, fresh) {
   dest.querySelectorAll('[data-qrow]').forEach(r => { const i = +r.dataset.qrow;
+    r.hidden = i < qi - 2;
     r.classList.toggle('playing', i === qi); r.classList.toggle('past', i < qi); });
   const row = dest.querySelector(`[data-qrow="${qi}"]`), box = row && scrollBox(row);
   if (!box) return;
   const b = box.getBoundingClientRect(), rr = row.getBoundingClientRect();
-  if (fresh) {   // recién pintada: 5 anteriores encima de la que suena
-    const first = dest.querySelector(`[data-qrow="${Math.max(0, qi - 5)}"]`);
+  if (fresh) {   // recién pintada: hasta 2 anteriores encima de la que suena
+    const first = dest.querySelector(`[data-qrow="${Math.max(0, qi - 2)}"]`);
     box.scrollTop += first.getBoundingClientRect().top - b.top - 8;
   } else if (rr.top < b.top || rr.bottom > b.bottom) box.scrollTop += rr.bottom > b.bottom ? rr.bottom - b.bottom + 8 : rr.top - b.top - 8;
 }
