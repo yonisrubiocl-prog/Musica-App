@@ -455,12 +455,6 @@ def logout(request: Request, found=Depends(check_token)):
     return {"ok": True}
 
 
-@app.get("/prueba-login", response_class=HTMLResponse)
-def login_test_page():
-    """Página para probar el login de Google en el navegador mientras no hay app."""
-    return LOGIN_TEST_HTML.replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
-
-
 @app.get("/", response_class=HTMLResponse)
 @app.get("/acceso", response_class=HTMLResponse)
 def access_page():
@@ -1202,44 +1196,6 @@ async def serve():
     for s in servers:
         s.should_exit = True
     await asyncio.gather(*tasks, return_exceptions=True)
-
-
-LOGIN_TEST_HTML = """<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MusicApp · prueba de login</title>
-<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px;background:#111;color:#eee}
-pre{background:#222;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all}
-input,button{font:inherit;padding:8px}audio{width:100%;margin-top:12px}</style>
-<script src="https://accounts.google.com/gsi/client" async></script></head><body>
-<h1>Prueba de login</h1>
-<div id="g_id_onload" data-client_id="{CLIENT_ID}" data-callback="entrar" data-auto_prompt="false"></div>
-<div class="g_id_signin" data-type="standard" data-theme="filled_black" data-text="signin_with"></div>
-<pre id="out">Inicia sesión con Google.</pre>
-<div id="musica" hidden><input id="q" placeholder="buscar…"> <button onclick="buscar()">Buscar</button>
-<ul id="res"></ul><audio id="audio" controls></audio></div>
-<script>
-let sesion = null;
-const out = t => document.getElementById('out').textContent = typeof t === 'string' ? t : JSON.stringify(t, null, 2);
-async function entrar(r) {
-  const res = await fetch('/auth/google', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                                           body: JSON.stringify({id_token: r.credential})});
-  const j = await res.json(); out({http: res.status, ...j});
-  if (j.session) { sesion = j.session; document.getElementById('musica').hidden = false; }
-}
-async function buscar() {
-  const q = encodeURIComponent(document.getElementById('q').value);
-  const j = await (await fetch('/search?q=' + q, {headers: {Authorization: 'Bearer ' + sesion}})).json();
-  const ul = document.getElementById('res'); ul.innerHTML = '';
-  for (const c of j.results || []) {
-    const li = document.createElement('li'), a = document.createElement('a');
-    a.href = '#'; a.textContent = c.title + (c.artist ? ' · ' + c.artist : '');
-    a.onclick = e => { e.preventDefault(); const au = document.getElementById('audio');
-                       au.src = '/stream/' + c.id + '?token=' + encodeURIComponent(sesion); au.play(); };
-    li.append(a); ul.append(li);
-  }
-}
-</script></body></html>"""
-
 
 
 if __name__ == "__main__":

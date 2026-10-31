@@ -191,7 +191,6 @@ en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:809
 | `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
 | `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
-| `GET /prueba-login` | Página para probar el login de Google en el navegador (buscar y escuchar con la sesión). Sin clave |
 | `GET /search?q=…` | Primero lo guardado (de 20 en 20 con `&offset=&limit=` hasta 200; `total` dice cuántas guardadas hay en total: "rawayana" → 78; `artists`: los artistas que encajan, también con faltas ("cancerbero" → Canserbero), en la primera página; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más, y **las faltas y los plurales** ("pilots" → "pilot") **solo si sin ellos no sale nada** (si no, "juanes" traía a Juan Luis Guerra y Juan Magán como plural de "juan"). Ver `Library.find`). Con `&yt=1` (por defecto, solo en la primera página) añade **20 canciones de internet que no estén en el servidor**, de **YouTube Music** (oficiales, con artista, álbum y duración): pide 20; si muchas ya están guardadas, pide más (hasta 100) para juntar 20 nuevas, salvo que YouTube no tenga más. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
 | `GET /suggest?q=…&n=8` | **Sugerencias mientras se escribe**, de lo guardado (sin YouTube, ~45 ms): artistas (con su nº de canciones), álbumes y canciones cuyas palabras empiezan por lo escrito ("raw" → Rawayana · 78, RawayanaLand…): `{sugerencias: [{tipo: artista\|album\|cancion, texto, artista, id, canciones, thumb}]}` |
 | `GET /search/albums?q=…` | Álbumes de internet (YouTube Music): `{albums: [{id, title, artist, year, type, thumb}], artista}`. Si lo escrito es un artista, aunque tenga faltas ("guns ando rose" → Guns N' Roses, por la biblioteca o por las canciones ya buscadas), busca **los suyos** y solo enseña los suyos (`artista`; la búsqueda de álbumes de YouTube Music no corrige faltas y traía de Anuel). 1 petición la primera vez; luego de memoria. Pide sesión |
@@ -582,7 +581,7 @@ Cada fase funciona por sí sola.
   reciente). Propuesta, sin hacer.
 - Que la web se actualice sola si cambian las favoritas en otro dispositivo (ahora: al cambiar de pestaña o
   recargar).
-- Quitar `API_TOKEN` cuando nada lo use (ni `/prueba-login`).
+- Quitar `API_TOKEN` cuando nada lo use.
 - Decidir si la sesión se renueva sola con el uso (ahora caduca a los 90 días y la app tendría que volver a
   pedir el login a Google, sin que yo apruebe de nuevo).
 - Borrar los restos de antes de la biblioteca única (sección "Canciones") y el contenedor `musicapp-prueba`
