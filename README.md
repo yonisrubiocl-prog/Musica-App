@@ -576,6 +576,9 @@ Cada fase funciona por sí sola.
   (ver `docs/app-paridad.md`). Siguientes fases:
   afinar con datos y que las opiniones ajusten (3), mixes (4), lo de todos opcional (5), Descubre (6).
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
+- **Letras:** dependen solo de lrclib.net, que la web consulta directamente; la API aún no tiene `/lyrics` (404).
+  El 31-10-2026 su API se cayó para todos (502 durante horas). Falta guardarlas en el servidor, añadir otra fuente y
+  que la web distinga "servicio caído" de "no hay letra" (hoy recuerda el fallo hasta recargar).
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
 - Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
   reciente). Propuesta, sin hacer.
