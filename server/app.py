@@ -299,8 +299,6 @@ SEARCHES_YT = YouTubeSearches(SEARCHES)
 # trae artista, álbum, duración y número de pista. Pasa por el mismo ritmo y bloqueo que yt-dlp, y se recuerda
 # igual (SEARCHES_YT). Si falla por otra cosa que un bloqueo, /search vuelve a la búsqueda de yt-dlp.
 YTM_NEW = 20                            # canciones de internet que /search?yt=1 enseña
-COVERS = re.compile(r"karaoke|in the style of|originally performed|(made|as) (popular|famous)|made famous|tribute|"
-                    r"lullaby|backing (track|version)|basi musicali", re.I)   # versiones de otros: al final de internet
 ALBUM_ID = re.compile(r"MPREb_[\w-]{5,40}")
 _ytm = None
 
@@ -364,49 +362,16 @@ def ytm_songs(text, limit):
     return hit
 
 
-def named_artist(text, songs):
-    """El artista que nombra 'text': el de los primeros resultados si su nombre está en lo escrito ("clint eastwood
-    gorillaz") o, con faltas, album_artist. Solo los primeros: buscar "clint eastwood" es la canción de Gorillaz,
-    aunque exista un cantante que se llame así."""
-    nq = f" {LIB._norm(text)} "
-    for s in songs[:3]:
-        for a in (s.get("artist") or "").split(", "):
-            if len(a) > 2 and f" {LIB._norm(a)} " in nq:
-                return a
-    return album_artist(text)
-
-
 def internet_songs(text):
-    """Lo que hay en internet para 'text', como en YouTube Music: lo primero que da, las canciones del artista si se
-    nombra, el resto y al final los karaokes y tributos (salvo que se busquen). Sale también lo ya guardado, como
-    guardada (no se baja dos veces: lo mira download). Sin rellenar: repetir la búsqueda solo traía karaokes."""
-    songs = ytm_songs(text, YTM_NEW)
-    artist = named_artist(text, songs)
-    na = LIB._norm(artist or "")
-    def theirs(s):
-        return bool(na) and na in (LIB._norm(a) for a in (s.get("artist") or "").split(", "))
-    def cover(s):
-        return not COVERS.search(text) and bool(COVERS.search(" ".join(s.get(f) or "" for f in ("title", "artist", "album"))))
-    more = []
-    if artist:
-        try:
-            more = [s for s in ytm_songs(artist, YTM_NEW) if theirs(s)]
-        except HTTPException:
-            pass   # sin los suyos sigue valiendo lo buscado
-    rest = songs[1:]
-    ordered = (songs[:1] + [s for s in rest if theirs(s)] + more + [s for s in rest if not theirs(s) and not cover(s)]
-               + [s for s in rest if not theirs(s) and cover(s)])
-    out, shown = [], set()
-    for s in ordered:
+    """Lo que da YouTube Music para 'text', tal cual: las mismas canciones en el mismo orden. Solo se marca lo que ya
+    está guardado, también si es otra copia: sigue su fila, pero suena la del servidor (no se baja dos veces)."""
+    out = []
+    for s in ytm_songs(text, YTM_NEW)[:YTM_NEW]:
         key = f"yt-{s['id']}"
         if not LIB.peek(key):   # otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
             key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""), s.get("duration")) or key
-        e = LIB.peek(key)
-        item = entry(key, e, "guardada") if e else s
-        if item["id"] not in shown:
-            shown.add(item["id"])
-            out.append(item)
-    return out[:YTM_NEW]
+        out.append(dict(s, id=key[3:], genre=LIB.genre_of(key), where="guardada") if LIB.peek(key) else s)
+    return out
 
 
 def youtube_info(vid):

@@ -1,4 +1,4 @@
-// Prueba "Buscar en internet" en un Chromium de verdad: la lista sale como en YouTube Music, con lo guardado marcado
+// Prueba "Buscar en internet" en un Chromium de verdad: la lista sale tal cual la da YouTube Music, con lo guardado marcado
 // "Guardada" (no escondido), y tocar una guardada suena la copia del servidor sin bajar nada.
 // Uso: tools/probar-web.sh prueba-internet.js
 const { chromium } = require('playwright');
@@ -23,10 +23,7 @@ const [,, html, token] = process.argv;
   await page.locator('#net .row').first().waitFor();
   const filas = await page.locator('#net .row').evaluateAll(rs => rs.map(r => ({t: r.querySelector('.t').textContent, a: r.querySelector('.a').textContent})));
   filas.slice(0, 20).forEach((f, i) => console.log(String(i + 1).padStart(2), f.a.slice(0, 44).padEnd(44), '|', f.t.slice(0, 44)));
-  const cover = i => /karaoke|style of|originally/i.test(filas[i].t + filas[i].a);
-  const firstCover = filas.findIndex((_, i) => cover(i));
   console.log('la canción guardada sale 1.ª y marcada:', /^Guardada/.test(filas[0].a) ? 'SÍ' : 'NO');
-  console.log('karaokes después de lo demás:', firstCover < 0 || filas.slice(firstCover).every((_, i) => cover(firstCover + i)) ? 'SÍ' : 'NO', '(primero en', firstCover + 1, ')');
   await page.locator('#net .row .hit').first().click();
   await page.waitForTimeout(1200);
   const cur = await page.evaluate(() => ({id: cur && cur.id, where: cur && cur.where}));
