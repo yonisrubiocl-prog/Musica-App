@@ -298,8 +298,9 @@ SEARCHES_YT = YouTubeSearches(SEARCHES)
 # Cuesta lo mismo o menos que la búsqueda de yt-dlp (20 canciones = 2 peticiones; álbumes = 1; abrir uno = 1) y
 # trae artista, álbum, duración y número de pista. Pasa por el mismo ritmo y bloqueo que yt-dlp, y se recuerda
 # igual (SEARCHES_YT). Si falla por otra cosa que un bloqueo, /search vuelve a la búsqueda de yt-dlp.
-YTM_NEW = 20                            # canciones de internet que /search?yt=1 enseña (que no estén guardadas)
-YTM_MAX = 100                           # como mucho se le piden tantas a YouTube Music para juntar YTM_NEW nuevas
+YTM_NEW = 20                            # canciones de internet que /search?yt=1 enseña
+COVERS = re.compile(r"karaoke|in the style of|originally performed|(made|as) (popular|famous)|made famous|tribute|"
+                    r"lullaby|backing (track|version)|basi musicali", re.I)   # versiones de otros: al final de internet
 ALBUM_ID = re.compile(r"MPREb_[\w-]{5,40}")
 _ytm = None
 
@@ -363,18 +364,49 @@ def ytm_songs(text, limit):
     return hit
 
 
-def new_songs(text, skip):
-    """YTM_NEW canciones de internet que no estén en 'skip' (las guardadas): si en las primeras 20 hay muchas
-    guardadas, se piden más (40, 60…) hasta juntar YTM_NEW o llegar a YTM_MAX o a que YouTube no tenga más."""
-    limit = YTM_NEW
-    while True:
-        songs = ytm_songs(text, limit)
-        # ni las guardadas ni otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
-        fresh = [s for s in songs if f"yt-{s['id']}" not in skip
-                 and not DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""))]
-        if len(fresh) >= YTM_NEW or len(songs) < limit or limit >= YTM_MAX:
-            return fresh[:YTM_NEW]
-        limit = YTM_MAX   # el segundo intento ya pide el máximo: dos búsquedas como mucho (peor caso ~8 peticiones)
+def named_artist(text, songs):
+    """El artista que nombra 'text': el de los primeros resultados si su nombre está en lo escrito ("clint eastwood
+    gorillaz") o, con faltas, album_artist. Solo los primeros: buscar "clint eastwood" es la canción de Gorillaz,
+    aunque exista un cantante que se llame así."""
+    nq = f" {LIB._norm(text)} "
+    for s in songs[:3]:
+        for a in (s.get("artist") or "").split(", "):
+            if len(a) > 2 and f" {LIB._norm(a)} " in nq:
+                return a
+    return album_artist(text)
+
+
+def internet_songs(text):
+    """Lo que hay en internet para 'text', como en YouTube Music: lo primero que da, las canciones del artista si se
+    nombra, el resto y al final los karaokes y tributos (salvo que se busquen). Sale también lo ya guardado, como
+    guardada (no se baja dos veces: lo mira download). Sin rellenar: repetir la búsqueda solo traía karaokes."""
+    songs = ytm_songs(text, YTM_NEW)
+    artist = named_artist(text, songs)
+    na = LIB._norm(artist or "")
+    def theirs(s):
+        return bool(na) and na in (LIB._norm(a) for a in (s.get("artist") or "").split(", "))
+    def cover(s):
+        return not COVERS.search(text) and bool(COVERS.search(" ".join(s.get(f) or "" for f in ("title", "artist", "album"))))
+    more = []
+    if artist:
+        try:
+            more = [s for s in ytm_songs(artist, YTM_NEW) if theirs(s)]
+        except HTTPException:
+            pass   # sin los suyos sigue valiendo lo buscado
+    rest = songs[1:]
+    ordered = (songs[:1] + [s for s in rest if theirs(s)] + more + [s for s in rest if not theirs(s) and not cover(s)]
+               + [s for s in rest if not theirs(s) and cover(s)])
+    out, shown = [], set()
+    for s in ordered:
+        key = f"yt-{s['id']}"
+        if not LIB.peek(key):   # otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
+            key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or "")) or key
+        e = LIB.peek(key)
+        item = entry(key, e, "guardada") if e else s
+        if item["id"] not in shown:
+            shown.add(item["id"])
+            out.append(item)
+    return out[:YTM_NEW]
 
 
 def youtube_info(vid):
@@ -527,27 +559,28 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
     """Primero lo guardado (tolera palabras a medio escribir y faltas: ver Library.find), de 'limit' en 'limit' desde
     'offset'; 'total' dice cuántas guardadas hay en total (p. ej. "rawayana": 78); 'artists', los artistas que
     encajan (también con faltas: "cancerbero" -> Canserbero), solo en la primera página. Luego, si se pide y es la primera
-    página, YouTube. Sin repetir canciones."""
-    out, seen = [], set()
+    página, internet: 'internet' es la lista entera (lo guardado va marcado) y 'results' lleva detrás solo lo que no
+    está guardado."""
     saved = [(k, e) for k, e in LIB.find(q, 2000) if k.startswith("yt-")]   # /stream solo acepta canciones de YouTube
-    seen.update(k for k, _ in saved)
-    for k, e in saved[offset:offset + limit]:
-        out.append(entry(k, e, "guardada"))
+    out = [entry(k, e, "guardada") for k, e in saved[offset:offset + limit]]
+    internet = []
     if youtube_too and offset == 0:
         try:
-            out += new_songs(q, seen)
+            internet = internet_songs(q)
         except HTTPException as ex:
             if ex.status_code in (503, 429):
                 raise
             log.warning("YouTube Music falló; busco con yt-dlp")
             for e in SEARCHES_YT.get(q, YT_RESULTS).get("entries") or []:
-                if e and e.get("id") and f"yt-{e['id']}" not in seen:
-                    seen.add(f"yt-{e['id']}")
-                    out.append({"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
-                                "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
+                if e and e.get("id"):
+                    key = f"yt-{e['id']}"
+                    internet.append(entry(key, LIB.peek(key), "guardada") if LIB.peek(key) else
+                                    {"id": e["id"], "title": e.get("title"), "artist": artist_of(e), "album": "",
+                                     "duration": e.get("duration"), "thumb": e.get("thumbnail"), "where": "youtube"})
+    out += [x for x in internet if x["where"] == "youtube"]
     arts = [{"name": x["name"], "songs": x["songs"], "albums": x["albums"], "thumb": x["thumb"]}
             for x in LIB.find_artists(q, 10)] if offset == 0 else []
-    return {"results": out, "total": len(saved), "offset": offset, "artists": arts}
+    return {"results": out, "internet": internet, "total": len(saved), "offset": offset, "artists": arts}
 
 
 @app.get("/suggest", dependencies=[Depends(check_token)])

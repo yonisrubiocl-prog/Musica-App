@@ -9,7 +9,10 @@
 
 1. **Buscar** — `GET /search?q=…&yt=0|1&offset=&limit=`. `where`: `guardada` o `youtube`. **`total`** = cuántas
    guardadas hay en total ("rawayana" → 78): úsalo en "Ver todas (N)" y pide más con `limit=200` o por páginas. Con
-   `yt=1` (solo en la primera página) añade **20 de internet que no estén guardadas**, de YouTube Music. Lo guardado
+   `yt=1` (solo en la primera página) trae **`internet`: la lista de internet entera** (hasta 20): la que hay que
+   enseñar, en ese orden. Como en YouTube Music: primero lo mejor, las canciones del artista si se nombra y al final
+   karaokes y tributos. Lo que ya está guardado **sale en ella** con `where: guardada` (marcarlo "Guardada"; suena la
+   del servidor). `results` sigue trayendo detrás solo las de `youtube`, para versiones viejas. Lo guardado
    tolera faltas y palabras a medio escribir. **`artists`** = los artistas que encajan, también con faltas
    ("cancerbero" → Canserbero): úsalos para la fila de artistas en vez de filtrarlos en la app.
 2. **Sugerencias mientras se escribe** — `GET /suggest?q=…` (~45 ms, sin YouTube) → `{sugerencias: [{tipo:

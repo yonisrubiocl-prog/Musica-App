@@ -611,7 +611,7 @@ function rows(key) {
   return songs.map((s, i) => `<div class="row${cur && cur.id === s.id ? ' playing' : ''}" data-row="${esc(s.id)}">
     <button class="hit" data-l="${key}" data-i="${i}">
       ${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
-      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${s.where === 'youtube' ? '<span class="tag">Internet</span>' : ''}${esc(s.artist || '')}${s.album && s.where !== 'youtube' ? (s.artist ? ' · ' : '') + esc(s.album) : ''}</div></span>
+      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${s.where === 'youtube' ? '<span class="tag">Internet</span>' : key === 'net' ? '<span class="tag">Guardada</span>' : ''}${esc(s.artist || '')}${s.album && s.where !== 'youtube' ? (s.artist ? ' · ' : '') + esc(s.album) : ''}</div></span>
       <span class="d">${dur(s.duration)}</span></button>
     <button class="heart${favs.has(s.id) ? ' on' : ''}" data-id="${esc(s.id)}" data-l="${key}" data-i="${i}" aria-label="Me gusta">${HEART(favs.has(s.id))}</button>
     <button class="kebab" data-menu data-l="${key}" data-i="${i}" aria-label="Más">${KEBAB}</button></div>`).join('');
@@ -816,7 +816,7 @@ async function searchInternet(b) {
     const j = await api('/search?yt=1&q=' + encodeURIComponent(q));
     if (q !== lastQ) return;
     setList('srv', j.results.filter(x => x.where !== 'youtube'), 'radio');
-    setList('net', j.results.filter(x => x.where === 'youtube'), 'radio');
+    setList('net', j.internet, 'radio');
     b.remove();
     $('res').insertAdjacentHTML('beforeend', `<div class="divider"></div>
       <h2>De internet <div class="chips" id="netChips" style="margin:0 0 0 auto"><button class="chip glass on" data-net="songs">Canciones</button>
