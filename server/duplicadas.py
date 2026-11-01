@@ -118,12 +118,28 @@ class Duplicadas:
                                           bool(ke[1].get("album")), ke[1].get("plays", 0)))
 
     @staticmethod
+    def _near(d, d0):
+        return abs(d - d0) <= max(25, 0.15 * d0)
+
+    @staticmethod
     def _close(e, best):
         d0, d = best.get("duration") or 0, e.get("duration") or 0
         if not d0 or not d:
             return True
         # duración parecida, o la de vídeo más larga (intro, escenas) pero no el doble y pico
-        return abs(d - d0) <= max(25, 0.15 * d0) or (d > d0 and d <= 2.2 * d0 and Duplicadas.tagged(e.get("title")))
+        return Duplicadas._near(d, d0) or (d > d0 and d <= 2.2 * d0 and Duplicadas.tagged(e.get("title")))
+
+    def same_collabs(self, a, b, artist_n):
+        """Con colaboradores distintos son otra canción ("Sin Ti" con Willy Rodríguez / con La Vida Bohème). Si solo una
+        los nombra, puede ser la misma con el título corto ("Dutty Love") o otra grabación ("No Ha Parado De Llover" de
+        Maná, 5:22, y la de Sebastián Yatra, 4:06): solo es la misma si duran casi lo mismo. Ante la duda, no."""
+        ca, cb = self.collabs(a, artist_n), self.collabs(b, artist_n)
+        if ca and cb:
+            return bool(ca & cb)
+        if not ca and not cb:
+            return True
+        da, db = a.get("duration"), b.get("duration")
+        return bool(da and db and self._near(da, db))
 
     def find(self):
         """[(la que se queda (clave, ficha), [(clave, ficha) que sobran])]."""
@@ -142,36 +158,36 @@ class Duplicadas:
         for items in groups.values():
             if len(items) > 1:
                 best = self._best(items)
-                bc = self.collabs(best[1], items_n := best_n(items))
-                # con colaboradores distintos son otra canción ("Sin Ti" con Willy Rodríguez / con La Vida Bohème)
+                items_n = best_n(items)
                 rest = [(k, e) for k, e in items if k != best[0] and self._close(e, best[1])
                         and self._genuine(e, items_n) and self._genuine(best[1], items_n)
-                        and not (bc and (oc := self.collabs(e, items_n)) and not bc & oc)]
+                        and self.same_collabs(e, best[1], items_n)]
                 if rest:
                     out.append((best, rest))
         return out
 
     def saved(self):
-        """{(artista, título limpio, directo, remix…): clave} de lo guardado, para no ofrecer de internet otra copia."""
+        """{(artista, título limpio, directo, remix…): [claves]} de lo guardado, para no ofrecer de internet otra copia."""
         stamp = (self.lib._ver, len(self.lib.index))
         if self._saved[0] != stamp:
             with self.lib.lock:
                 out = {}
                 for n, (_, items) in self.lib._by_artist().items():
                     for k, e in items:
-                        out.setdefault(self.kind(e.get("title") or e.get("track"), n), k)
+                        out.setdefault(self.kind(e.get("title") or e.get("track"), n), []).append(k)
             self._saved = (stamp, out)
         return self._saved[1]
 
-    def is_saved(self, title, artists):
-        """¿Esta canción de internet (título y artistas) ya está guardada con otro título? Su clave o None."""
+    def is_saved(self, title, artists, duration=None):
+        """¿Esta canción de internet (título, artistas y duración) ya está guardada con otro título? Su clave o None."""
         saved, groups = self.saved(), self.lib._by_artist()
         for a in artists:
             n = self.lib._norm(a)
             if n in groups:
-                k = saved.get(self.kind(title, n))
-                if k:
-                    return k
+                song = {"title": title, "artist": a, "duration": duration}
+                for k in saved.get(self.kind(title, n), ()):
+                    if self.same_collabs(song, self.lib.peek(k) or {}, n):
+                        return k
         return None
 
     # ---------- no bajar lo que ya está ----------
@@ -197,7 +213,8 @@ class Duplicadas:
         if self.lib.DASH.search(title):
             artists += self.lib.DASH.split(title, 1)
         artists = [x for a in artists if a for x in self.lib.JOINT.split(a) if x.strip()]
-        saved = self.is_saved(title, artists) or (info.get("track") and self.is_saved(info["track"], artists))
+        d = info.get("duration")
+        saved = self.is_saved(title, artists, d) or (info.get("track") and self.is_saved(info["track"], artists, d))
         e = self.lib.peek(saved) if saved else None
         if not e:
             return None

@@ -352,7 +352,9 @@ una sola.
 - **Es la misma** si coincide el artista y el título limpio (quitando "Artista - " solo si lo de delante empieza
   por el artista; si no, lo de detrás puede ser el canal), ninguna es directo, remix, acústica, orquestal,
   "stripped"… sin serlo la otra, la duración se parece (o la de vídeo es algo más larga por la intro) y, si las
-  dos nombran colaboradores, comparten alguno. Vale también "Canción – Artista" ("Numb (Official Music Video) [4K] –
+  dos nombran colaboradores, comparten alguno. Si solo una los nombra, tienen que durar casi lo mismo: "Dutty Love"
+  y "Dutty Love ft. Natti Natasha" son la misma, pero "No Ha Parado De Llover" de Maná (5:22) y la de Sebastián
+  Yatra (4:06) no. Vale también "Canción – Artista" ("Numb (Official Music Video) [4K] –
   Linkin Park"). Títulos genéricos ("Intro", "Interlude", "Skit") nunca se juntan.
 - **Se queda la del disco** (sin etiquetas de vídeo o letra, con álbum y pista) o, si no hay, la más puesta. Antes de
   borrar las demás, las favoritas, playlists e historial de **todos** pasan a la que queda (mismo sitio, sin

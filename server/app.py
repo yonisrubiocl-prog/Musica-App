@@ -400,7 +400,7 @@ def internet_songs(text):
     for s in ordered:
         key = f"yt-{s['id']}"
         if not LIB.peek(key):   # otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
-            key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or "")) or key
+            key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""), s.get("duration")) or key
         e = LIB.peek(key)
         item = entry(key, e, "guardada") if e else s
         if item["id"] not in shown:
