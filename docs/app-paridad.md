@@ -46,7 +46,7 @@
     con "Se inició sesión en otro dispositivo", sin quedarse callada.
 
 12. **Pestaña DC** — `POST /discord/inicio`, `DELETE /discord`, `GET /dc/estado?desde=`, `POST /dc/pedir`,
-    `/dc/saltar`, `/dc/pausa`, `/dc/quitar`, `/dc/mover`. `/me` trae `discord` (`{name, photo}` o `null`). Detalle en el
+    `/dc/saltar`, `/dc/anterior`, `/dc/pausa`, `/dc/quitar`, `/dc/mover`. `/me` trae `discord` (`{name, photo}` o `null`). Detalle en el
     README, "Pestaña DC". Esta pestaña **no tiene referencia en la web**: su comportamiento está en la sección B.
 
 ## B. Comportamientos a igualar
@@ -117,7 +117,9 @@
     - **Bucle:** `GET /dc/estado?desde=<última version>` seguido, solo con la pestaña visible; se corta al salir o en
       segundo plano. Si falla, esperar unos segundos. `posicion` la avanza la app localmente salvo con `pausada`.
     - **Buscador:** `/search` igual que en Buscar, con lo de internet; cada resultado va a `/dc/pedir`.
-    - **Saltar y pausa:** mandan el `qid` que se ve y el `pausar` deseado (nunca alternar a ciegas).
+    - **Saltar, anterior y pausa:** mandan el `qid` que se ve y el `pausar` deseado (nunca alternar a ciegas).
+      `/dc/anterior` lleva `qid: null` si no suena nada, y se activa solo si `anteriores` no está vacío.
+    - **`anteriores`:** las 2 últimas que sonaron, en gris sobre la actual, con la más reciente abajo; no se mueven ni se quitan.
     - **Reordenar:** arrastre con asa ≡ como la cola normal, con `/dc/mover` **solo al soltar**. Las respuestas del
       bucle que lleguen mientras se arrastra se aplazan hasta soltar, y después manda lo del servidor. Ante 404 o 409,
       enseñar `detail` y recargar.

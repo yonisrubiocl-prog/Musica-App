@@ -1028,6 +1028,11 @@ async def dc_saltar(qid: int = Body(embed=True), found=Depends(check_token)):
     return await dc_order("/saltar", found, {"qid": qid})
 
 
+@app.post("/dc/anterior")
+async def dc_anterior(qid: int | None = Body(None, embed=True), found=Depends(check_token)):
+    return await dc_order("/anterior", found, {"qid": qid})
+
+
 @app.post("/dc/pausa")
 async def dc_pausa(pausar: bool = Body(embed=True), found=Depends(check_token)):
     return await dc_order("/pausa", found, {"pausar": pausar})
