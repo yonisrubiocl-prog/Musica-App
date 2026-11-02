@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 
-USERS_FILE = "/data/users.json"         # sub de Google -> {email, name, picture, status, since, seen}
+USERS_FILE = "/data/users.json"         # sub de Google -> {email, name, picture, status, since, seen, discord}
 SESSIONS_FILE = "/data/sessions.json"   # sha256(sesión) -> {sub, until, since, web}
 SESSION_DAYS = 90
 MAX_DEVICES = 3                         # sesiones de la app a la vez por cuenta: la 4.ª cierra la más antigua
@@ -65,8 +65,27 @@ def _hash(session):
 
 
 def public(sub, u):
+    d = u.get("discord")
     return {"id": sub, "email": u["email"], "name": u.get("name") or "", "picture": u.get("picture") or "",
-            "status": u["status"]}
+            "status": u["status"], "discord": {"name": d["name"], "photo": d["photo"]} if d else None}
+
+
+def link_discord(sub, discord):
+    """Une esta cuenta a la de Discord ({id, name, photo}). False si esa cuenta de Discord ya está en otra."""
+    with USERS.lock:
+        USERS.reload()
+        if any((u.get("discord") or {}).get("id") == discord["id"] for k, u in USERS.data.items() if k != sub):
+            return False
+        USERS.data[sub]["discord"] = discord
+        USERS.save()
+    return True
+
+
+def unlink_discord(sub):
+    with USERS.lock:
+        USERS.reload()
+        if USERS.data[sub].pop("discord", None):
+            USERS.save()
 
 
 def login(claims, web=False):

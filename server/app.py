@@ -8,6 +8,7 @@ import asyncio
 import collections
 import difflib
 import hmac
+import html
 import secrets
 import json
 import logging
@@ -24,6 +25,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
+import discord_dc
 import userdata
 from enrich import Enricher
 from genres import Genres
@@ -945,6 +947,101 @@ def check_bot(request: Request):
     key = given_key(request)
     if not (BOT_KEY and key and hmac.compare_digest(key.encode(), BOT_KEY.encode())):
         raise HTTPException(401, "no autorizado")
+
+
+# ---------- pestaña DC: controlar el bot de Discord desde la app (ver discord_dc.py) ----------
+
+def discord_page(text):
+    return HTMLResponse(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+                        f'<title>Música</title><body style="font:18px sans-serif;text-align:center;padding:48px 16px">'
+                        f'{text}')
+
+
+@app.post("/discord/inicio")
+def discord_start(found=Depends(check_token)):
+    """El enlace de "Entrar con Discord". La app lo abre en el navegador y, al volver, mira /dc/estado."""
+    if not discord_dc.configured():
+        raise HTTPException(503, "login con Discord sin configurar")
+    return {"url": discord_dc.login_url(need_user(found))}
+
+
+@app.get("/auth/discord/callback")
+async def discord_callback(code: str = "", state: str = ""):
+    """Discord vuelve aquí con el navegador: no lleva sesión, la cuenta sale del `state`."""
+    sub = discord_dc.take_state(state)
+    if not sub or not code:
+        return discord_page("No se pudo vincular: el enlace caducó o cancelaste. Prueba otra vez desde la app.")
+    try:
+        d = await discord_dc.identify(code)
+    except (discord_dc.httpx.HTTPError, KeyError, ValueError) as e:
+        log.warning("login con Discord: %r", e)
+        return discord_page("Discord no respondió bien. Prueba otra vez desde la app.")
+    if not users.link_discord(sub, d):
+        return discord_page("Esa cuenta de Discord ya está vinculada a otra cuenta de la app.")
+    log.info("discord: vinculado %s", d["name"])
+    return discord_page(f"✅ Listo, {html.escape(d['name'])}. Ya puedes volver a la app.")
+
+
+@app.delete("/discord")
+def discord_unlink(found=Depends(check_token)):
+    users.unlink_discord(need_user(found))
+    return {"ok": True}
+
+
+def discord_id(found):
+    need_user(found)
+    d = found[1].get("discord")
+    if not d:
+        raise HTTPException(403, "primero entra con Discord")
+    return d["id"]
+
+
+async def dc_order(path, found, body, wait=discord_dc.BOT_WAIT):
+    status, data = await discord_dc.to_bot("POST", path, body={"discord_id": discord_id(found), **body}, wait=wait)
+    if status != 200:
+        raise HTTPException(status, data.get("error"))
+    return data
+
+
+@app.get("/dc/estado")
+async def dc_estado(desde: str = Query("", max_length=32), found=Depends(check_token)):
+    """Lo que enseña la pestaña DC. Si la versión sigue siendo `desde`, espera un cambio (hasta 25 s)."""
+    need_user(found)
+    d = found[1].get("discord")
+    if not d:
+        return {"estado": "sin_vincular", "version": "sin_vincular"}
+    status, data = await discord_dc.to_bot("GET", "/estado", params={"discord_id": d["id"], "desde": desde},
+                                           wait=discord_dc.BOT_WAIT_STATE)
+    if status != 200:
+        raise HTTPException(status, data.get("error"))
+    return {**data, "discord": {"nombre": d["name"], "foto": d["photo"]}}
+
+
+@app.post("/dc/pedir")
+async def dc_pedir(id: str = Body(embed=True, max_length=11), siguiente: bool = Body(False, embed=True),
+                   found=Depends(check_token)):
+    return await dc_order("/pedir", found, {"id": valid_vid(id), "siguiente": siguiente}, discord_dc.BOT_WAIT_LONG)
+
+
+@app.post("/dc/saltar")
+async def dc_saltar(qid: int = Body(embed=True), found=Depends(check_token)):
+    return await dc_order("/saltar", found, {"qid": qid})
+
+
+@app.post("/dc/pausa")
+async def dc_pausa(pausar: bool = Body(embed=True), found=Depends(check_token)):
+    return await dc_order("/pausa", found, {"pausar": pausar})
+
+
+@app.post("/dc/quitar")
+async def dc_quitar(qid: int = Body(embed=True), found=Depends(check_token)):
+    return await dc_order("/quitar", found, {"qid": qid})
+
+
+@app.post("/dc/mover")
+async def dc_mover(qid: int = Body(embed=True), antes_de: int | None = Body(None, embed=True),
+                   found=Depends(check_token)):
+    return await dc_order("/mover", found, {"qid": qid, "antes_de": antes_de})
 
 
 def valid_key(key):

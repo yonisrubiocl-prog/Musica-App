@@ -4,10 +4,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 # yt-dlp necesita un motor de JavaScript para YouTube
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 # En un venv del usuario 1000 (el contenedor no corre como root) para poder actualizar yt-dlp al arrancar
-RUN python -m venv /opt/venv && pip install --no-cache-dir fastapi "uvicorn[standard]" "yt-dlp[default]" google-auth requests ytmusicapi \
+RUN python -m venv /opt/venv && pip install --no-cache-dir fastapi "uvicorn[standard]" "yt-dlp[default]" google-auth requests httpx ytmusicapi \
     && chown -R 1000:1000 /opt/venv
 WORKDIR /app
-COPY app.py users.py library.py userdata.py enrich.py precarga.py genres.py recomendar.py versiones.py duplicadas.py ./
+COPY app.py users.py library.py userdata.py enrich.py precarga.py genres.py recomendar.py versiones.py duplicadas.py discord_dc.py ./
 COPY web/ ./web/
 USER 1000:1000
 # Cada arranque actualiza yt-dlp: YouTube cambia a menudo y lo rompe. app.py escucha en 8000 (app) y 8001 (bot).

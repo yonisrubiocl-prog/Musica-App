@@ -6,8 +6,8 @@
 > contradicciones. Lo histórico está en git, no aquí.
 
 App de música propia, tipo Spotify: buscas una canción, le das a play y **suena en el móvil o el PC**.
-No es un mando del bot de Discord (`MusicBot`, otro proyecto): solo comparten la música guardada, que es de esta
-API; el bot se la pide (ver "Canciones").
+El bot de Discord (`MusicBot`, otro proyecto) es aparte: comparten la música guardada, que es de esta API, y la
+app además puede controlarlo desde su pestaña **DC** cuando estás en un canal de voz con él (ver "Pestaña DC").
 
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
@@ -53,6 +53,7 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
                                                  ├─ enviar el audio a la app
                                                  └─ favoritas, historial, artistas, álbumes, géneros
   Bot de Discord ── red interna de Docker ──►   (rutas /interno, puerto 8001)
+                 ◄── pestaña DC de la app ──    (la API le pasa las órdenes al puerto 8100 del bot)
 ```
 
 | Pieza | Dónde | Qué es |
@@ -236,6 +237,33 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `POST /interno/fetch` | `{"url": …, "by": <id de Discord>}`: "dame esta canción". Guardada → `source: local`; si no, la baja → `online`; directos → `live`, sin archivo y con `info.url` para escucharlo |
 | `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
 | `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
+
+### Pestaña DC (controlar el bot desde la app)
+
+La cuenta de la app (Google) se une una vez a la de Discord con "Entrar con Discord" (OAuth, permiso `identify`:
+solo id, nombre y foto; se guarda en `users.json`). Con eso, quien está en un canal de voz con el bot ve la cola y la
+maneja. **La cola no se copia aquí:** vive en el bot, que abre un servidor interno (`musicbot:8100`, solo en la red de
+Docker, con `BOT_API_KEY`); la API comprueba la sesión y le pasa la petición (`server/discord_dc.py`).
+
+| Ruta | Qué hace |
+|---|---|
+| `POST /discord/inicio` | `{url}`: el enlace para abrir en el navegador, de un solo uso, 10 min |
+| `GET /auth/discord/callback` | Adonde vuelve Discord. Guarda el vínculo y enseña "Listo, vuelve a la app". Un Discord solo puede estar en una cuenta |
+| `DELETE /discord` | Desvincula |
+| `GET /dc/estado?desde=<version>` | **Espera larga:** si la versión sigue siendo `desde`, contesta al cambiar algo o a los 25 s. `estado`: `sin_vincular` (contesta al momento), `fuera_de_voz`, `sin_bot`, `ocupado` (los bots están en otros canales) o `con_bot`. Con bot: `canal`, `bot`, `actual` (con `posicion`), `pausada`, `cargando`, `repetir`, `acciones` (las 5 últimas) y `cola`. Canciones: `{qid, id, titulo, artista, duracion, miniatura, pedida_por}`; `id` es `null` si no son de YouTube |
+| `POST /dc/pedir` | `{id, siguiente?}`, el `id` de `/search`. Si no hay bot en tu canal, entra |
+| `POST /dc/saltar` | `{qid}`: salta esa canción solo si sigue sonando |
+| `POST /dc/pausa` | `{pausar}`: pausa o reanuda; no alterna |
+| `POST /dc/quitar` | `{qid}`, también la que suena |
+| `POST /dc/mover` | `{qid, antes_de}`; `antes_de: null` la manda al final |
+
+Errores en `detail`: 403 (no estás en el canal del bot o sin vincular), 404 (esa canción ya no está), 409 (bots
+ocupados, o la cola cambió mientras movías), 422 (no se pudo añadir), 503 (el bot no contesta).
+
+**Varios a la vez:** las órdenes de la app y de Discord se aplican de una en una en el bot y van por `qid`, no por
+posición: dos saltos a la vez saltan una sola, y mover algo que ya no está da error en vez de dejarlo en otro sitio.
+Con dos arrastres seguidos gana el último. Quien está en el canal puede hacer todo, igual que con el panel, y
+`acciones` enseña quién hizo qué.
 
 **Pocas peticiones a YouTube** (para YouTube buscar y bajar son lo mismo: peticiones desde nuestra IP, y muchas
 seguidas parecen un bot):
@@ -498,6 +526,10 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
   renovarlas sin que YouTube las rote: `~/MusicBot/README.md`, sección 6.
 - **Rutas del bot** (`/interno`): puerto 8001 al que los túneles no reenvían, más su propia clave. Dentro de la
   red `musicapp_default` sí se alcanza (el bot lo necesita), pero sin la clave da 401.
+- **Entrar con Discord:** aplicación del bot 1 en el portal de Discord (`DISCORD_CLIENT_ID`, no es secreto), con
+  `https://musica.yoneapolis.com/auth/discord/callback` como Redirect. Su *client secret* es el único secreto de OAuth
+  que usa la API: va en `server/.env` (`DISCORD_CLIENT_SECRET`) y, si se filtra, se rota en ese portal. El `state` de
+  cada enlace evita que alguien una su Discord a una cuenta ajena. El servidor interno del bot (8100) no se publica.
 
 **Velocidad (medida):** desde este servidor contra su propia dirección pública (ida y vuelta por internet),
 con una canción de 3,8 MB (3:42, ~140 kbps):
@@ -596,7 +628,12 @@ Cada fase funciona por sí sola.
   como salida de reserva hacia YouTube.
 
 **Del bot de Discord** (`~/MusicBot`): la búsqueda tolerante (`Library.find`) aún no está allí; si la API no
-responde un momento, una importación da esa canción por fallida (debería esperar y reintentar).
+responde un momento, una importación da esa canción por fallida (debería esperar y reintentar). Si Discord invalida
+su sesión con música sonando, discord.py olvida la conexión de voz: la cola se para, el bot no se sale solo y la
+pestaña DC enseña `sin_bot` con el bot dentro.
+
+**Pestaña DC:** falta en la app (ver `docs/app-paridad.md`) y en la web. Tampoco hay parar, aleatorio, repetir,
+álbumes ni playlists enteras desde la app.
 
 **Del servidor en general:** `/home` tiene poco sitio (2,8 GB libres de 20 el 30-10-2026; `ProjectV1` ocupa
 11 GB): lo que crece (música, APK) ya está en `/var` (71 GB libres).
@@ -615,6 +652,7 @@ responde un momento, una importación da esa canción por fallida (debería espe
 │   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music
 │   ├── users.py            usuarios y sesiones (login con Google, aprobar/bloquear por comando, 3 dispositivos)
+│   ├── discord_dc.py       pestaña DC: "Entrar con Discord" y las peticiones al servidor interno del bot
 │   ├── userdata.py         favoritas, historial y playlists de cada usuario
 │   ├── web/                página principal (acceso.html), app web (web.html) y el logo (logo.png original; logo-480.webp y
 │   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,

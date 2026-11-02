@@ -1,7 +1,7 @@
 # App Android ↔ servidor y web: lista para igualar
 
 > Lo que la app Android tiene que usar del servidor y cómo debe comportarse para ser igual que la web
-> (`server/web/web.html`, la referencia). Al día el 30-10-2026. Cuando la app tenga algo, se borra su línea. Fuera
+> (`server/web/web.html`, la referencia). Al día el 02-11-2026. Cuando la app tenga algo, se borra su línea. Fuera
 > quedan cosas solo de PC (tarjetas laterales, tres columnas, volumen). Detalle de cada ruta en el `README.md`; plan
 > de recomendaciones en `docs/recomendaciones.md`. Todo con la sesión como `Bearer`.
 
@@ -44,6 +44,10 @@
 10. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva).
 11. **Sesiones** — máximo **3 dispositivos** por cuenta (administradores sin límite). Ante un **401**: volver al login
     con "Se inició sesión en otro dispositivo", sin quedarse callada.
+
+12. **Pestaña DC** — `POST /discord/inicio`, `DELETE /discord`, `GET /dc/estado?desde=`, `POST /dc/pedir`,
+    `/dc/saltar`, `/dc/pausa`, `/dc/quitar`, `/dc/mover`. `/me` trae `discord` (`{name, photo}` o `null`). Detalle en el
+    README, "Pestaña DC". Esta pestaña **no tiene referencia en la web**: su comportamiento está en la sección B.
 
 ## B. Comportamientos a igualar
 
@@ -103,3 +107,20 @@
 10. **Eventos para las recomendaciones**: al cambiar antes del 80 %, `salto` con el segundo; al pasar del 80 %,
     `entera`; si falló la reproducción, `salto` con `causa: "error"`. `contexto` según de dónde vino (`radio`,
     `para_ti`, `vuelve`, `busqueda`, `biblioteca`, `playlist`, `favoritas`).
+11. **Pestaña DC**, junto a Inicio, Buscar y Biblioteca. Una pantalla por cada `estado` de `/dc/estado`:
+    - `sin_vincular`: botón "Entrar con Discord". Abre la `url` de `/discord/inicio` en el navegador externo; al volver a
+      la app se consulta el estado (no hace falta enlace profundo). Aquí no hay bucle: la respuesta llega al momento.
+    - `fuera_de_voz`: "Entra a un canal de voz".
+    - `sin_bot`: el buscador; pedir la primera canción trae al bot.
+    - `ocupado`: los dos bots están en otros canales.
+    - `con_bot`: canción actual, cola completa, `acciones` y buscador.
+    - **Bucle:** `GET /dc/estado?desde=<última version>` seguido, solo con la pestaña visible; se corta al salir o en
+      segundo plano. Si falla, esperar unos segundos. `posicion` la avanza la app localmente salvo con `pausada`.
+    - **Buscador:** `/search` igual que en Buscar, con lo de internet; cada resultado va a `/dc/pedir`.
+    - **Saltar y pausa:** mandan el `qid` que se ve y el `pausar` deseado (nunca alternar a ciegas).
+    - **Reordenar:** arrastre con asa ≡ como la cola normal, con `/dc/mover` **solo al soltar**. Las respuestas del
+      bucle que lleguen mientras se arrastra se aplazan hasta soltar, y después manda lo del servidor. Ante 404 o 409,
+      enseñar `detail` y recargar.
+    - Las canciones con `id: null` se ven y se mueven, pero no se abren.
+    - El reproductor de la app no se toca: la pestaña controla el bot y nada más.
+    - "Desvincular Discord" con `DELETE /discord`. Un 503 es "el bot no contesta".

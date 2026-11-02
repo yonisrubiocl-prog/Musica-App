@@ -12,6 +12,9 @@ services:
       RECOMENDAR: "1"                    # 0 = apaga las recomendaciones (rutas 404; las apps enseñan lo de siempre)
       MUSIC_GB: "50"                     # tope de la biblioteca: al pasarlo borra lo que hace más que no suena (las favoritas no)
       GOOGLE_CLIENT_ID: 76813509622-rpbjrvn23rpjgrkulb051tjgids6f80j.apps.googleusercontent.com   # cliente OAuth web (no es secreto)
+      DISCORD_CLIENT_ID: "1563789794184532029"     # "Entrar con Discord": la aplicación del bot 1 (no es secreto)
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_REDIRECT: https://musica.yoneapolis.com/auth/discord/callback
     ports:
       - "127.0.0.1:8090:8000"            # solo para pruebas desde este servidor
       - "127.0.0.1:8091:8001"            # rutas del bot (/interno), igual; el bot entra por la red interna
