@@ -12,10 +12,13 @@ app además puede controlarlo desde su pestaña **DC** cuando estás en un canal
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
 
-**Estado actual** (30-10-2026):
+**Estado actual** (02-11-2026):
 - **Servidor** hecho y publicado en `https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio;
   `https://yoneapolis.com` lleva aquí). Tailscale Funnel (`https://musicapp.tail66213e.ts.net`) sigue encendido
-  como respaldo. 7 usuarios. ~2.300 canciones (8,1 GB; tope 50 GB).
+  como respaldo. 7 usuarios. ~2.750 canciones (9,7 GB; tope 50 GB).
+- **Pestaña DC** hecha en el servidor y probada con música real: "Entrar con Discord" y controlar el bot desde la
+  app (cola, pedir sin repetidas, saltar, anterior, pausa, quitar, mover y volver a poner una de las anteriores).
+  La app la está terminando la otra sesión; la web no la tiene.
 - **Biblioteca única** hecha: la API es la dueña de la música (`/var/lib/music`) y el bot de Discord es cliente suyo.
 - **Buscar:** lo guardado tolera faltas y palabras a medio escribir; lo de internet sale de **YouTube Music**
   (sus 20 primeras canciones tal cual, álbumes en orden), con memoria de 7 días y un ritmo máximo con YouTube.
