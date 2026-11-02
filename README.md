@@ -250,13 +250,13 @@ Docker, con `BOT_API_KEY`); la API comprueba la sesión y le pasa la petición (
 | `POST /discord/inicio` | `{url}`: el enlace para abrir en el navegador, de un solo uso, 10 min |
 | `GET /auth/discord/callback` | Adonde vuelve Discord. Guarda el vínculo y enseña "Listo, vuelve a la app". Un Discord solo puede estar en una cuenta |
 | `DELETE /discord` | Desvincula |
-| `GET /dc/estado?desde=<version>` | **Espera larga:** si la versión sigue siendo `desde`, contesta al cambiar algo o a los 25 s. `estado`: `sin_vincular` (contesta al momento), `fuera_de_voz`, `sin_bot`, `ocupado` (los bots están en otros canales) o `con_bot`. Con bot: `canal`, `bot`, `actual` (con `posicion`), `pausada`, `cargando`, `repetir`, `acciones` (las 5 últimas), `anteriores` (las 2 últimas que sonaron, la más reciente al final; el bot recuerda 20) y `cola`. Canciones: `{qid, id, titulo, artista, duracion, miniatura, pedida_por}`; `id` es `null` si no son de YouTube |
+| `GET /dc/estado?desde=<version>` | **Espera larga:** si la versión sigue siendo `desde`, contesta al cambiar algo o a los 25 s. `estado`: `sin_vincular` (contesta al momento), `fuera_de_voz`, `sin_bot`, `ocupado` (los bots están en otros canales) o `con_bot`. Con bot: `canal`, `bot`, `actual` (con `posicion`), `pausada`, `cargando`, `repetir`, `acciones` (las 5 últimas), `anteriores` (las 2 últimas que sonaron, la más reciente al final, nunca la que suena aunque ya sonara antes; el bot recuerda 20) y `cola`. Canciones: `{qid, id, titulo, artista, duracion, miniatura, pedida_por}`; `id` es `null` si no son de YouTube |
 | `POST /dc/pedir` | `{id, siguiente?}`, el `id` de `/search`. Si no hay bot en tu canal, entra |
 | `POST /dc/saltar` | `{qid}`: salta esa canción solo si sigue sonando |
 | `POST /dc/anterior` | `{qid}` de la que se ve (`null` si no suena nada): vuelve a la anterior, como el botón del panel, y la que sonaba queda justo detrás. Hay anterior si `anteriores` no está vacío |
 | `POST /dc/pausa` | `{pausar}`: pausa o reanuda; no alterna |
 | `POST /dc/quitar` | `{qid}`, también la que suena |
-| `POST /dc/mover` | `{qid, antes_de}`; `antes_de: null` la manda al final. El `qid` también puede ser de `anteriores`: sale del historial (ya no está para ⏮️) y vuelve a la cola con el mismo `qid` ("↩️ volvió a poner"); al sonar otra vez, vuelve a `anteriores` como cualquiera |
+| `POST /dc/mover` | `{qid, antes_de}`; `antes_de: null` la manda al final. El `qid` también puede ser de `anteriores`: sale del historial (ya no está para ⏮️) y vuelve a la cola con el mismo `qid` ("↩️ volvió a poner"); al sonar otra vez, vuelve a `anteriores` como cualquiera. Si no sonaba nada, empieza a sonar |
 
 Errores en `detail`: 403 (no estás en el canal del bot o sin vincular), 404 (esa canción ya no está), 409 (bots
 ocupados, o la cola cambió mientras movías), 422 (no se pudo añadir), 503 (el bot no contesta).
