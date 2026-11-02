@@ -251,7 +251,7 @@ Docker, con `BOT_API_KEY`); la API comprueba la sesión y le pasa la petición (
 | `GET /auth/discord/callback` | Adonde vuelve Discord. Guarda el vínculo y enseña "Listo, vuelve a la app". Un Discord solo puede estar en una cuenta |
 | `DELETE /discord` | Desvincula |
 | `GET /dc/estado?desde=<version>` | **Espera larga:** si la versión sigue siendo `desde`, contesta al cambiar algo o a los 25 s. `estado`: `sin_vincular` (contesta al momento), `fuera_de_voz`, `sin_bot`, `ocupado` (los bots están en otros canales) o `con_bot`. Con bot: `canal`, `bot`, `actual` (con `posicion`), `pausada`, `cargando`, `repetir`, `acciones` (las 5 últimas), `anteriores` (las 2 últimas que sonaron, la más reciente al final, nunca la que suena aunque ya sonara antes; el bot recuerda 20) y `cola`. Canciones: `{qid, id, titulo, artista, duracion, miniatura, pedida_por}`; `id` es `null` si no son de YouTube |
-| `POST /dc/pedir` | `{id, siguiente?}`, el `id` de `/search`. Si no hay bot en tu canal, entra |
+| `POST /dc/pedir` | `{id, siguiente?}`, el `id` de `/search`. Si no hay bot en tu canal, entra. 409 "Ya está en la cola" si esa canción ya suena o espera (la misma regla vale al pedir una suelta por Discord; listas, álbumes y aleatorio no la miran) |
 | `POST /dc/saltar` | `{qid}`: salta esa canción solo si sigue sonando |
 | `POST /dc/anterior` | `{qid}` de la que se ve (`null` si no suena nada): vuelve a la anterior, como el botón del panel, y la que sonaba queda justo detrás. Hay anterior si `anteriores` no está vacío |
 | `POST /dc/pausa` | `{pausar}`: pausa o reanuda; no alterna |
