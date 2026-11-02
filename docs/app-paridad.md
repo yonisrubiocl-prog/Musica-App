@@ -119,7 +119,8 @@
     - **Buscador:** `/search` igual que en Buscar, con lo de internet; cada resultado va a `/dc/pedir`.
     - **Saltar, anterior y pausa:** mandan el `qid` que se ve y el `pausar` deseado (nunca alternar a ciegas).
       `/dc/anterior` lleva `qid: null` si no suena nada, y se activa solo si `anteriores` no está vacío.
-    - **`anteriores`:** las 2 últimas que sonaron, en gris sobre la actual, con la más reciente abajo; no se mueven ni se quitan.
+    - **`anteriores`:** las 2 últimas que sonaron, en gris sobre la actual, con la más reciente abajo. No se quitan, pero
+      se pueden arrastrar a la cola con `/dc/mover`: salen de `anteriores` y quedan en la cola con el mismo `qid`.
     - **Reordenar:** arrastre con asa ≡ como la cola normal, con `/dc/mover` **solo al soltar**. Las respuestas del
       bucle que lleguen mientras se arrastra se aplazan hasta soltar, y después manda lo del servidor. Ante 404 o 409,
       enseñar `detail` y recargar.

@@ -256,7 +256,7 @@ Docker, con `BOT_API_KEY`); la API comprueba la sesión y le pasa la petición (
 | `POST /dc/anterior` | `{qid}` de la que se ve (`null` si no suena nada): vuelve a la anterior, como el botón del panel, y la que sonaba queda justo detrás. Hay anterior si `anteriores` no está vacío |
 | `POST /dc/pausa` | `{pausar}`: pausa o reanuda; no alterna |
 | `POST /dc/quitar` | `{qid}`, también la que suena |
-| `POST /dc/mover` | `{qid, antes_de}`; `antes_de: null` la manda al final |
+| `POST /dc/mover` | `{qid, antes_de}`; `antes_de: null` la manda al final. El `qid` también puede ser de `anteriores`: sale del historial (ya no está para ⏮️) y vuelve a la cola con el mismo `qid` ("↩️ volvió a poner"); al sonar otra vez, vuelve a `anteriores` como cualquiera |
 
 Errores en `detail`: 403 (no estás en el canal del bot o sin vincular), 404 (esa canción ya no está), 409 (bots
 ocupados, o la cola cambió mientras movías), 422 (no se pudo añadir), 503 (el bot no contesta).
