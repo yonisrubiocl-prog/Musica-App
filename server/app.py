@@ -10,6 +10,7 @@ import difflib
 import hmac
 import html
 import secrets
+import subprocess
 import json
 import logging
 import os
@@ -64,6 +65,9 @@ YT_PER_HOUR = 300                       # peticiones REALES como mucho en una ho
 COST_DOWNLOAD, COST_SEARCH, COST_INFO, COST_ALBUM = 4, 2, 2, 1
 YT_MAX_WAIT = 45                        # si el turno tarda más que esto, se contesta "espera" (429) en vez de colgar
 VIDEO_ID = re.compile(r"[\w-]{11}")
+# Formatos que FFmpeg puede abrir (los de YouTube y las radios). Deja fuera los raros, como ADX/AAX, con fallos
+# conocidos en FFmpeg (auditoría del 02-11-2026). La misma lista usa el bot al reproducir.
+FORMATS = "matroska,webm,mov,mp4,m4a,mp3,ogg,aac,flac,hls,mpegts"
 # Lo que el bot necesita de la respuesta de yt-dlp (el resto, como la lista de formatos, pesa mucho).
 INFO_FIELDS = ("id", "title", "webpage_url", "duration", "thumbnail", "is_live", "url", "http_headers",
                "extractor_key", "ie_key", "uploader", "channel", "artist", "artists")
@@ -82,6 +86,14 @@ def ydl(**extra):
     if os.path.exists(COOKIES):
         o["cookiefile"] = COOKIES
     return yt_dlp.YoutubeDL({**o, **extra})
+
+
+def audio_ok(path):
+    """¿Es un audio en un formato de FORMATS? Lo mira FFmpeg por dentro, no por la extensión."""
+    r = subprocess.run(["ffprobe", "-v", "error", "-format_whitelist", FORMATS, "-select_streams", "a",
+                        "-show_entries", "stream=codec_type", "-of", "csv=p=0", path],
+                       capture_output=True, text=True, timeout=30)
+    return r.returncode == 0 and "audio" in r.stdout
 
 
 def is_yt(url):
@@ -225,6 +237,10 @@ def download(url, by=None, dedupe=True):
             return LIB.peek(same[0]), LIB.path(same[0])
         if not src:
             return info, None
+        if not audio_ok(src):
+            os.remove(src)
+            log.warning("descarga rechazada, formato no permitido: %s (%s)", info.get("title"), url)
+            raise HTTPException(415, "ese enlace no es un audio en un formato que aceptemos")
         dest = LIB.put(key_of(url, info), src, info, by)
         log.info("bajada: %s (%s)", info.get("title"), key_of(url, info))
         return info, dest

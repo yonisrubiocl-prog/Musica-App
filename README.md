@@ -71,7 +71,9 @@ la app ni `/var/lib/musicapp/app/` (lo que ella publica).
 La **API es la dueña de la música**: una carpeta `/var/lib/music` (~2.300 canciones, 8,2 GB el 30-10-2026) con su catálogo
 `index.json` dentro (y `index.json.bak`, la versión anterior). Solo la API escribe ahí y solo ella habla con
 YouTube: buscar y bajar (yt-dlp, `.webm` con audio **Opus**, archivo `yt-<id de YouTube>.webm`; otras webs
-`u-<resumen del enlace>`). **Tope de 50 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió a 40 y luego a 50 para la precarga de álbumes, que añade ~6.000 canciones / ~26 GB): al pasarlo borra lo que hace
+`u-<resumen del enlace>`). Lo bajado se comprueba con FFmpeg antes de guardarlo: solo entran los formatos de
+`FORMATS` en `app.py` (WebM, MP4/M4A, MP3, Ogg, AAC, FLAC, HLS); el resto, como ADX/AAX, que tienen fallos conocidos
+en FFmpeg, se rechaza con 415 aunque cambie la extensión. **Tope de 50 GB** (`MUSIC_GB` en `docker-compose.yml`; era 15, se subió a 40 y luego a 50 para la precarga de álbumes, que añade ~6.000 canciones / ~26 GB): al pasarlo borra lo que hace
 más que no suena, contando la app y Discord. La lógica está en `server/library.py`: índice de palabras,
 autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
 
