@@ -625,8 +625,7 @@ Cada fase funciona por sí sola.
 - Quitar `API_TOKEN` cuando nada lo use.
 - Decidir si la sesión se renueva sola con el uso (ahora caduca a los 90 días y la app tendría que volver a
   pedir el login a Google, sin que yo apruebe de nuevo).
-- Borrar los restos de antes de la biblioteca única (sección "Canciones") y el contenedor `musicapp-prueba`
-  (imagen de la API con `data/` en solo lectura, encendido sin uso aparente).
+- Borrar los restos de antes de la biblioteca única (sección "Canciones").
 - **Prueba a ciegas de calidad** (sección 3b) antes de pensar en Premium.
 - Ideas sin hacer: generador de PO tokens, Cloudflare WARP o el móvil con datos (Tailscale como nodo de salida)
   como salida de reserva hacia YouTube.
