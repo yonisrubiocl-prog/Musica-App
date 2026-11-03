@@ -469,23 +469,30 @@ acceso a Gmail, Drive, contactos, etc.: Google da un justificante firmado de qui
 no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo demás que trae el justificante
 (nombre y apellido por separado, idioma…) no se guarda.
 
-**Panel** (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`, en el servidor (no en Docker). Lee los
-datos de la API por el grupo `musicapp` (sección "Servidor"): si da "permiso denegado", volver a entrar por SSH o
-`newgrp musicapp`. Todo con comandos que empiezan por `:` y Enter (Esc cancela); los números no se mueven mientras escribes.
+**Panel**: `~/MusicApp/server/panel.py`, en el servidor (no en Docker), hecho con **Textual** (`server/panelmusica/`:
+`datos.py` lee, `app.py` dibuja, `panel.tcss` los colores de la app). Arranca con su propio entorno `.venv-panel`
+(fuera de git; si falta, lo crea solo con `panelmusica/requisitos.txt`). Lee los datos por el grupo `musicapp`; si la
+sesión SSH aún no lo tiene, se relanza sola con `sg musicapp`. Se adapta al ancho: por debajo de 120 columnas (el
+móvil por SSH) pasa a una o dos columnas.
 
-- **Usuarios** (la vista de entrada): lista numerada, pendientes primero, se actualiza sola. `:1` aprueba al 1,
-  `:1 3 4` a varios, `:B 2` bloquea (pide confirmar). De cada uno: cuándo pidió acceso, último login, **cuándo pidió
-  su última canción** ("hace 12 min", verde si hace menos de 1 h) y **cuántas en 24 h** (del historial: app y web,
-  no Discord; se apunta desde el 30-10-2026).
-- **`:P` — artistas de la precarga:** los 120 en el orden en que irán, con canciones, estado (bajando, adelantado,
-  pendiente, hecho, quitado) y álbumes abiertos/elegidos; ↑↓ y RePág/AvPág. `:A 5` adelanta al 5 (primero en
-  `precarga-primero.txt`), `:X 5` lo quita (pide confirmar; `Artista | *` en `precarga-saltar.txt`) y otra vez `:X`
-  lo devuelve. `:P` vuelve a usuarios.
-- **Siempre a la vista:** arriba, la precarga (qué artista y álbum, incluso cuando lo está abriendo; cuándo baja la
-  siguiente, cuántas lleva, cola y artistas hechos; cian si trabaja, gris si espera, rojo si YouTube la paró).
-  Abajo, YouTube (normal o BLOQUEADO hasta…, y peticiones de la última hora) y las opiniones sobre las
-  recomendaciones de 7 días.
-- `:H` ayuda, `:Q` sale (la API sigue igual).
+Se manda como siempre: **`:` abre la línea de comandos** (Enter la manda, Esc la cierra; mientras escribes, los
+números no se mueven). Las teclas sueltas solo mueven: **1–6 cambian de pestaña**, flechas y ratón recorren las tablas;
+nada se aprueba ni se bloquea por accidente. Todo se refresca solo (archivos cada 2 s, Docker cada 10 s).
+
+| Pestaña | Qué enseña |
+|---|---|
+| **1 Resumen** | Usuarios (aviso en amarillo si hay pendientes), canciones y espacio, YouTube (peticiones/h, bloqueos), servicios (API, bot, túnel, Funnel), **quién está escuchando ahora** (app, web y Discord), la precarga, las **reproducciones por hora de las últimas 24 h** (app/web y Discord por separado) y lo último que pasó |
+| **2 Usuarios** | Todos (pendientes primero) con dispositivos, cuándo escuchó, canciones en 24 h, favoritas, playlists y última canción; ★ = administrador. A la derecha (abajo si es estrecho), el elegido: fechas, dispositivos, Discord y sus 15 últimas canciones |
+| **3 Actividad** | 48 h de lo que pasa: canciones en la app y la web (eventos), en Discord (registro del bot), bajadas (registro de la API) y solicitudes de acceso |
+| **4 Biblioteca** | Canciones, artistas y horas; espacio frente al tope y disco libre; lo más puesto, los artistas que más suenan y los géneros |
+| **5 Precarga** | Los artistas en el orden en que irán, con estado (bajando, adelantado, pendiente, hecho, quitado) y álbumes abiertos/elegidos |
+| **6 Sistema** | Contenedores (estado, desde cuándo, reinicios, CPU, RAM, imagen), carga, RAM y disco del servidor, avisos y errores del registro de la API y bloqueos de YouTube |
+
+Comandos: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
+confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). En la pestaña
+Precarga: `:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en
+`precarga-saltar.txt`) y otra vez `:X` lo devuelve. `:R API` y `:R BOT` reinician (piden confirmar). `:H` ayuda, `:Q`
+sale (la API sigue igual).
 
 Por debajo usa `users.py`:
 
@@ -681,7 +688,8 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── web/                página principal (acceso.html), app web (web.html) y el logo (logo.png original; logo-480.webp y
 │   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,
 │   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
-│   ├── panel.py            panel de terminal: usuarios (aprobar/bloquear) y artistas de la precarga (:P); fuera de Docker
+│   ├── panel.py            arranca el panel de terminal (fuera de Docker), con su entorno .venv-panel (fuera de git)
+│   ├── panelmusica/        el panel (Textual): datos.py lee, app.py dibuja, panel.tcss colores, requisitos.txt
 │   ├── Dockerfile          imagen de la API: Python 3.12 + FFmpeg + yt-dlp, usuario 10001
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000

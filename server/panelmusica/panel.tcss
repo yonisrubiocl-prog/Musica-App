@@ -1,0 +1,114 @@
+/* Panel de la música: colores de la app (fondo #080A12, tarjetas #151725, violeta, rosa y azul). */
+
+Screen { background: $background; }
+
+/* ---- barra de arriba ---- */
+#barra { height: 1; background: $panel; padding: 0 1; }
+#marca { width: auto; color: $primary; text-style: bold; }
+#servicios { width: 1fr; padding: 0 2; color: $text-muted; }
+#reloj { width: auto; color: $text-muted; }
+
+/* ---- pestañas ---- */
+TabbedContent { height: 1fr; }
+Tabs { background: $background; }
+Tab { color: $text-muted; }
+Tab.-active { color: $foreground; text-style: bold; }
+Tabs Underline > .underline--bar { color: $secondary; background: $panel; }
+TabPane { padding: 0 1; }
+
+/* ---- tarjetas ---- */
+.tarjeta {
+    border: round $primary 35%;
+    border-title-color: $primary;
+    border-title-style: bold;
+    background: $surface;
+    padding: 0 1;
+    height: auto;
+}
+.tarjeta.alerta { border: round $warning; border-title-color: $warning; }
+.tarjeta.mal { border: round $error; border-title-color: $error; }
+.sub { color: $text-muted; }
+Digits { color: $primary; width: auto; }
+#d-canciones { color: $accent; }
+ProgressBar { width: 1fr; padding: 0; }
+ProgressBar Bar { width: 1fr; }
+ProgressBar Bar > .bar--bar { color: $secondary; background: $panel; }
+ProgressBar Bar > .bar--complete { color: $error; }
+ProgressBar PercentageStatus { color: $text-muted; }
+
+/* ---- Resumen ---- */
+#g-resumen { layout: grid; grid-size: 4; grid-gutter: 0 1; grid-rows: 7 auto auto auto; height: auto; }
+#c-usuarios, #c-biblioteca, #c-youtube, #c-servicios { height: 100%; }
+.ancho2 { column-span: 2; }
+.ancho4 { column-span: 4; }
+#c-escuchando, #c-precarga { height: 7; }
+Sparkline { height: 3; margin: 0 0; }
+#sp-app > .sparkline--max-color { color: $primary; }
+#sp-app > .sparkline--min-color { color: $primary 30%; }
+#sp-dc > .sparkline--max-color { color: $accent; }
+#sp-dc > .sparkline--min-color { color: $accent 30%; }
+.eje { color: $text-muted; height: 1; }
+#ultimo { height: auto; max-height: 12; }
+
+/* ---- tablas ---- */
+DataTable { background: $surface; height: 1fr; scrollbar-size-vertical: 1; }
+DataTable > .datatable--header { background: $panel; color: $primary; text-style: bold; }
+DataTable { border-title-color: $primary; border-title-style: bold; }
+DataTable > .datatable--cursor { background: $primary 30%; }
+DataTable > .datatable--hover { background: $primary 12%; }
+DataTable:focus > .datatable--cursor { background: $primary 45%; }
+
+/* ---- Usuarios ---- */
+#p-usuarios { layout: horizontal; }
+#t-usuarios { width: 1fr; }
+#detalle { width: 54; height: 1fr; margin-left: 1; }
+#detalle-texto { height: auto; }
+
+/* ---- Biblioteca ---- */
+#b-cifras { height: auto; }
+#b-cifras > .tarjeta { width: 1fr; }
+#b-tablas { height: 1fr; }
+#b-tablas > DataTable { width: 1fr; margin-right: 1; border: round $primary 25%; }
+#t-top { width: 2fr; }
+#b-tablas > DataTable:focus { border: round $primary; }
+
+/* ---- Precarga ---- */
+#pre-resumen { margin-bottom: 0; }
+
+/* ---- Sistema ---- */
+#s-arriba { height: auto; }
+#s-servidor { width: 52; }
+#t-contenedores { height: auto; max-height: 8; width: 1fr; margin-right: 1; border: round $primary 25%; }
+#s-abajo { height: 1fr; }
+#s-abajo > DataTable { width: 1fr; margin-right: 1; border: round $primary 25%; }
+#s-abajo > DataTable:focus { border: round $primary; }
+
+/* ---- línea de abajo: ayuda corta, avisos y el comando ---- */
+#mensaje { height: 1; background: $panel; color: $text-muted; padding: 0 1; }
+#mensaje.ok { color: $success; text-style: bold; }
+#mensaje.mal { color: $error; text-style: bold; }
+#mensaje.info { color: $foreground; }
+#cmd { height: 1; border: none; background: $panel; padding: 0 1; display: none; }
+#cmd:focus { border: none; }
+#cmd.abierto { display: block; }
+
+/* ---- ventanas: confirmar y ayuda ---- */
+ModalScreen { align: center middle; background: $background 70%; }
+#caja-confirmar { width: 64; height: auto; border: thick $warning; background: $surface; padding: 1 2; }
+#caja-confirmar #pregunta { text-style: bold; margin-bottom: 1; }
+#caja-confirmar .sub { margin-bottom: 1; }
+#botones { height: auto; align-horizontal: right; }
+#botones Button { margin-left: 2; min-width: 10; }
+#caja-ayuda { width: 96; max-width: 95%; height: 90%; border: thick $primary; background: $surface; padding: 0 2; }
+
+/* ---- pantalla estrecha (el móvil por SSH): todo en una o dos columnas ---- */
+Screen.estrecho #g-resumen { grid-size: 2; }
+Screen.estrecho .ancho4 { column-span: 2; }
+Screen.estrecho #p-usuarios { layout: vertical; }
+Screen.estrecho #detalle { width: 1fr; height: 14; margin: 1 0 0 0; }
+Screen.estrecho #b-tablas { layout: vertical; }
+Screen.estrecho #b-tablas > DataTable { width: 1fr; height: 1fr; margin: 0; }
+Screen.estrecho #b-cifras { layout: vertical; }
+Screen.estrecho #s-arriba { layout: vertical; }
+Screen.estrecho #s-servidor { width: 1fr; }
+Screen.estrecho #s-abajo { layout: vertical; }
