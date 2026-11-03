@@ -1098,13 +1098,22 @@ function opinar(ctx) {
   };
 }
 
+// <audio> no puede mandar la cabecera con la sesión: la API da un enlace solo para esa canción, que caduca y no
+// lleva la sesión dentro (si se copia, no da acceso a la cuenta).
+async function playAudio(s) {
+  let url;
+  try { url = (await api(`/stream/${encodeURIComponent(s.id)}/enlace`, {method: 'POST'})).url; }
+  catch (e) { if (cur === s) toast('No se pudo reproducir'); return; }
+  if (cur !== s) return;   // cambió de canción mientras pedía el enlace
+  audio.src = url;
+  audio.play().catch(() => toast('No se pudo reproducir (¿el navegador no admite este audio?)'));
+}
 function start() {
   cierraLaQueSonaba();
   cur = queue[qi]; if (!cur) return;
   playing = {s: cur, ctx: cur._rec ? (['para_ti', 'vuelve'].includes(listCtx) ? listCtx : 'radio') : listCtx};
   if (cur._rec && ++radioRecs === 10) quizaPreguntar('radio');
-  audio.src = `/stream/${encodeURIComponent(cur.id)}?token=${encodeURIComponent(session)}`;
-  audio.play().catch(() => toast('No se pudo reproducir (¿el navegador no admite este audio?)'));
+  playAudio(cur);
   $('bar').classList.add('on');
   $('pImg').src = cur.thumb || ''; $('pT').textContent = cur.title; $('pA').textContent = cur.artist || '';
   $('tint').style.backgroundImage = cur.thumb ? `url("${cur.thumb.replace(/"/g, '%22')}")` : 'none';

@@ -46,6 +46,8 @@ MUSIC_GB = float(os.environ.get("MUSIC_GB", "15"))
 COOKIES = "/data/youtube-cookies.txt"   # cookies de YouTube (las del bot); solo las lee el usuario 1000
 APK = "/app-dist/musica.apk"            # la app para Android (en el servidor: /var/lib/musicapp/app/musica.apk)
 APK_LINK_TTL = 10 * 60                  # cuánto sirve un enlace de descarga de la app
+STREAM_LINK_TTL = 6 * 3600              # cuánto sirve un enlace de /stream/{id}/enlace (la web: una canción en pausa)
+STREAM_KEY_FILE = "/data/stream.key"   # firma esos enlaces; se crea sola. Borrarla caduca todos los enlaces dados
 SEARCHES = "/data/youtube-searches.json"   # búsquedas a YouTube ya hechas (ver YouTubeSearches)
 SEARCH_DAYS = 7                         # cuánto se recuerda una búsqueda
 SEARCH_MAX = 3000                       # búsquedas recordadas como mucho (se olvidan primero las más viejas)
@@ -425,7 +427,71 @@ def check_token(request: Request):
     return found
 
 
+def _stream_key():
+    try:
+        with open(STREAM_KEY_FILE, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        key = secrets.token_bytes(32)
+        with os.fdopen(os.open(STREAM_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as f:
+            f.write(key)
+        return key
+
+
+STREAM_KEY = _stream_key()
+
+
+def stream_sig(vid, sub, until):
+    return hmac.new(STREAM_KEY, f"{vid}|{sub}|{until}".encode(), "sha256").hexdigest()[:32]
+
+
+def stream_user(vid: str, request: Request):
+    """Quién escucha /stream: con ?t= (un enlace de /stream/{id}/enlace: esa canción, esa cuenta, hasta que caduque) o
+    con la sesión, como en las demás rutas (la app la manda en la cabecera)."""
+    t = request.query_params.get("t")
+    if t is None:
+        return check_token(request)
+    sub, _, rest = t.partition(".")
+    until, _, sig = rest.partition(".")
+    if not (until.isdigit() and int(until) > time.time() and hmac.compare_digest(sig, stream_sig(vid, sub, int(until)))):
+        raise HTTPException(401, "enlace caducado")
+    users.USERS.reload()
+    u = users.USERS.data.get(sub)
+    if not u or u["status"] != "aprobado":
+        raise HTTPException(401, "no autorizado")
+    return sub, u
+
+
+# Lo que se le pide al navegador en cada página (CSP en page()). Google: el botón de entrar (accounts.google.com/gsi) y
+# la letra Inter; lrclib.net: letras de canciones; las portadas vienen de varios sitios (YouTube, Google…): https.
+CSP = ("default-src 'self'; script-src 'nonce-{nonce}' https://accounts.google.com/gsi/client; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; "
+       "font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; media-src 'self' blob:; "
+       "connect-src 'self' https://lrclib.net https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; "
+       "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'")
+
+
+def page(body, headers=None):
+    """Una página nuestra con su CSP: solo corre el código de sus propias etiquetas <script> (las marca con un número
+    de un solo uso) y el de Google. Lo que se colase en la página por otro lado (un título de canción con código) no."""
+    nonce = secrets.token_urlsafe(16)
+    return HTMLResponse(body.replace("<script", f'<script nonce="{nonce}"'),
+                        headers={**(headers or {}), "Content-Security-Policy": CSP.format(nonce=nonce)})
+
+
 app = FastAPI(title="MusicApp", docs_url=None, redoc_url=None, openapi_url=None)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Cabeceras de seguridad en todas las respuestas (auditoría del 02-11-2026): siempre por https, no dejar que otra
+    web nos meta en un marco, no adivinar tipos de archivo y no mandar nuestras direcciones a otras webs."""
+    r = await call_next(request)
+    r.headers["Strict-Transport-Security"] = "max-age=31536000"
+    r.headers["X-Frame-Options"] = "DENY"
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return r
 
 
 @app.get("/health")
@@ -476,7 +542,7 @@ def access_page():
     """La página principal (web/acceso.html, con el estilo de la app): entran con Google; a los pendientes les
     dice que esperen y a los aprobados les baja la app. No reproduce nada."""
     with open(os.path.join(WEB, "acceso.html")) as f:
-        return f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID)
+        return page(f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID))
 
 
 @app.get("/web", response_class=HTMLResponse)
@@ -485,7 +551,7 @@ def web_app(path: str = ""):
     """La app en el navegador (web/web.html): Inicio, Buscar, Biblioteca, favoritas, reproductor y la descarga para
     Android. Usa la sesión que guarda la página principal al entrar. Cualquier ruta bajo /web/ da la misma página."""
     with open(os.path.join(WEB, "web.html")) as f:
-        return HTMLResponse(f.read(), headers={"Cache-Control": "no-cache"})
+        return page(f.read(), {"Cache-Control": "no-cache"})
 
 
 @app.get("/logo{rest}", include_in_schema=False)
@@ -932,8 +998,19 @@ def history(found=Depends(check_token), limit: int = Query(50, ge=1, le=userdata
     return {"songs": out}
 
 
+@app.post("/stream/{vid}/enlace")
+def stream_link(vid: str, found=Depends(check_token)):
+    """Enlace para escuchar una canción sin la sesión en la dirección (la web: <audio> no puede mandar la cabecera, y
+    una dirección se queda en historiales y registros). Solo esa canción y esa cuenta, durante STREAM_LINK_TTL."""
+    if not VIDEO_ID.fullmatch(vid):
+        raise HTTPException(400, "id de YouTube no válido")
+    sub = need_user(found)
+    until = int(time.time()) + STREAM_LINK_TTL
+    return {"url": f"/stream/{vid}?t={sub}.{until}.{stream_sig(vid, sub, until)}"}
+
+
 @app.get("/stream/{vid}")
-def stream(vid: str, request: Request, found=Depends(check_token)):
+def stream(vid: str, request: Request, found=Depends(stream_user)):
     """El audio de la canción (webm/Opus). Admite Range, así el reproductor puede saltar dentro de la canción."""
     if not VIDEO_ID.fullmatch(vid):
         raise HTTPException(400, "id de YouTube no válido")
@@ -968,7 +1045,7 @@ def check_bot(request: Request):
 # ---------- pestaña DC: controlar el bot de Discord desde la app (ver discord_dc.py) ----------
 
 def discord_page(text):
-    return HTMLResponse(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+    return page(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
                         f'<title>Música</title><body style="font:18px sans-serif;text-align:center;padding:48px 16px">'
                         f'{text}')
 

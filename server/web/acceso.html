@@ -107,7 +107,7 @@
     #estado { transition: none; }
   }
 </style>
-<script src="https://accounts.google.com/gsi/client" async onload="googleListo()"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -157,6 +157,9 @@ function googleListo() {
   google.accounts.id.renderButton(document.getElementById('google'),
     {theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'es', width: ancho});
 }
+// Sin onload="…" en la etiqueta (la CSP no deja código suelto en el HTML): Google llama a onGoogleLibraryLoad al
+// cargar; si ya había cargado antes que esta parte, se llama ya.
+if (window.google && google.accounts && google.accounts.id) googleListo(); else window.onGoogleLibraryLoad = googleListo;
 
 async function entrar(r) {
   estado('wait', 'Comprobando tu cuenta…<div class="bar"><i></i></div>');

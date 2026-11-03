@@ -31,6 +31,9 @@
 7. **Playlists** — `GET /playlists`, `POST /playlists {name}` → `{id}`, `PUT /playlists/<id> {name, songs}` (entera;
    `songs` = ids o fichas `{id, title, …}`; si falta alguna ficha: 400 `{detail: {error, ids}}`), `DELETE /playlists/<id>`.
 8. **Historial** — `GET /history?limit=50` (lo apunta el servidor solo con cada `/stream`).
+   **Audio:** pedir `/stream/<id>` con la sesión en la cabecera `Authorization: Bearer …` (just_audio admite
+   `headers`), no con `?token=` en la dirección, que se queda en registros y se retirará. Si el reproductor no deja
+   poner cabeceras: `POST /stream/<id>/enlace` → `{url}` (vale 6 h, solo esa canción; pedir uno por canción).
 9. **Recomendaciones (fase 1)**
    - `POST /eventos {eventos: [{tipo: entera|salto|no_me_gusta|ya_no_me_gusta, id, segundo, duracion, contexto,
      causa, cuando}]}` en lote; sin conexión, guardarlos y mandarlos después. **No mandar `inicio`**: lo apunta `/stream`.

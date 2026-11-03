@@ -220,7 +220,8 @@ las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nue
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero; con `?orden=tuyos`, primero **los que más escuchas** (`tuyo: true`; cada vez que pusiste una canción suya cuenta, la mitad a los 45 días, y suman un poco favoritas y playlists: `Recomendar.top_artists`). Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum y colaboraciones]}`; álbumes del más nuevo al más viejo. Con sesión de usuario, además **`tuyas`** (las suyas en tus favoritas, la última marcada primero, y luego en tus playlists) y **`todas`** (la cola de "Reproducir": las tuyas y luego las demás, las más puestas primero). 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, songs}`, por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
-| `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió |
+| `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió. Con la sesión en la cabecera, o con `?t=` de un enlace de la ruta siguiente |
+| `POST /stream/<id>/enlace` | `{url}`: enlace a `/stream/<id>?t=…` firmado (`server/data/stream.key`, se crea sola) que vale solo para esa canción y esa cuenta durante 6 h, sin la sesión dentro. Lo usa la web, porque `<audio>` no puede mandar la cabecera; si se copia, no da acceso a la cuenta. Borrar `stream.key` caduca todos |
 
 **Rutas del bot** (`/interno/…`; el bot lee el catálogo del disco, así que de búsqueda solo usa `resolve`, y el
 resto están para lo que haga falta): en **otro puerto, el 8001**, dentro del mismo proceso (comparten
@@ -317,7 +318,8 @@ seguidas parecen un bot):
   peticiones llevábamos esa hora). El estado actual, en `server/data/youtube-estado.json` (se reescribe cada 30 s).
 
 **Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
-`Authorization: Bearer …` o `?token=…`. También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
+`Authorization: Bearer …` o `?token=…` (este último solo queda por compatibilidad: una sesión en la dirección se queda
+en historiales y registros; para el audio en el navegador está `POST /stream/<id>/enlace`). También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
 git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
 cuando nada la use.
 
@@ -530,6 +532,12 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
   (por Funnel no llega, otra razón para apagarlo). Hacerlo antes de repartir la app.
 - La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music`, su `data/`
   y el APK (solo lectura). El ID o la clave de canción se validan antes de buscar archivos. Corre sin root.
+- **Cabeceras de seguridad** en todas las respuestas: HSTS (siempre https, sin `includeSubDomains`), `X-Frame-Options:
+  DENY` (nadie nos mete en un marco), `nosniff` y `Referrer-Policy: strict-origin-when-cross-origin`. Las páginas
+  (`/`, `/web/`, las de Discord) llevan además **CSP** (`CSP` y `page()` en `app.py`): solo corre el código de sus
+  propias etiquetas `<script>` (marcadas con un número de un solo uso por respuesta) y el botón de Google; nada de
+  `onclick="…"` en el HTML. Si se añade algo de fuera (otra fuente, otra web a la que llamar), hay que sumarlo a `CSP`
+  o el navegador lo bloquea. Probado en Chromium el 03-11-2026: sin bloqueos en la entrada ni en la web.
 - **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 10001, permisos 600); yt-dlp las usa si
   existen. Son de una cuenta desechable (si se filtran, se cierra la sesión de esa cuenta en Google). Cómo
   renovarlas sin que YouTube las rote: `~/MusicBot/README.md`, sección 6.
