@@ -12,10 +12,10 @@ app además puede controlarlo desde su pestaña **DC** cuando estás en un canal
 Es un proyecto **por diversión y para aprender**: privado, solo para mí y mis amigos (unas 6 personas),
 sin publicarlo ni cobrar nada.
 
-**Estado actual** (02-11-2026):
+**Estado actual** (03-11-2026):
 - **Servidor** hecho y publicado en `https://musica.yoneapolis.com` (túnel de Cloudflare, dominio propio;
   `https://yoneapolis.com` lleva aquí). Tailscale Funnel (`https://musicapp.tail66213e.ts.net`) sigue encendido
-  como respaldo. 7 usuarios. ~2.750 canciones (9,7 GB; tope 50 GB).
+  como respaldo. 13 usuarios aprobados. ~3.160 canciones (11 GB; tope 50 GB).
 - **Pestaña DC** hecha en el servidor y probada con música real: "Entrar con Discord" y controlar el bot desde la
   app (cola, pedir sin repetidas, saltar, anterior, pausa, quitar, mover y volver a poner una de las anteriores).
   La app la está terminando la otra sesión; la web no la tiene.
@@ -25,9 +25,13 @@ sin publicarlo ni cobrar nada.
 - **Por usuario:** favoritas, historial y playlists (iguales en la app y la web), máximo 3 dispositivos por cuenta.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
-- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.26 (build 27) publicada**, con aviso de
-  actualización propio. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
+- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.38 (build 39) publicada**, con aviso de
+  actualización propio. Esa versión pide el audio con `?token=`, que la API ya no acepta: **no suena hasta que se
+  publique la siguiente** (ya cambiada a la cabecera). **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
   es la referencia de cómo debe comportarse la app (`docs/app-paridad.md`).
+- **Seguridad:** la auditoría del servidor del 02-11-2026 está aplicada en lo de este proyecto (sección 2): API y bot
+  sin root ni `lainer`, FFmpeg solo con los formatos que usamos, sesión solo en la cabecera, cabeceras de seguridad
+  y CSP, imágenes al día. Falta el parche de FFmpeg de Debian (ver Pendientes).
 
 **Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
@@ -320,8 +324,8 @@ seguidas parecen un bot):
 **Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …`, **solo en la cabecera**: `?token=` en la dirección se quitó el 03-11-2026 (una sesión en la
 dirección se queda en historiales y registros). Para el audio en el navegador, `POST /stream/<id>/enlace`. La app
-1.0.38 y anteriores pedían el audio con `?token=`: no suenan hasta actualizar. También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
-git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
+1.0.38 y anteriores pedían el audio con `?token=`: no suenan hasta actualizar. También vale la clave compartida
+`API_TOKEN` (en `server/.env`, fuera de git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
 cuando nada la use.
 
 **Género** (`genres.py`): **por artista** (todas sus canciones el mismo), de una lista corta en español
@@ -465,8 +469,9 @@ acceso a Gmail, Drive, contactos, etc.: Google da un justificante firmado de qui
 no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo demás que trae el justificante
 (nombre y apellido por separado, idioma…) no se guarda.
 
-**Panel** (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`, en el servidor (no en Docker). Todo
-con comandos que empiezan por `:` y Enter (Esc cancela); los números no se mueven mientras escribes.
+**Panel** (estilo htop, como el de ProjectV1): `~/MusicApp/server/panel.py`, en el servidor (no en Docker). Lee los
+datos de la API por el grupo `musicapp` (sección "Servidor"): si da "permiso denegado", volver a entrar por SSH o
+`newgrp musicapp`. Todo con comandos que empiezan por `:` y Enter (Esc cancela); los números no se mueven mientras escribes.
 
 - **Usuarios** (la vista de entrada): lista numerada, pendientes primero, se actualiza sola. `:1` aprueba al 1,
   `:1 3 4` a varios, `:B 2` bloquea (pide confirmar). De cada uno: cuándo pidió acceso, último login, **cuándo pidió
@@ -637,6 +642,8 @@ Cada fase funciona por sí sola.
 - Que la web se actualice sola si cambian las favoritas en otro dispositivo (ahora: al cambiar de pestaña o
   recargar).
 - Quitar `API_TOKEN` cuando nada lo use.
+- **FFmpeg** (CVE-2026-64835, ADX/AAX): cuando Debian publique el arreglo para trixie, reconstruir la API
+  (`docker compose build --pull api`) y el bot. Mientras, los formatos raros no se abren (sección "Canciones").
 - Decidir si la sesión se renueva sola con el uso (ahora caduca a los 90 días y la app tendría que volver a
   pedir el login a Google, sin que yo apruebe de nuevo).
 - Borrar los restos de antes de la biblioteca única (sección "Canciones").
@@ -675,12 +682,13 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   │                       logo-96.webp, los ligeros: rehacerlos si cambia el logo); colores de la app: fondo #080A12,
 │   │                       tarjetas #151725, violeta #9B5CFF, rosa #F04DBB, azul #5268FF, texto #FFFFFF / #A3A5B5
 │   ├── panel.py            panel de terminal: usuarios (aprobar/bloquear) y artistas de la precarga (:P); fuera de Docker
-│   ├── Dockerfile
+│   ├── Dockerfile          imagen de la API: Python 3.12 + FFmpeg + yt-dlp, usuario 10001
 │   ├── docker-compose.yml  contenedores musicapp-api, musicapp-cloudflared y musicapp-tailscale (red propia musicapp_default)
 │   ├── funnel.json         qué publica Funnel (respaldo): https://musicapp.<tailnet>.ts.net -> api:8000
 │   ├── .env                API_TOKEN, BOT_API_KEY, CF_TUNNEL_TOKEN y TS_AUTHKEY (fuera de git; plantilla en .env.example)
 │   └── data/               users.json, sessions.json, userdata.json (favoritas/historial), generos.json,
-│                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), precarga-primero.txt (artistas antes), youtube-searches.json, youtube-cookies.txt y estado de Tailscale (fuera de git)
+│                           precarga.json, precarga-saltar.txt (álbumes que no se bajan), precarga-primero.txt (artistas antes), youtube-searches.json, youtube-cookies.txt, stream.key (firma
+│                           los enlaces del audio) y estado de Tailscale (fuera de git)
 ├── docs/
 │   ├── recomendaciones.md   plan y estado del recomendador
 │   └── app-paridad.md       lo que la app Android tiene que usar y copiar de la web (para igualarlas)
