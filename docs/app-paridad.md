@@ -1,7 +1,7 @@
 # App Android ↔ servidor y web: lista para igualar
 
 > Lo que la app Android tiene que usar del servidor y cómo debe comportarse para ser igual que la web
-> (`server/web/web.html`, la referencia). Al día el 02-11-2026. Cuando la app tenga algo, se borra su línea. Fuera
+> (`server/web/web.html`, la referencia). Al día el 03-11-2026 (rutas y campos comprobados contra la API ese día). Cuando la app tenga algo, se borra su línea. Fuera
 > quedan cosas solo de PC (tarjetas laterales, tres columnas, volumen). Detalle de cada ruta en el `README.md`; plan
 > de recomendaciones en `docs/recomendaciones.md`. Todo con la sesión como `Bearer`.
 
