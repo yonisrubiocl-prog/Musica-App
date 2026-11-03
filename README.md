@@ -319,7 +319,10 @@ seguidas parecen un bot):
 
 **Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …` o `?token=…` (este último solo queda por compatibilidad: una sesión en la dirección se queda
-en historiales y registros; para el audio en el navegador está `POST /stream/<id>/enlace`). También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
+en historiales y registros; para el audio en el navegador está `POST /stream/<id>/enlace`). La app lo dejó de usar
+después de la 1.0.38; cada uso queda en el registro (`?token= en la dirección: <email>`, una vez por hora y cuenta).
+Se quita cuando la app nueva esté publicada y el registro lleve días sin esa línea:
+`docker logs --since 72h musicapp-api 2>&1 | grep 'token= en la'`. También vale la clave compartida `API_TOKEN` (en `server/.env`, fuera de
 git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
 cuando nada la use.
 
