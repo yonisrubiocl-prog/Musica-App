@@ -3,6 +3,8 @@
 Se manda como siempre: ':' abre la línea de comandos (:1 aprueba al 1, :B 2 bloquea, :H ayuda, :Q sale). Las teclas
 sueltas solo mueven (1–6 cambian de pestaña, flechas, ratón): nada se aprueba ni se bloquea por accidente.
 """
+import json
+import os
 import time
 
 from rich.text import Text
@@ -17,15 +19,53 @@ from textual.widgets import (Button, DataTable, Digits, Input, ProgressBar, Spar
 
 from . import datos as d
 
-VIOLETA, ROSA, AZUL = "#9B5CFF", "#F04DBB", "#5268FF"
-VERDE, AMARILLO, ROJO, GRIS = "#3DDC97", "#FFB547", "#FF5C7A", "#7C7F93"
-TEMA = Theme(name="musica", primary=VIOLETA, secondary=ROSA, accent=AZUL, foreground="#FFFFFF",
-             background="#080A12", surface="#151725", panel="#1D2033", success=VERDE, warning=AMARILLO, error=ROJO,
-             dark=True)
-COLOR_ESTADO = {"pendiente": AMARILLO, "aprobado": VERDE, "bloqueado": ROJO}
-COLOR_PRECARGA = {"bajando": AZUL, "adelantado": AMARILLO, "hecho": VERDE, "quitado": ROJO, "pendiente": ""}
-ICONO = {"app": ("📱", VIOLETA), "discord": ("🎧", AZUL), "api": ("⚙", GRIS)}
-COLOR_TIPO = {"suena": "", "opina": AMARILLO, "bajada": GRIS, "acceso": AMARILLO, "aviso": ROJO, "bot": GRIS}
+# Paletas (:T las cambia; se recuerda en ~/.config/panel-musica.json). "suave" es la de siempre; "app", los colores
+# vivos de la app; "sobria", casi sin color.
+PALETAS = {
+    "suave": dict(violeta="#B4A2EE", rosa="#E3A6C6", azul="#8EAAEA", verde="#9DCB9F", amarillo="#E2C07E",
+                  rojo="#E3909B", gris="#6F7488", texto="#C9CDDA", fondo="#0F1117", tarjeta="#151821", panel="#1B1F2A"),
+    "app": dict(violeta="#9B5CFF", rosa="#F04DBB", azul="#5268FF", verde="#3DDC97", amarillo="#FFB547",
+                rojo="#FF5C7A", gris="#7C7F93", texto="#FFFFFF", fondo="#080A12", tarjeta="#151725", panel="#1D2033"),
+    "sobria": dict(violeta="#A3ADB9", rosa="#BCAEA0", azul="#93AABB", verde="#97B5A1", amarillo="#CDB98E",
+                   rojo="#C99191", gris="#656B74", texto="#C6CACF", fondo="#111315", tarjeta="#171A1D", panel="#1D2023"),
+}
+PREFERENCIAS = os.path.expanduser("~/.config/panel-musica.json")
+
+
+def aplicar_paleta(nombre):
+    """Pone los colores de la paleta 'nombre' (los que usa el texto de las tablas) y devuelve su tema de Textual."""
+    global VIOLETA, ROSA, AZUL, VERDE, AMARILLO, ROJO, GRIS, COLOR_ESTADO, COLOR_PRECARGA, ICONO, COLOR_TIPO
+    p = PALETAS[nombre]
+    VIOLETA, ROSA, AZUL = p["violeta"], p["rosa"], p["azul"]
+    VERDE, AMARILLO, ROJO, GRIS = p["verde"], p["amarillo"], p["rojo"], p["gris"]
+    COLOR_ESTADO = {"pendiente": AMARILLO, "aprobado": VERDE, "bloqueado": ROJO}
+    COLOR_PRECARGA = {"bajando": AZUL, "adelantado": AMARILLO, "hecho": VERDE, "quitado": ROJO, "pendiente": ""}
+    ICONO = {"app": ("📱", VIOLETA), "discord": ("🎧", AZUL), "api": ("⚙", GRIS)}
+    COLOR_TIPO = {"suena": "", "opina": AMARILLO, "bajada": GRIS, "acceso": AMARILLO, "aviso": ROJO, "bot": GRIS}
+    return Theme(name=f"musica-{nombre}", primary=VIOLETA, secondary=ROSA, accent=AZUL, foreground=p["texto"],
+                 background=p["fondo"], surface=p["tarjeta"], panel=p["panel"], success=VERDE, warning=AMARILLO,
+                 error=ROJO, dark=True)
+
+
+def paleta_guardada():
+    try:
+        with open(PREFERENCIAS) as f:
+            n = json.load(f).get("paleta")
+        return n if n in PALETAS else "suave"
+    except (OSError, ValueError):
+        return "suave"
+
+
+def guardar_paleta(nombre):
+    try:
+        os.makedirs(os.path.dirname(PREFERENCIAS), exist_ok=True)
+        with open(PREFERENCIAS, "w") as f:
+            json.dump({"paleta": nombre}, f)
+    except OSError:
+        pass
+
+
+aplicar_paleta("suave")
 PESTANAS = ["resumen", "usuarios", "actividad", "biblioteca", "precarga", "sistema"]
 EQ = "▁▂▃▄▅▆▇█▇▆▅▄▃▂"
 DIAS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
@@ -48,6 +88,7 @@ AYUDA = [
     (":R API", "Reiniciar la API (pide confirmar). La música se corta unos segundos para todos."),
     (":R BOT", "Reiniciar el bot de Discord (pide confirmar). Corta lo que suene; luego pregunta «¿Seguimos?»."),
     ("Otros", None),
+    (":T", "Cambiar de paleta de colores (suave, app, sobria). Se recuerda para la próxima vez."),
     (":H", "Esta ayuda.          :Q  Salir (la API sigue igual)."),
     ("Pestañas", None),
     ("1 Resumen", "Servicios, quién escucha ahora, biblioteca, YouTube, precarga y reproducciones de las últimas 24 h."),
@@ -247,8 +288,11 @@ class Panel(App):
         yield cmd
 
     def on_mount(self):
-        self.register_theme(TEMA)
-        self.theme = "musica"
+        for n in PALETAS:
+            self.register_theme(aplicar_paleta(n))
+        self.paleta = paleta_guardada()
+        aplicar_paleta(self.paleta)
+        self.theme = f"musica-{self.paleta}"
         titulos = {"c-usuarios": "Usuarios", "c-biblioteca": "Biblioteca", "c-youtube": "YouTube",
                    "c-servicios": "Servicios", "c-escuchando": "Escuchando ahora", "c-precarga": "Precarga de álbumes",
                    "c-horas": "Reproducciones · últimas 24 h", "c-ultimo": "Lo último", "detalle": "Detalle",
@@ -423,7 +467,7 @@ class Panel(App):
         texto.append(f"{d.fecha(cuando, '%H:%M')} ", style=GRIS)
         texto.append(f"{icono} ")
         if quien:
-            texto.append(f"{quien} ", style=f"bold {color}")
+            texto.append(f"{quien} ", style=color)
         texto.append(f"{que}\n", style=COLOR_TIPO.get(tipo, ""))
 
     def animar(self):
@@ -448,7 +492,7 @@ class Panel(App):
             reciente = u["ultima"] and time.time() - u["ultima"] < 3600
             filas.append((u["sub"], [
                 t(i, bold=True), t(u["estado"], COLOR_ESTADO.get(u["estado"], ""), u["estado"] == "pendiente"),
-                t(corta(u["nombre"], 24) + (" ★" if u["admin"] else ""), bold=True),
+                t(corta(u["nombre"], 24) + (" ★" if u["admin"] else "")),
                 t(f"{u['dispositivos']}" + (f"+{u['web']}w" if u["web"] else "")),
                 t(d.hace(u["ultima"]), VERDE if reciente else GRIS, bool(reciente)),
                 t(u["dia"] or "—", "" if u["dia"] else GRIS), t(u["favoritas"] or "—", ROSA if u["favoritas"] else GRIS),
@@ -496,7 +540,7 @@ class Panel(App):
         filas = []
         for i, (cuando, donde, quien, que, tipo) in enumerate(act):
             icono, color = ICONO.get(donde, ("·", GRIS))
-            filas.append((f"a{i}", [t(d.fecha(cuando), GRIS), icono, t(quien, color, True),
+            filas.append((f"a{i}", [t(d.fecha(cuando), GRIS), icono, t(quien, color),
                                     t(que, COLOR_TIPO.get(tipo, ""))]))
         rellenar(self.query_one("#t-actividad", DataTable), filas)
 
@@ -538,7 +582,7 @@ class Panel(App):
         for i, (name, songs, estado, albumes) in enumerate(self.arts, start=1):
             apagado = estado in ("hecho", "quitado")
             filas.append((f"p{i}", [t(i, bold=True), t(estado, COLOR_PRECARGA[estado], estado in ("bajando", "adelantado")),
-                                    t(name, GRIS if apagado else "", not apagado), t(songs, GRIS), t(albumes, GRIS)]))
+                                    t(name, GRIS if apagado else ""), t(songs, GRIS), t(albumes, GRIS)]))
         rellenar(self.query_one("#t-precarga", DataTable), filas)
 
     def pintar_sistema(self, s, yt):
@@ -651,6 +695,8 @@ class Panel(App):
             return self.exit()
         if cmd == "H":
             return self.push_screen(Ayuda())
+        if cmd == "T" or cmd.startswith("T "):
+            return self.cambiar_paleta(linea[1:].strip().lower())
         if cmd in ("R API", "R BOT"):
             cont = d.API_CONT if cmd == "R API" else d.BOT_CONT
             nombre = d.CONTENEDORES[cont]
@@ -711,6 +757,22 @@ class Panel(App):
             self.confirmar(f"¿Quitar a {name} de la precarga?", "Lo que ya se bajó se queda.",
                            lambda: (d.quitar(name), self.avisar(f"{name} fuera de la precarga", "mal")))
         self.leer_rapido()
+
+    def cambiar_paleta(self, nombre):
+        nombres = list(PALETAS)
+        if not nombre:
+            nombre = nombres[(nombres.index(self.paleta) + 1) % len(nombres)]
+        if nombre not in PALETAS:
+            return self.avisar(f"Paletas: {', '.join(nombres)}   (:T cambia a la siguiente)", "mal")
+        self.paleta = nombre
+        aplicar_paleta(nombre)
+        self.theme = f"musica-{nombre}"
+        guardar_paleta(nombre)
+        for tabla in self.query(DataTable):   # repintar todo con los colores nuevos
+            tabla._firma = None
+        self.leer_rapido()
+        self.leer_lento()
+        self.avisar(f"Paleta «{nombre}»  ·  :T para la siguiente ({', '.join(nombres)})", "ok")
 
     def elegir(self, texto, lista):
         """'1 3 4' -> los usuarios con esos números en la lista que se veía; None si alguno no existe."""

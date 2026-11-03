@@ -470,7 +470,10 @@ no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo dem�
 (nombre y apellido por separado, idioma…) no se guarda.
 
 **Panel**: `~/MusicApp/server/panel.py`, en el servidor (no en Docker), hecho con **Textual** (`server/panelmusica/`:
-`datos.py` lee, `app.py` dibuja, `panel.tcss` los colores de la app). Arranca con su propio entorno `.venv-panel`
+`datos.py` lee, `app.py` dibuja, `panel.tcss` la disposición). Tres paletas: **suave** (la de siempre, tonos apagados),
+**app** (los colores vivos de la app) y **sobria** (casi sin color); `:T` pasa a la siguiente y se recuerda en
+`~/.config/panel-musica.json`. Pide color real de 24 bits (`COLORTERM=truecolor`, que por SSH no suele llegar y sin él
+los colores salen más chillones); en una terminal vieja que se vea rara: `COLORTERM=256 ./panel.py`. Arranca con su propio entorno `.venv-panel`
 (fuera de git; si falta, lo crea solo con `panelmusica/requisitos.txt`). Lee los datos por el grupo `musicapp`; si la
 sesión SSH aún no lo tiene, se relanza sola con `sg musicapp`. Se adapta al ancho: por debajo de 120 columnas (el
 móvil por SSH) pasa a una o dos columnas.
@@ -491,7 +494,7 @@ nada se aprueba ni se bloquea por accidente. Todo se refresca solo (archivos cad
 Comandos: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
 confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). En la pestaña
 Precarga: `:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en
-`precarga-saltar.txt`) y otra vez `:X` lo devuelve. `:R API` y `:R BOT` reinician (piden confirmar). `:H` ayuda, `:Q`
+`precarga-saltar.txt`) y otra vez `:X` lo devuelve. `:R API` y `:R BOT` reinician (piden confirmar). `:T` cambia de paleta. `:H` ayuda, `:Q`
 sale (la API sigue igual).
 
 Por debajo usa `users.py`:

@@ -31,6 +31,9 @@ if os.path.realpath(sys.prefix) != os.path.realpath(VENV):
         subprocess.run([PY, "-m", "pip", "install", "-q", "-r", REQ], check=True)
     os.execv(PY, [PY, os.path.abspath(__file__), *sys.argv[1:]])
 
+# Color real (24 bits): por SSH casi nunca llega COLORTERM y Textual aproximaría a 256 colores (más chillones).
+# Si alguna terminal vieja se ve rara: COLORTERM=256 ./panel.py
+os.environ.setdefault("COLORTERM", "truecolor")
 sys.path.insert(0, D)
 from panelmusica.app import main  # noqa: E402
 
