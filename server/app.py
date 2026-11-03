@@ -81,7 +81,6 @@ _yt_blocked_until = 0.0
 _downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
 _downloads_lock = threading.Lock()
 _apk_links = {}                         # enlace de descarga de la app -> hasta cuándo sirve
-_token_url_seen = {}                    # cuenta -> última vez que se apuntó que usó ?token= (se va a quitar)
 
 
 def ydl(**extra):
@@ -410,9 +409,10 @@ def entry(key, e, where):
 
 
 def given_key(request: Request):
-    """La clave que manda la app: 'Authorization: Bearer …' o '?token=…' (para el navegador o VLC)."""
+    """La clave que manda la app: solo 'Authorization: Bearer …'. En la dirección no (se queda en historiales y
+    registros); el audio del navegador usa los enlaces de /stream/{id}/enlace."""
     auth = request.headers.get("authorization", "")
-    return auth[7:] if auth.lower().startswith("bearer ") else request.query_params.get("token", "")
+    return auth[7:] if auth.lower().startswith("bearer ") else ""
 
 
 def check_token(request: Request):
@@ -425,10 +425,6 @@ def check_token(request: Request):
         if request.url.path == "/app/version":
             log.info("versión de la app pedida sin sesión válida (%s)", "sin clave" if not key else "sesión caducada o no aprobada")
         raise HTTPException(401, "no autorizado")
-    if "token" in request.query_params and _token_url_seen.get(found[0], 0) < time.time() - 3600:
-        _token_url_seen[found[0]] = time.time()   # para saber cuándo nadie lo usa ya y quitarlo (una vez por hora y cuenta)
-        log.info("?token= en la dirección: %s (%s, %s)", found[1]["email"], request.url.path.split("/")[1],
-                 request.headers.get("user-agent", "")[:60])
     return found
 
 
