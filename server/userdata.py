@@ -31,7 +31,7 @@ def _save():
     tmp = FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(_data, f, ensure_ascii=False)
-    os.chmod(tmp, 0o600)
+    os.chmod(tmp, 0o660)   # el grupo musicapp: el panel la lee desde fuera del contenedor
     os.replace(tmp, FILE)
 
 

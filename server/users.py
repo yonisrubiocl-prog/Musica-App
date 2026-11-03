@@ -50,7 +50,7 @@ class JsonStore:
         tmp = self.file + ".tmp"
         with open(tmp, "w") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=1)
-        os.chmod(tmp, 0o600)
+        os.chmod(tmp, 0o660)   # el grupo musicapp: el panel la lee desde fuera del contenedor
         os.replace(tmp, self.file)
         self.mtime = os.path.getmtime(self.file)
 

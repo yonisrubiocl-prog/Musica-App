@@ -182,8 +182,10 @@ y en `server/data/`, `index.json.antes-biblioteca`.
 
 ### Servidor (`server/`)
 
-Python con **FastAPI** + **yt-dlp** en el contenedor `musicapp-api` (usuario 1000, no root; actualiza yt-dlp
-en cada arranque, como el bot). Para pruebas desde este servidor: `127.0.0.1:8090` (app) y `127.0.0.1:8091` (bot).
+Python con **FastAPI** + **yt-dlp** en el contenedor `musicapp-api` (usuario 10001, que no existe en el servidor:
+ni root ni `lainer`; actualiza yt-dlp en cada arranque, como el bot). Sus datos (`server/data/`, `/var/lib/music`,
+`/var/lib/musicapp/recomendar`) son del 10001 y del grupo **`musicapp`**, en el que está `lainer`: así el panel y
+las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nuevo herede el grupo). Para pruebas desde este servidor: `127.0.0.1:8090` (app) y `127.0.0.1:8091` (bot).
 
 | Ruta | Qué hace |
 |---|---|
@@ -426,11 +428,11 @@ sin intros ni escenas habladas. Los directos no se tocan.
   (55 ya tenían versión de disco guardada); respaldo de antes en `server/data/userdata.antes-versiones.json`.
 
 **Favoritas, historial y playlists** (`userdata.py`; en `server/data/userdata.json`, fuera de git, permisos
-600): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
+660, solo el grupo `musicapp`): por cuenta, para que la app, la web y otros móviles se vean igual. De cada canción se guarda su ficha (título,
 artista, portada…), así sigue saliendo aunque la canción se borre del servidor (al ponerla se vuelve a bajar).
 **Las canciones en favoritas o playlists de cualquiera no se borran por el tope de espacio** (`Library.keep`).
 
-**Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 600): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
+**Usuarios** (`users.py`; datos en `server/data/users.json` y `sessions.json`, fuera de git, permisos 660, solo el grupo `musicapp`): quien entra con Google por primera vez queda **pendiente** (máximo 30 pendientes a la vez);
 se aprueba o bloquea a mano. Se guarda por el `sub` de Google (ID fijo de la cuenta), no por email. Bloquear
 cierra sus sesiones al momento.
 
@@ -527,7 +529,7 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
   (por Funnel no llega, otra razón para apagarlo). Hacerlo antes de repartir la app.
 - La API solo hace cosas de música: no ejecuta comandos ni toca archivos fuera de `/var/lib/music`, su `data/`
   y el APK (solo lectura). El ID o la clave de canción se validan antes de buscar archivos. Corre sin root.
-- **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 1000, permisos 600); yt-dlp las usa si
+- **Cookies de YouTube:** `server/data/youtube-cookies.txt` (dueño 10001, permisos 600); yt-dlp las usa si
   existen. Son de una cuenta desechable (si se filtran, se cierra la sesión de esa cuenta en Google). Cómo
   renovarlas sin que YouTube las rote: `~/MusicBot/README.md`, sección 6.
 - **Rutas del bot** (`/interno`): puerto 8001 al que los túneles no reenvían, más su propia clave. Dentro de la
