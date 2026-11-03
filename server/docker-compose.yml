@@ -46,7 +46,7 @@ services:
       options: {max-size: "5m", max-file: "2"}
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.7   # versión fija: "latest" no se actualiza solo; subirla a mano
     container_name: musicapp-cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run   # la dirección pública y el destino (api:8000) se configuran en el panel de Cloudflare

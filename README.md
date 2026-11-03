@@ -502,7 +502,8 @@ curl -H "Authorization: Bearer $T" -o cancion.webm "http://127.0.0.1:8090/stream
 
 **Túnel: Cloudflare**, con el dominio propio `yoneapolis.com` (cuenta de Cloudflare mía; el túnel
 `finops-tunnel-1` de este servidor es de la cuenta de mi hermano y no tiene nada que ver). El contenedor
-`cloudflared` abre una conexión **de salida** hacia Cloudflare; quien entra a `musica.yoneapolis.com` llega
+`cloudflared` (imagen con versión fija, `cloudflare/cloudflared:2026.10.7` en `docker-compose.yml`: "latest" no se
+actualiza solo, así que se sube a mano de vez en cuando) abre una conexión **de salida** hacia Cloudflare; quien entra a `musica.yoneapolis.com` llega
 por ahí hasta la API. Los amigos no instalan nada más que la app. La dirección pública y su destino
 (`http://api:8000`) se configuran en el panel: *Zero Trust → Networks → Tunnels → musicapp*. Su token va en
 `server/.env` (`CF_TUNNEL_TOKEN`); es como una contraseña: si se filtra, se rota desde ese mismo panel.
