@@ -464,9 +464,9 @@ class Panel(App):
         self.query_one("#sp-app", Sparkline).data = app
         self.query_one("#sp-dc", Sparkline).data = dc
         self.query_one("#h-app", Static).update(Text.assemble(("📱 app y web ", f"bold {VIOLETA}"),
-                                                              (f"{sa} canciones · máx {max(app)}/h", GRIS)))
+                                                              (f"{sa} canciones en 24 h · la hora con más: {max(app)}", GRIS)))
         self.query_one("#h-dc", Static).update(Text.assemble(("🎧 Discord ", f"bold {AZUL}"),
-                                                             (f"{sd} canciones · máx {max(dc)}/h", GRIS)))
+                                                             (f"{sd} canciones en 24 h · la hora con más: {max(dc)}", GRIS)))
         ancho = max(10, self.query_one("#sp-app").size.width)
         self.query_one("#h-eje", Static).update("hace 24 h".ljust(ancho - 5) + "ahora")
 
