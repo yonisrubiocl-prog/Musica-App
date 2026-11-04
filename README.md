@@ -469,7 +469,7 @@ acceso a Gmail, Drive, contactos, etc.: Google da un justificante firmado de qui
 no se guarda ningún token que sirva para entrar en la cuenta de Google. Lo demás que trae el justificante
 (nombre y apellido por separado, idioma…) no se guarda.
 
-**Panel**: `~/MusicApp/server/panel.py`, en el servidor (no en Docker), hecho con **Textual** (`server/panelmusica/`:
+**Panel**: `~/MusicApp/server/panel.py` (atajo **`panelm`**, en `~/.bashrc`), en el servidor (no en Docker), hecho con **Textual** (`server/panelmusica/`:
 `datos.py` lee, `app.py` dibuja, `panel.tcss` la disposición). Tres paletas: **suave** (la de siempre, tonos apagados),
 **app** (los colores vivos de la app) y **sobria** (casi sin color); `:T` pasa a la siguiente y se recuerda en
 `~/.config/panel-musica.json`. Pide color real de 24 bits (`COLORTERM=truecolor`, que por SSH no suele llegar y sin él
