@@ -114,6 +114,16 @@ def corta(texto, n):
     return texto if len(texto) <= n else texto[: n - 1] + "…"
 
 
+def pico(horas):
+    """' · la hora con más: 12 canciones, hace 2 h' (horas: 24 cifras, de hace 24 h a ahora)."""
+    if not any(horas):
+        return ""
+    n = max(horas)
+    i = len(horas) - 1 - max(k for k, x in enumerate(horas) if x == n)   # horas atrás; si empatan, la más reciente
+    cuando = "en la última hora" if i == 0 else f"hace {i} h"
+    return f" · la hora con más: {n} {'canción' if n == 1 else 'canciones'}, {cuando}"
+
+
 def punto(bien, aviso=False):
     return t("●", VERDE if bien else (AMARILLO if aviso else ROJO))
 
@@ -464,9 +474,9 @@ class Panel(App):
         self.query_one("#sp-app", Sparkline).data = app
         self.query_one("#sp-dc", Sparkline).data = dc
         self.query_one("#h-app", Static).update(Text.assemble(("📱 app y web ", f"bold {VIOLETA}"),
-                                                              (f"{sa} canciones en 24 h · la hora con más: {max(app)}", GRIS)))
+                                                              (f"{sa} canciones en 24 h" + pico(app), GRIS)))
         self.query_one("#h-dc", Static).update(Text.assemble(("🎧 Discord ", f"bold {AZUL}"),
-                                                             (f"{sd} canciones en 24 h · la hora con más: {max(dc)}", GRIS)))
+                                                             (f"{sd} canciones en 24 h" + pico(dc), GRIS)))
         ancho = max(10, self.query_one("#sp-app").size.width)
         self.query_one("#h-eje", Static).update("hace 24 h".ljust(ancho - 5) + "ahora")
 
