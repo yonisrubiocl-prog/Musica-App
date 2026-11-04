@@ -77,17 +77,17 @@ AYUDA = [
     ("Cómo se usa", None),
     ("", "':' abre la línea de comandos; Enter la manda y Esc la cierra. Mientras escribes, los números no se mueven."),
     ("", "Las teclas sueltas solo mueven: 1–6 cambian de pestaña, flechas y ratón recorren las tablas."),
-    ("Usuarios (en cualquier pestaña salvo Precarga)", None),
+    ("En la pestaña Usuarios (2)", None),
     (":<n>", "Aprobar al número n.   Ej:  :1    Varios:  :1 3 4"),
     (":B <n>", "Bloquear al número n (pide confirmar). Cierra sus sesiones al momento."),
     (":ADM <n>", "Hacerle administrador (sin límite de dispositivos) o quitárselo."),
-    ("Precarga (pestaña 5)", None),
+    ("En la pestaña Precarga (5)", None),
     (":A <n>", "Adelantar al artista n: el siguiente en bajarse (el último adelantado va primero)."),
     (":X <n>", "Quitar al artista n de la precarga (pide confirmar). Otra vez :X lo devuelve."),
-    ("Servicios", None),
+    ("En la pestaña Sistema (6)", None),
     (":R API", "Reiniciar la API (pide confirmar). La música se corta unos segundos para todos."),
     (":R BOT", "Reiniciar el bot de Discord (pide confirmar). Corta lo que suene; luego pregunta «¿Seguimos?»."),
-    ("Otros", None),
+    ("En cualquier pestaña", None),
     (":T", "Cambiar de paleta de colores (suave, app, sobria). Se recuerda para la próxima vez."),
     (":H", "Esta ayuda.          :Q  Salir (la API sigue igual)."),
     ("Pestañas", None),
@@ -632,14 +632,17 @@ class Panel(App):
     # -- línea de abajo
     def pista(self):
         tab = self.query_one(TabbedContent).active
-        textos = {
-            "precarga": ":A 3 adelantar el 3  ·  :X 3 quitarlo  ·  :H ayuda  ·  :Q salir  ·  1–6 pestañas",
-            "sistema": ":R API  ·  :R BOT reiniciar  ·  :H ayuda  ·  :Q salir  ·  1–6 pestañas",
+        propios = {
+            "resumen": "1–6 cambia de pestaña (2 para aprobar o bloquear)",
+            "usuarios": ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :ADM 2 admin",
+            "actividad": "flechas o ratón para recorrer las últimas 48 h",
+            "biblioteca": "Tab cambia de tabla  ·  flechas o ratón para recorrerla",
+            "precarga": ":A 3 adelantar el 3  ·  :X 3 quitarlo o devolverlo",
+            "sistema": ":R API reiniciar la API  ·  :R BOT reiniciar el bot",
         }
         m = self.query_one("#mensaje", Static)
         m.set_classes("")
-        m.update(textos.get(tab, ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :ADM 2 admin  ·  :H ayuda  ·  "
-                                 ":Q salir  ·  1–6 pestañas"))
+        m.update(f"{propios.get(tab, '')}  ·  :T colores  ·  :H ayuda  ·  :Q salir")
 
     def avisar(self, texto, clase="info", segundos=8):
         m = self.query_one("#mensaje", Static)
@@ -697,7 +700,12 @@ class Panel(App):
             return self.push_screen(Ayuda())
         if cmd == "T" or cmd.startswith("T "):
             return self.cambiar_paleta(linea[1:].strip().lower())
-        if cmd in ("R API", "R BOT"):
+        # cada pestaña tiene sus comandos; en otra, se dice adónde ir
+        if cmd.startswith("R ") or cmd == "R":
+            if tab != "sistema":
+                return self.avisar("Reiniciar está en la pestaña Sistema (6):  :R API  ·  :R BOT", "mal")
+            if cmd not in ("R API", "R BOT"):
+                return self.avisar("Uso:  :R API  o  :R BOT", "mal")
             cont = d.API_CONT if cmd == "R API" else d.BOT_CONT
             nombre = d.CONTENEDORES[cont]
             detalle = ("La música se corta unos segundos para todos (app, web y Discord)." if cont == d.API_CONT else
@@ -705,6 +713,11 @@ class Panel(App):
             return self.confirmar(f"¿Reiniciar {nombre}?", detalle, lambda: self.reiniciar(cont, nombre))
         if tab == "precarga":
             return self.ejecutar_precarga(cmd, linea, arts)
+        es_usuarios = linea[:1].isdigit() or cmd.startswith("ADM") or cmd == "B" or cmd.startswith("B ")
+        if es_usuarios and tab != "usuarios":
+            return self.avisar("Aprobar, bloquear y administrador están en la pestaña Usuarios (2)", "mal")
+        if cmd[:1] in ("A", "X") and cmd[1:].strip().isdigit():
+            return self.avisar("Adelantar y quitar artistas están en la pestaña Precarga (5)", "mal")
         if cmd.startswith("ADM"):
             elegidos = self.elegir(linea[3:], lista)
             if not elegidos:
@@ -743,7 +756,7 @@ class Panel(App):
             assert k >= 1 and cmd[:1] in ("A", "X")
             name, _, estado, _ = arts[k - 1]
         except (ValueError, IndexError, AssertionError):
-            return self.avisar("En Precarga:  :A <n> adelantar  ·  :X <n> quitar o devolver  (los usuarios, en otra pestaña)",
+            return self.avisar("En Precarga:  :A <n> adelantar  ·  :X <n> quitar o devolver  (aprobar y bloquear, en Usuarios: 2)",
                                "mal")
         if cmd[0] == "A":
             if estado == "quitado":

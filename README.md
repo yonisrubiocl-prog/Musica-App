@@ -491,11 +491,12 @@ nada se aprueba ni se bloquea por accidente. Todo se refresca solo (archivos cad
 | **5 Precarga** | Los artistas en el orden en que irán, con estado (bajando, adelantado, pendiente, hecho, quitado) y álbumes abiertos/elegidos |
 | **6 Sistema** | Contenedores (estado, desde cuándo, reinicios, CPU, RAM, imagen), carga, RAM y disco del servidor, avisos y errores del registro de la API y bloqueos de YouTube |
 
-Comandos: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
-confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). En la pestaña
-Precarga: `:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en
-`precarga-saltar.txt`) y otra vez `:X` lo devuelve. `:R API` y `:R BOT` reinician (piden confirmar). `:T` cambia de paleta. `:H` ayuda, `:Q`
-sale (la API sigue igual).
+Cada pestaña tiene sus comandos (abajo se ven los de la pestaña abierta; escritos en otra, el panel dice adónde ir):
+**Usuarios**: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
+confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). **Precarga**:
+`:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en `precarga-saltar.txt`) y
+otra vez `:X` lo devuelve. **Sistema**: `:R API` y `:R BOT` reinician (piden confirmar). **En todas**: `:T` cambia de
+paleta, `:H` ayuda, `:Q` sale (la API sigue igual).
 
 Por debajo usa `users.py`:
 
