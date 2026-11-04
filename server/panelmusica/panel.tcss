@@ -84,6 +84,13 @@ DataTable:focus > .datatable--cursor { background: $primary 32%; }
 #s-abajo > DataTable { width: 1fr; margin-right: 1; border: round $primary 25%; }
 #s-abajo > DataTable:focus { border: round $primary; }
 
+/* ---- botones de acción (siempre piden confirmar) ---- */
+.botones { height: 1; margin: 0 0 1 0; }
+.botones Button { margin-right: 2; min-width: 0; }
+#pre-botones { margin: 1 0 1 0; }
+#pre-elegido { width: auto; margin-right: 3; }
+#s-botones { margin: 1 0 0 0; }
+
 /* ---- línea de abajo: ayuda corta, avisos y el comando ---- */
 #mensaje { height: 1; background: $panel; color: $text-muted; padding: 0 1; }
 #mensaje.ok { color: $success; text-style: bold; }

@@ -77,6 +77,7 @@ AYUDA = [
     ("Cómo se usa", None),
     ("", "':' abre la línea de comandos; Enter la manda y Esc la cierra. Mientras escribes, los números no se mueven."),
     ("", "Las teclas sueltas solo mueven: 1–6 cambian de pestaña, flechas y ratón recorren las tablas."),
+    ("", "Con el ratón: clic en un usuario o artista y usa sus botones. Todos piden confirmar antes de hacer nada."),
     ("En la pestaña Usuarios (2)", None),
     (":<n>", "Aprobar al número n.   Ej:  :1    Varios:  :1 3 4"),
     (":B <n>", "Bloquear al número n (pide confirmar). Cierra sus sesiones al momento."),
@@ -251,6 +252,10 @@ class Panel(App):
                 with Horizontal(id="p-usuarios"):
                     yield DataTable(id="t-usuarios", cursor_type="row", zebra_stripes=True)
                     with VerticalScroll(classes="tarjeta", id="detalle"):
+                        with Horizontal(id="u-botones", classes="botones"):
+                            yield Button("✓ Aprobar", id="b-aprobar", variant="success", compact=True)
+                            yield Button("⊘ Bloquear", id="b-bloquear", variant="error", compact=True)
+                            yield Button("★ Administrador", id="b-admin", variant="primary", compact=True)
                         yield Static("", id="detalle-texto")
             with TabPane("3 Actividad", id="actividad"):
                 yield DataTable(id="t-actividad", cursor_type="row", zebra_stripes=True)
@@ -270,6 +275,10 @@ class Panel(App):
                     yield DataTable(id="t-generos", cursor_type="row", zebra_stripes=True)
             with TabPane("5 Precarga", id="precarga"):
                 yield Static("", id="pre-resumen")
+                with Horizontal(id="pre-botones", classes="botones"):
+                    yield Static("", id="pre-elegido")
+                    yield Button("⏫ Adelantar", id="b-adelantar", variant="primary", compact=True)
+                    yield Button("✕ Quitar", id="b-quitar", variant="error", compact=True)
                 yield DataTable(id="t-precarga", cursor_type="row", zebra_stripes=True)
             with TabPane("6 Sistema", id="sistema"):
                 with Horizontal(id="s-arriba"):
@@ -279,6 +288,9 @@ class Panel(App):
                         yield ProgressBar(total=100, show_eta=False, id="p-ram")
                         yield Static("", id="s-texto2")
                         yield ProgressBar(total=100, show_eta=False, id="p-raiz")
+                        with Horizontal(id="s-botones", classes="botones"):
+                            yield Button("↻ Reiniciar API", id="b-r-api", variant="warning", compact=True)
+                            yield Button("↻ Reiniciar bot", id="b-r-bot", variant="warning", compact=True)
                 with Horizontal(id="s-abajo"):
                     yield DataTable(id="t-avisos", cursor_type="row", zebra_stripes=True)
                     yield DataTable(id="t-bloqueos", cursor_type="row", zebra_stripes=True)
@@ -315,6 +327,8 @@ class Panel(App):
         }
         for i, c in cols.items():
             self.query_one(f"#{i}", DataTable).add_columns(*c)
+        for b in self.query(".botones Button"):   # responden al clic sin quedarse el foco: así 1–6 siguen cambiando de pestaña
+            b.can_focus = False
         self.on_resize()
         self.set_interval(1, self.reloj)
         self.set_interval(0.2, self.animar)
@@ -509,6 +523,11 @@ class Panel(App):
                 t("Nadie ha pedido acceso todavía.\nEnlace: https://musica.yoneapolis.com/acceso", GRIS))
             return
         u = self.usuarios[min(tabla.cursor_row, len(self.usuarios) - 1)]
+        self.query_one("#b-aprobar").display = u["estado"] != "aprobado"
+        self.query_one("#b-aprobar", Button).label = "✓ Desbloquear" if u["estado"] == "bloqueado" else "✓ Aprobar"
+        self.query_one("#b-bloquear").display = u["estado"] != "bloqueado"
+        self.query_one("#b-admin").display = u["estado"] == "aprobado"
+        self.query_one("#b-admin", Button).label = "☆ Quitar administrador" if u["admin"] else "★ Hacer administrador"
         x = Text()
         x.append(f"{u['nombre'] or u['email']}\n", style=f"bold {VIOLETA}")
         x.append(f"{u['email']}\n", style=GRIS)
@@ -535,6 +554,71 @@ class Panel(App):
     def on_data_table_row_highlighted(self, ev: DataTable.RowHighlighted):
         if ev.data_table.id == "t-usuarios":
             self.pintar_detalle()
+        elif ev.data_table.id == "t-precarga":
+            self.pintar_elegido_precarga()
+
+    def usuario_elegido(self):
+        if not self.usuarios:
+            return None
+        return self.usuarios[min(self.query_one("#t-usuarios", DataTable).cursor_row, len(self.usuarios) - 1)]
+
+    def artista_elegido(self):
+        if not self.arts:
+            return None, None
+        k = min(self.query_one("#t-precarga", DataTable).cursor_row, len(self.arts) - 1)
+        return k + 1, self.arts[k]
+
+    def pintar_elegido_precarga(self):
+        k, a = self.artista_elegido()
+        if not a:
+            self.query_one("#pre-botones").display = False
+            return
+        self.query_one("#pre-botones").display = True
+        name, _, estado, _ = a
+        self.query_one("#pre-elegido", Static).update(Text.assemble(("Elegido: ", GRIS), (f"#{k} {name}", f"bold {VIOLETA}"),
+                                                                    (f"  ({estado})", COLOR_PRECARGA[estado] or GRIS)))
+        self.query_one("#b-adelantar").display = estado not in ("quitado", "hecho", "bajando")
+        self.query_one("#b-quitar", Button).label = "↩ Devolver" if estado == "quitado" else "✕ Quitar"
+        self.query_one("#b-quitar").display = estado != "hecho"
+
+    # -- botones: lo mismo que los comandos, siempre con confirmación
+    def on_button_pressed(self, ev: Button.Pressed):
+        b = ev.button.id
+        if b in ("b-aprobar", "b-bloquear", "b-admin"):
+            u = self.usuario_elegido()
+            if not u:
+                return
+            if b == "b-aprobar":
+                verbo = "Desbloquear y aprobar" if u["estado"] == "bloqueado" else "Aprobar"
+                self.confirmar(f"¿{verbo} a {u['email']}?", "Podrá entrar y escuchar música con su cuenta de Google.",
+                               lambda: self.cambiar("aprobar", [u]))
+            elif b == "b-bloquear":
+                self.confirmar(f"¿Bloquear a {u['email']}?", "Se le cierran todas las sesiones al momento.",
+                               lambda: self.cambiar("bloquear", [u]))
+            else:
+                accion = "noadmin" if u["admin"] else "admin"
+                pregunta = (f"¿Quitarle el administrador a {u['email']}?" if u["admin"] else
+                            f"¿Hacer administrador a {u['email']}?")
+                self.confirmar(pregunta, "Los administradores no tienen límite de dispositivos.",
+                               lambda: self.cambiar(accion, [u]))
+        elif b in ("b-adelantar", "b-quitar"):
+            k, a = self.artista_elegido()
+            if not a:
+                return
+            name, estado = a[0], a[2]
+            if b == "b-adelantar":
+                self.confirmar(f"¿Adelantar a {name}?", "Será el siguiente en bajarse, cuando acabe el álbum que esté bajando.",
+                               lambda: (d.adelantar(name), self.avisar(f"{name}: el siguiente en la precarga", "ok"),
+                                        self.leer_rapido()))
+            elif estado == "quitado":
+                self.confirmar(f"¿Devolver a {name} a la precarga?", "",
+                               lambda: (d.quitar(name, fuera=False), self.avisar(f"{name} vuelve a la precarga", "ok"),
+                                        self.leer_rapido()))
+            else:
+                self.confirmar(f"¿Quitar a {name} de la precarga?", "Lo que ya se bajó se queda.",
+                               lambda: (d.quitar(name), self.avisar(f"{name} fuera de la precarga", "mal"), self.leer_rapido()))
+        elif b in ("b-r-api", "b-r-bot"):
+            self.ejecutar("R API" if b == "b-r-api" else "R BOT", self.usuarios, self.arts)
 
     def pintar_actividad(self, act):
         filas = []
@@ -575,7 +659,7 @@ class Panel(App):
         if c:
             x.append(f"   ·   {c['bajadas']} bajadas · {c['cola']} en cola · artistas {c['artistas_hechos']}/{c['artistas']}",
                      style=GRIS)
-        x.append("\nDe los 3 primeros pendientes se elige uno al azar. :A <n> adelanta · :X <n> quita o devuelve.",
+        x.append("\nDe los 3 primeros pendientes se elige uno al azar. Clic en un artista y sus botones, o :A <n> / :X <n>.",
                  style=GRIS)
         self.query_one("#pre-resumen", Static).update(x)
         filas = []
@@ -584,6 +668,7 @@ class Panel(App):
             filas.append((f"p{i}", [t(i, bold=True), t(estado, COLOR_PRECARGA[estado], estado in ("bajando", "adelantado")),
                                     t(name, GRIS if apagado else ""), t(songs, GRIS), t(albumes, GRIS)]))
         rellenar(self.query_one("#t-precarga", DataTable), filas)
+        self.pintar_elegido_precarga()
 
     def pintar_sistema(self, s, yt):
         c1, c5, c15 = s["carga"]
@@ -634,11 +719,11 @@ class Panel(App):
         tab = self.query_one(TabbedContent).active
         propios = {
             "resumen": "1–6 cambia de pestaña (2 para aprobar o bloquear)",
-            "usuarios": ":1 aprobar el 1  ·  :1 3 4 varios  ·  :B 2 bloquear  ·  :ADM 2 admin",
+            "usuarios": "clic en alguien y usa sus botones  ·  o :1 aprobar  ·  :B 2 bloquear  ·  :ADM 2 admin",
             "actividad": "flechas o ratón para recorrer las últimas 48 h",
             "biblioteca": "Tab cambia de tabla  ·  flechas o ratón para recorrerla",
-            "precarga": ":A 3 adelantar el 3  ·  :X 3 quitarlo o devolverlo",
-            "sistema": ":R API reiniciar la API  ·  :R BOT reiniciar el bot",
+            "precarga": "clic en un artista y usa los botones  ·  o :A 3 adelantar  ·  :X 3 quitar o devolver",
+            "sistema": "botones de la tarjeta Servidor  ·  o :R API  ·  :R BOT",
         }
         m = self.query_one("#mensaje", Static)
         m.set_classes("")
@@ -655,6 +740,8 @@ class Panel(App):
             self.pista()
 
     def action_pestana(self, p):
+        # sin foco antes de cambiar: si se queda en algo de la pestaña vieja, Textual la vuelve a abrir
+        self.set_focus(None)
         self.query_one(TabbedContent).active = p
 
     # -- comandos

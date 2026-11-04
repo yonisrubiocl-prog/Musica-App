@@ -491,7 +491,13 @@ nada se aprueba ni se bloquea por accidente. Todo se refresca solo (archivos cad
 | **5 Precarga** | Los artistas en el orden en que irán, con estado (bajando, adelantado, pendiente, hecho, quitado) y álbumes abiertos/elegidos |
 | **6 Sistema** | Contenedores (estado, desde cuándo, reinicios, CPU, RAM, imagen), carga, RAM y disco del servidor, avisos y errores del registro de la API y bloqueos de YouTube |
 
-Cada pestaña tiene sus comandos (abajo se ven los de la pestaña abierta; escritos en otra, el panel dice adónde ir):
+**Con el ratón:** clic en un usuario (Usuarios) y, en su detalle, **Aprobar / Desbloquear**, **Bloquear** y **Hacer o
+quitar administrador** (salen solo los que tocan según su estado); clic en un artista (Precarga) y **Adelantar** y
+**Quitar / Devolver**; en Sistema, **Reiniciar API** y **Reiniciar bot**. Todos los botones piden confirmar (también
+aprobar) y no se quedan el foco, así 1–6 siguen cambiando de pestaña.
+
+**Con comandos**, cada pestaña tiene los suyos (abajo se ven los de la pestaña abierta; escritos en otra, el panel dice
+adónde ir):
 **Usuarios**: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
 confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). **Precarga**:
 `:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en `precarga-saltar.txt`) y
