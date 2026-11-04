@@ -25,9 +25,9 @@ sin publicarlo ni cobrar nada.
 - **Por usuario:** favoritas, historial y playlists (iguales en la app y la web), máximo 3 dispositivos por cuenta.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
-- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.38 (build 39) publicada**, con aviso de
-  actualización propio. Esa versión pide el audio con `?token=`, que la API ya no acepta: **no suena hasta que se
-  publique la siguiente** (ya cambiada a la cabecera). **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
+- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.39 (build 40) publicada** (03-11-2026), con
+  aviso de actualización propio; pide el audio con la sesión en la cabecera. La 1.0.38 y anteriores no suenan (usaban
+  `?token=`): la app avisa de la nueva al abrirla. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
   es la referencia de cómo debe comportarse la app (`docs/app-paridad.md`).
 - **Seguridad:** la auditoría del servidor del 02-11-2026 está aplicada en lo de este proyecto (sección 2): API y bot
   sin root ni `lainer`, FFmpeg solo con los formatos que usamos, sesión solo en la cabecera, cabeceras de seguridad
@@ -324,7 +324,7 @@ seguidas parecen un bot):
 **Clave:** todas las rutas que no dicen "Sin clave" piden una **sesión** de un usuario aprobado como
 `Authorization: Bearer …`, **solo en la cabecera**: `?token=` en la dirección se quitó el 03-11-2026 (una sesión en la
 dirección se queda en historiales y registros). Para el audio en el navegador, `POST /stream/<id>/enlace`. La app
-1.0.38 y anteriores pedían el audio con `?token=`: no suenan hasta actualizar. También vale la clave compartida
+1.0.38 y anteriores pedían el audio con `?token=`: no suenan hasta actualizar a la 1.0.39. También vale la clave compartida
 `API_TOKEN` (en `server/.env`, fuera de git) para pruebas desde el servidor, salvo en lo que es de cada usuario (favoritas, historial: 400); se quitará
 cuando nada la use.
 
