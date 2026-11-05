@@ -18,6 +18,7 @@ import re
 import threading
 import time
 import unicodedata
+from urllib.parse import parse_qs, urlparse
 
 import uvicorn
 import yt_dlp
@@ -32,7 +33,7 @@ from enrich import Enricher
 from genres import Genres
 from precarga import Precarga
 from versiones import Versiones
-from duplicadas import Duplicadas
+from duplicadas import TAG_VIDEO, Duplicadas
 from recomendar import Recomendar
 import users
 from library import KEY, YT_ID, Library, artist_of, key_of, music_meta
@@ -382,16 +383,91 @@ def ytm_songs(text, limit):
     return hit
 
 
+def mark_saved(s):
+    """Una canción de internet (formato de /search): si ya está guardada, también si es otra copia ("Numb (Official
+    Video)" si ya está "Numb"), la guardada (where "guardada"); si no, tal cual (se baja al sonar)."""
+    key = DUPLICADAS.real_key(f"yt-{s['id']}")
+    if not LIB.peek(key):
+        key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""), s.get("duration")) or key
+    return dict(s, id=key[3:], genre=LIB.genre_of(key), where="guardada") if LIB.peek(key) else s
+
+
 def internet_songs(text):
     """Lo que da YouTube Music para 'text', tal cual: las mismas canciones en el mismo orden. Solo se marca lo que ya
     está guardado, también si es otra copia: sigue su fila, pero suena la del servidor (no se baja dos veces)."""
-    out = []
-    for s in ytm_songs(text, YTM_NEW)[:YTM_NEW]:
-        key = f"yt-{s['id']}"
-        if not LIB.peek(key):   # otra copia de una guardada ("Numb (Official Video)" si ya está "Numb")
-            key = DUPLICADAS.is_saved(s.get("title"), LIB.JOINT.split(s.get("artist") or ""), s.get("duration")) or key
-        out.append(dict(s, id=key[3:], genre=LIB.genre_of(key), where="guardada") if LIB.peek(key) else s)
-    return out
+    return [mark_saved(s) for s in ytm_songs(text, YTM_NEW)[:YTM_NEW]]
+
+
+# ---------- importar una playlist de YouTube (/import/youtube) ----------
+IMPORT_MAX = 500                        # canciones como mucho al importar una playlist (5 páginas de 100)
+MIX_MAX_SECONDS = 15 * 60               # en un Mix, lo más largo son recopilaciones: fuera
+PRIVATE_LISTS = {"LM", "LL", "WL"}      # Me gusta, Me gusta (vídeos) y Ver más tarde: solo las ve su dueño
+# "(Official Video)", "[Lyrics]", "(Video Oficial)"… en los títulos de un Mix (son vídeos); "(Remix)" o "(feat. X)" se quedan
+VIDEO_TAG = re.compile(r"\s*[\(\[]([^\)\]]*)[\)\]]")
+
+
+def clean_title(title):
+    return VIDEO_TAG.sub(lambda m: "" if TAG_VIDEO.search(m.group(1)) else m.group(0), title or "").strip() or title
+
+
+def seconds(text):
+    """'1:02:03' / '3:45' -> segundos (None si no hay)."""
+    parts = [int(p) for p in (text or "").split(":") if p.isdigit()]
+    return sum(p * 60 ** i for i, p in enumerate(reversed(parts))) or None
+
+
+def youtube_list(url):
+    """(id de la lista, v= del enlace) de un enlace de YouTube o YouTube Music; 400 si no es una playlist que se pueda leer."""
+    u = urlparse(url.strip() if re.match(r"https?://", url.strip()) else "https://" + url.strip())
+    host = (u.hostname or "").lower()
+    if not (host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com")):
+        raise HTTPException(400, "Ese enlace no es de YouTube")
+    q = parse_qs(u.query)
+    lid, vid = (q.get("list") or [""])[0], (q.get("v") or [""])[0] or (u.path.strip("/") if host == "youtu.be" else "")
+    if not re.fullmatch(r"[\w-]{2,80}", lid):
+        raise HTTPException(400, "Ese enlace no es de una playlist")
+    if lid in PRIVATE_LISTS:
+        raise HTTPException(400, "Esa lista es privada (solo la ves tú en YouTube): cópiala a una playlist pública u "
+                                 "oculta y pega su enlace")
+    return lid, vid if VIDEO_ID.fullmatch(vid or "") else ""
+
+
+def read_youtube_list(lid, vid):
+    """Las canciones de la lista 'lid' en YouTube Music (formato de /search), su nombre y cuántas tiene."""
+    if lid.startswith("RD") and not lid.startswith("RDCLAK"):   # RDCLAK… son playlists de YouTube Music, no Mix
+        vid = vid or (lid[-11:] if VIDEO_ID.fullmatch(lid[-11:]) else "")   # RD<id> / RDAMVM<id>: empieza por ese vídeo
+        got = ytm(lambda y: y.get_watch_playlist(videoId=vid or None, playlistId=lid, limit=1))
+        songs = [dict(ytm_song(t), title=clean_title(t.get("title")), duration=seconds(t.get("length")))
+                 for t in got.get("tracks") or [] if t.get("videoId")]   # en la cola llega "3:45", no los segundos
+        songs = [s for s in songs if not s["duration"] or s["duration"] <= MIX_MAX_SECONDS]
+        name, total = "Mix: " + (songs[0]["title"] if songs else "YouTube"), len(songs)
+    else:
+        got = ytm(lambda y: y.get_playlist(lid, limit=IMPORT_MAX), 1 + IMPORT_MAX // 100)
+        songs = [ytm_song(t) for t in got.get("tracks") or [] if t.get("videoId") and t.get("isAvailable", True)]
+        name, total = got.get("title") or "Playlist de YouTube", got.get("trackCount") or len(songs)
+    return songs, name, total
+
+
+def import_youtube(url):
+    """Lee una playlist o un Mix de YouTube: {name, songs, total, truncated}. Playlist normal (PL…, OLAK…): todas sus
+    canciones (hasta IMPORT_MAX, 100 por petición). Mix (RD…, la radio que arma YouTube): solo la primera tanda
+    (~50; la siguiente no acaba nunca), sin lo de más de 15 min y con los títulos limpios. Cada canción va marcada
+    como en /search: guardada (suena la del servidor) o de internet (se baja al sonar)."""
+    lid, vid = youtube_list(url)
+    try:
+        songs, name, total = read_youtube_list(lid, vid)
+    except HTTPException as ex:
+        if ex.status_code != 502:   # 503/429: bloqueo o ritmo, tal cual
+            raise
+        raise HTTPException(404, "No pude leer esa playlist: ¿es privada o ya no existe?")
+    seen, out = set(), []
+    for s in map(mark_saved, songs[:IMPORT_MAX]):   # una sola vez cada una (dos copias pueden ser la misma guardada)
+        if s["id"] not in seen:
+            seen.add(s["id"])
+            out.append({k: s.get(k) for k in ("id", "title", "artist", "album", "duration", "thumb", "genre", "where")})
+    log.info("importar de YouTube: %s (%d canciones, %d ya guardadas)", lid, len(out),
+             sum(s["where"] == "guardada" for s in out))
+    return {"name": name, "songs": out, "total": total, "truncated": total > IMPORT_MAX}
 
 
 def youtube_info(vid):
@@ -631,6 +707,14 @@ def search(q: str = Query(min_length=1, max_length=200), youtube_too: bool = Que
     arts = [{"name": x["name"], "songs": x["songs"], "albums": x["albums"], "thumb": x["thumb"]}
             for x in LIB.find_artists(q, 10)] if offset == 0 else []
     return {"results": out, "internet": internet, "total": len(saved), "offset": offset, "artists": arts}
+
+
+@app.get("/import/youtube", dependencies=[Depends(check_token)])
+def import_from_youtube(url: str = Query(min_length=8, max_length=500)):
+    """Leer una playlist o un Mix de YouTube / YouTube Music para importarlo (no guarda nada; la playlist la crea
+    luego quien llama con POST + PUT /playlists): {name, songs: [ficha + where "guardada"/"youtube"], total, truncated}.
+    1–6 peticiones a YouTube, solo cuando alguien lo pide. 400 con el motivo si el enlace no sirve."""
+    return import_youtube(url)
 
 
 @app.get("/suggest", dependencies=[Depends(check_token)])

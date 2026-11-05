@@ -30,6 +30,10 @@
    duration, thumb}`), `DELETE /favorites/<id>`.
 7. **Playlists** — `GET /playlists`, `POST /playlists {name}` → `{id}`, `PUT /playlists/<id> {name, songs}` (entera;
    `songs` = ids o fichas `{id, title, …}`; si falta alguna ficha: 400 `{detail: {error, ids}}`), `DELETE /playlists/<id>`.
+   **Importar playlist**: usar `GET /import/youtube?url=…` en vez de llamar a YouTube desde el móvil: devuelve
+   `{name, songs, total, truncated}` con cada canción ya marcada `guardada`/`youtube` (también la búsqueda por
+   artista + título en lo guardado) y el Mix ya limpio; errores 400/404 con el texto para enseñar en `detail`. El
+   resumen y el guardado (`POST` + `PUT /playlists` con fichas completas) siguen igual.
 8. **Historial** — `GET /history?limit=50` (lo apunta el servidor solo con cada `/stream`).
    **Audio:** pedir `/stream/<id>` con la sesión en la cabecera `Authorization: Bearer …` (just_audio admite
    `headers`); `?token=` en la dirección ya no vale (quitado el 03-11-2026). Si el reproductor no deja

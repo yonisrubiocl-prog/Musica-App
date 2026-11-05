@@ -84,6 +84,8 @@
   .sub { color: var(--muted); font-size: .88rem; margin: -6px 0 14px; }
   .title-big { font-size: 1.6rem; font-weight: 800; margin-top: 22px; display: flex; align-items: center; gap: 10px; }
   .title-big .add { margin-left: auto; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; }
+  .title-big .add + .add { margin-left: 0; }
+  .title-big .add.imp { font-size: 1.05rem; }
 
   /* Cabecera de una lista (playlist, álbum, artista): portada, nombre, datos y ▶ */
   .hero { display: flex; gap: 18px; align-items: center; margin: 18px 0 10px; }
@@ -552,6 +554,48 @@ async function addToPl(p, s) {
   catch (e) { p.songs.pop(); toast('No se pudo guardar'); }
 }
 
+// Importar una playlist o un Mix de YouTube / YouTube Music (como la app): el servidor la lee (/import/youtube) y
+// marca lo que ya está guardado; lo demás queda "de internet" y se baja al sonar. Nada se guarda hasta "Guardar playlist".
+function importPl(initial = '') {
+  sheet(`<h4>Importar playlist de YouTube</h4><p class="sub" style="margin:4px 12px 10px">Pega el enlace de una playlist o un Mix de YouTube o YouTube Music.</p>
+    <input id="nm" value="${esc(initial)}" placeholder="https://www.youtube.com/playlist?list=…" maxlength="500">
+    <div class="btns"><button class="pill glass" id="nmNo">Cancelar</button><button class="pill main" id="nmOk">Importar</button></div>`);
+  const ok = () => { const v = $('nm').value.trim(); if (v) readImport(v); };
+  $('nm').focus(); $('nm').onkeydown = e => { if (e.key === 'Enter') ok(); };
+  $('nmOk').onclick = ok; $('nmNo').onclick = closeSheet;
+}
+async function readImport(url) {
+  sheet(`<h4>Importar playlist de YouTube</h4><p class="sub" style="margin:4px 12px 14px">Leyendo la playlist…</p>`);
+  let j;
+  try { j = await api('/import/youtube?url=' + encodeURIComponent(url)); }
+  catch (e) {
+    if (!$('scrim').classList.contains('on')) return;   // la cerró mientras tanto
+    sheet(`<h4>No se pudo importar</h4><p class="sub" style="margin:4px 12px 14px">${esc(e.status === 0 ? 'Sin conexión' : e.message || 'Algo falló')}</p>
+      <div class="btns"><button class="pill glass" id="cNo">Cerrar</button><button class="pill main" id="cOk">Otro enlace</button></div>`);
+    $('cNo').onclick = closeSheet; $('cOk').onclick = () => importPl(url);
+    return;
+  }
+  if (!$('scrim').classList.contains('on')) return;
+  if (!j.songs.length) { closeSheet(); return toast('Esa playlist no tiene canciones'); }
+  const saved = j.songs.filter(s => s.where === 'guardada').length;
+  sheet(`<h4>${esc(j.name)}</h4><p class="sub" style="margin:4px 12px 14px">${nSongs(j.songs.length)} · ✓ ${saved} ya estaban · ☁ ${j.songs.length - saved} de internet
+      ${j.truncated ? `<br>Tiene ${j.total}: solo se importan las primeras ${j.songs.length}.` : ''}${saved < j.songs.length ? '<br>Las de internet se guardan en el servidor la primera vez que suenan.' : ''}</p>
+    <div class="btns"><button class="pill glass" id="cNo">Descartar</button><button class="pill main" id="cOk">Guardar playlist</button></div>`);
+  $('cNo').onclick = closeSheet;
+  $('cOk').onclick = async () => {
+    closeSheet();
+    let p;
+    try {
+      p = await newPl(j.name.slice(0, 100));
+      p.songs = j.songs; await savePl(p);
+    } catch (e) {
+      if (p) p.songs = [];
+      return toast(p ? 'Se creó la playlist, pero no se pudieron guardar las canciones' : 'No se pudo crear la playlist');
+    }
+    toast('Playlist importada'); showPlaylist(p);
+  };
+}
+
 // ---------- hojas (menú ⋮, elegir playlist, pedir un nombre) ----------
 function sheet(html) {
   $('sheet').innerHTML = '<div class="grip"></div>' + html;
@@ -913,7 +957,7 @@ async function showPlaylist(p) {
 let libTab = 'playlists';
 async function biblioteca() {
   lists = {};
-  wrap.innerHTML = `<div class="title-big">Tu biblioteca<button class="add glass" id="plAdd" aria-label="Nueva playlist">＋</button></div>
+  wrap.innerHTML = `<div class="title-big">Tu biblioteca<button class="add glass imp" id="plImp" aria-label="Importar playlist de YouTube" title="Importar playlist de YouTube">🔗</button><button class="add glass" id="plAdd" aria-label="Nueva playlist">＋</button></div>
     <div class="chips" id="libChips"><button class="chip glass" data-v="playlists">Playlists</button><button class="chip glass" data-v="favoritas">Me gusta</button>
       <button class="chip glass" data-v="historial">Historial</button><button class="chip glass" data-v="artistas">Artistas</button></div><div id="lib" class="fade"></div>`;
   $('libChips').onclick = e => { const c = e.target.closest('.chip'); if (c) { libTab = c.dataset.v; showLib(); } };
@@ -921,6 +965,7 @@ async function biblioteca() {
     const name = await askName('Nueva playlist'); if (!name) return;
     try { const p = await newPl(name); showPlaylist(p); } catch (e) { toast('No se pudo crear la playlist'); }
   };
+  $('plImp').onclick = () => importPl();
   showLib();
 }
 async function showLib() {
