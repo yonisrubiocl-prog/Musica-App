@@ -123,6 +123,15 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     (`/library`: Recientes, Populares, A–Z, Por artista) y chips de género.
   - **Biblioteca:** Playlists, Me gusta, Historial y Artistas. ♡ en cada canción y en el reproductor
     (`/favorites`, igual en la app).
+    Botón 🔗 **Importar playlist** de YouTube / YouTube Music (playlist o Mix, ver `/import/youtube`): resumen
+    "N canciones · ✓ ya estaban · ☁ de internet" y Descartar / Guardar playlist, como la app 1.0.40.
+- **Temas y color de acento** (menú del avatar → Ajustes, como la app 1.0.38): **Oscuro** (por defecto), **Gris** y
+  **Claro**, y debajo 8 acentos; cada tema recuerda el suyo y todo cambia al momento. Se guarda solo en el navegador
+  (`localStorage`: `tema` y `acentos`), no en el servidor: cada dispositivo el suyo. El CSS no tiene colores fijos:
+  todo sale de variables (`--fondo`, `--acento`, `--cristal`, `--hoja`, `--barra`, `--elevado`, `--texto`…) y un tema
+  es solo otro bloque de variables. En Claro, los acentos muy luminosos (luminancia ≥ 0,3) pierden un 18 % de
+  luminosidad para leerse; sobre un botón de acento el texto es negro si el acento es claro (> 0,45). El reproductor
+  grande y la barra de lo que suena (van sobre la portada difuminada) son oscuros también en Claro.
 - **Artistas como en Spotify:**
   - Biblioteca → Artistas enseña **solo los tuyos** (los que escuchas o tienes en Me gusta o playlists, los que
     más primero), con "Ver todos los artistas" al final; quien no tiene ninguno ve todos.
