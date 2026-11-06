@@ -323,7 +323,7 @@ let tocar = async () => {};   // la pone Cast: poner una lista en la TV, que sue
 let cxCuenta = async () => {}, cxHaz = () => {};   // también (ver abajo, "varios dispositivos")
 const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if (!d) localStorage.setItem('dispositivo', d = 'tv' + Math.random().toString(36).slice(2, 12)); return d; }
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
-            propia: false, cola: [], colaContada: false, orden: 0, ultima: 0};
+            propia: false, cola: [], colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 async function cxBucle() {
   let desde = 0;
   while (llave) {
@@ -334,7 +334,8 @@ async function cxBucle() {
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
         for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo); cxHaz(o); }
         if (nuevas.length) cxCuenta();
-      } else if (cx.propia && r.activo && r.activo_vivo) {   // otro se quedó la música
+      } else if (cx.propia && r.activo && r.activo_vivo && Date.now() - cx.tomada > 5000) {   // otro se quedó la música
+        // (no justo después de poner una cola: la respuesta que llega aún puede ser de antes de quedársela la TV)
         cx.propia = false; log('ahora suena en', r.dispositivos?.find(d => d.id === r.activo)?.nombre || r.activo);
         if (!leer().pausa) acciones.pausa?.();
       }
@@ -380,9 +381,9 @@ if (window.cast && cast.framework && !demo) {
   setInterval(() => { if (actual) { const r = leer(); log('estado:', Math.round(r.t), '/', Math.round(r.d), r.pausa ? 'pausa' : 'sonando', '· audio', audio.paused ? 'parado' : 'suena', Math.round(audio.currentTime)); } }, 30000);
   // Lo que no sea nuestro no entra: ni al cargar la cola ni al añadirle canciones
   const rechazo = () => new M.ErrorData(M.ErrorType.LOAD_FAILED);
-  let cargandoPropia = false;
+  let cargandoPropia = 0;   // cuántas cargas propias van (pueden solaparse: la web manda 1 canción y al rato 11)
   pm.setMessageInterceptor(M.MessageType.LOAD, req => {
-    if (!cargandoPropia) cx.propia = false;   // la cargó el celular o la web: esa cola es suya
+    if (!cargandoPropia && cx.propia) { cx.propia = false; log('la cola la puso el celular o la web (Cast)'); }   // esa cola es suya
     if (req.queueData && req.queueData.items) req.queueData.items = req.queueData.items.filter(it => limpia(it.media));
     if (req.media && !limpia(req.media)) return rechazo();
     if (req.queueData && req.queueData.items && !req.queueData.items.length) return rechazo();
@@ -451,7 +452,7 @@ if (window.cast && cast.framework && !demo) {
     }
   });
   // ---- la TV pone su propia cola (elegida en sus menús) y suena sola, sin depender del celular ----
-  tocar = async (canciones, i = 0, mezclar = false) => {
+  tocar = async (canciones, i = 0, mezclar = false, desde = 0) => {
     let l = canciones.filter(s => s && ID.test(s.id)).slice(0, 300);
     if (!l.length) return;
     if (mezclar) { for (let k = l.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [l[k], l[j]] = [l[j], l[k]]; } i = 0; }
@@ -468,10 +469,10 @@ if (window.cast && cast.framework && !demo) {
       });
       const req = new M.LoadRequestData();
       req.queueData = new M.QueueData(); req.queueData.items = items; req.queueData.startIndex = Math.min(i, items.length - 1);
-      req.media = items[req.queueData.startIndex].media; req.autoplay = true;
-      cx.propia = true; cx.cola = l; cx.colaContada = false;
-      cargandoPropia = true;
-      try { await pm.load(req); } finally { cargandoPropia = false; }
+      req.media = items[req.queueData.startIndex].media; req.autoplay = true; if (desde) req.currentTime = desde;
+      cx.propia = true; cx.cola = l; cx.colaV++; cx.tomada = Date.now();
+      cargandoPropia++;
+      try { await pm.load(req); } finally { cargandoPropia--; }
       log('la TV pone', l.length, 'canciones desde la', req.queueData.startIndex + 1);
       marcaSonando();
       cxCuenta(true);
@@ -485,11 +486,11 @@ if (window.cast && cast.framework && !demo) {
     const s = cx.cola.find(x => x.id === id); if (!s) return;
     const datos = {cancion: s, pos: Math.round((pm.getCurrentTimeSec() || 0) * 10) / 10, pausa: pm.getPlayerState() !== M.PlayerState.PLAYING,
                    qi: cx.cola.indexOf(s), duracion: pm.getDurationSec() || s.duration || 0, radio: false, repetir: 'off'};
-    if (!cx.colaContada) datos.cola = cx.cola;
+    const v = cx.colaV; if (cx.colaContadaV !== v) datos.cola = cx.cola;   // la cola, si no se contó ESTA (no otra de antes)
     try {
       await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: cx.disp, nombre: 'TV', datos, tomar, hecho: cx.orden})});
-      cx.colaContada = true; cx.ultima = Date.now();
-    } catch (e) {}
+      if (datos.cola) cx.colaContadaV = v; cx.ultima = Date.now();
+    } catch (e) { log('no pude contar lo que suena:', e.message); }
   };
   cxHaz = o => {
     const d = o.datos || {};
@@ -497,7 +498,11 @@ if (window.cast && cast.framework && !demo) {
     else if (o.tipo === 'siguiente') acciones.siguiente();
     else if (o.tipo === 'anterior') acciones.anterior();
     else if (o.tipo === 'ir') pm.seek(d.pos || 0);
-    else if (o.tipo === 'cola' && d.cola?.length) tocar(d.cola, d.qi || 0);
+    else if (o.tipo === 'cola' && d.cola?.length) {   // si sigue la misma canción (solo cambió lo que viene), en el mismo segundo
+      const m = pm.getMediaInformation(), id = m ? new URL(m.contentUrl || m.contentId, location.href).pathname.split('/')[2] : null;
+      const misma = !d.nueva && id && d.cola[d.qi || 0]?.id === id;
+      tocar(d.cola, d.qi || 0, false, misma ? pm.getCurrentTimeSec() || 0 : 0);
+    }
   };
   pm.addEventListener([E.PAUSE, E.PLAYING, E.PLAYER_LOAD_COMPLETE, E.SEEKED].filter(Boolean), () => cxCuenta());
   setInterval(() => { if (cx.propia && Date.now() - cx.ultima > 15000) cxCuenta(); }, 5000);
