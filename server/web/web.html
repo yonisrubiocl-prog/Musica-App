@@ -326,6 +326,7 @@
      suena en otro dispositivo (lo de aquí es un mando) */
   .np .disp { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px auto 0; padding: 7px 14px;
               border-radius: 999px; color: var(--texto2); font-size: .86rem; font-weight: 600; }
+  .np .disp[hidden] { display: none; }
   .np .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
   .np .disp svg { width: 19px; height: 19px; flex: none; }
   .np .disp.fuera { color: var(--acento); }
@@ -451,6 +452,12 @@
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
 
   /* Ajustes: tema y color de acento */
+  /* Rendimiento (Ajustes): interruptores para ahorrar datos y batería */
+  .sheet .rend { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .sheet .rend div { flex: 1; } .sheet .rend small { display: block; color: var(--texto2); font-size: .8rem; margin-top: 2px; line-height: 1.35; }
+  .sheet .ahorro { display: block; margin: 6px 12px 10px; padding: 10px 14px; border-radius: 12px; width: calc(100% - 24px);
+                   background: rgb(var(--fg) / .06); font-weight: 600; font-size: .9rem; }
+  :root.quieto .np .cover img, :root.quieto .np .tint, :root.quieto .eq b, :root.quieto .np .vacio img { animation: none !important; }
   .ajuste { padding: 12px 12px 8px; color: var(--texto2); font-size: .82rem; font-weight: 600; letter-spacing: .3px; }
   .temas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px; }
   .temas button { border-radius: 14px; padding: 8px; border: 2px solid var(--linea); text-align: center; font-size: .88rem; font-weight: 600; }
@@ -799,7 +806,7 @@ function header() {
     <div class="menu"><button id="avatarBtn" aria-label="Menú">${me.picture ? `<img class="avatar" src="${esc(me.picture)}" alt="" referrerpolicy="no-referrer">`
       : `<span class="avatar">${esc(((me.name || '?')[0] || '?').toUpperCase())}</span>`}</button>
       <div class="menu-list glass" id="menu">
-        <button id="ajBtn">⚙️ <span>Ajustes<small>Tema y color de acento</small></span></button>
+        <button id="ajBtn">⚙️ <span>Ajustes<small>Tema, color y rendimiento</small></span></button>
         <button id="dlBtn">⬇️ <span>Descargar app Android<small>Para tenerla instalada en el móvil</small></span></button>
         <button id="outBtn">↩️ <span>Cerrar sesión</span></button></div></div></header>
     <div class="apk glass${isAndroid && !apkHidden ? ' on' : ''}" id="apk"><div><b>¿Estás en Android?</b>Instala la app: suena con la pantalla apagada y va más fluida.</div>
@@ -817,6 +824,20 @@ function wireHeader() {
   };
 }
 document.addEventListener('click', () => $('menu') && $('menu').classList.remove('on'));
+// Rendimiento: lo que gasta datos o batería se puede apagar (se recuerda en este navegador). Apagado, el Canvas no
+// pregunta ni baja nada; "varios dispositivos" deja de esperar al servidor (ni se ve desde otros ni los maneja);
+// sin animaciones, la portada viva, el fondo y el ecualizador se quedan quietos.
+const REND = [['canvas', '🎬 Canvas', 'El vídeo de fondo en el reproductor grande (~0,5 MB por canción)'],
+              ['conectar', '🔊 Escuchar en varios dispositivos', 'Ver y manejar lo que suena en tus otros dispositivos'],
+              ['animaciones', '✨ Animaciones', 'La portada que se mueve, el fondo que respira y el ecualizador']];
+let rend = {canvas: true, conectar: true, animaciones: true, ...store.get('rendimiento', {})};
+function ponRend(n) {
+  const antes = rend; rend = n; store.set('rendimiento', rend);
+  document.documentElement.classList.toggle('quieto', !rend.animaciones);
+  if (antes.canvas !== rend.canvas) { if (rend.canvas) canvasEstado(cur); else pintaCanvas(); }
+  if (antes.conectar !== rend.conectar) cxEncender(rend.conectar);
+}
+document.documentElement.classList.toggle('quieto', !rend.animaciones);
 // Ajustes: primero el tema y debajo el acento de ese tema. Se aplica al momento (solo cambian las variables del CSS).
 function ajustes() {
   const ac = acentoDe(tema);
@@ -824,7 +845,12 @@ function ajustes() {
       `<button class="${k === tema ? 'on' : ''}" data-tema="${k}"><div class="muestra" style="background:${t.muestra}, ${t.fondo}">
         <i style="background:${ACENTOS[acentoDe(k)][1]}"></i></div>${t.nombre}</button>`).join('')}</div>
     <div class="ajuste">COLOR DE ACENTO · ${TEMAS[tema].nombre.toUpperCase()}</div><div class="acentos">${Object.entries(ACENTOS).map(([k, [n, hex]]) =>
-      `<button class="${k === ac ? 'on' : ''}" data-ac="${k}" title="${n}" aria-label="${n}" style="background:${hex};color:${luminancia(hex) > .45 ? '#000' : '#fff'}">${k === ac ? '✓' : ''}</button>`).join('')}</div>`);
+      `<button class="${k === ac ? 'on' : ''}" data-ac="${k}" title="${n}" aria-label="${n}" style="background:${hex};color:${luminancia(hex) > .45 ? '#000' : '#fff'}">${k === ac ? '✓' : ''}</button>`).join('')}</div>
+    <div class="ajuste">RENDIMIENTO · SOLO EN ESTE DISPOSITIVO</div>${REND.map(([k, t, d]) =>
+      `<div class="rend"><div>${t}<small>${d}</small></div><button class="switch${rend[k] ? ' on' : ''}" data-rend="${k}" aria-label="${t}"></button></div>`).join('')}
+    <button class="ahorro" id="ajAhorro">${REND.some(([k]) => rend[k]) ? '🔋 Modo ahorro: apagar todo' : 'Encender todo'}</button>`);
+  $('sheet').querySelectorAll('[data-rend]').forEach(b => b.onclick = () => { ponRend({...rend, [b.dataset.rend]: !rend[b.dataset.rend]}); ajustes(); });
+  $('ajAhorro').onclick = () => { const on = !REND.some(([k]) => rend[k]); ponRend(Object.fromEntries(REND.map(([k]) => [k, on]))); ajustes(); };
   $('sheet').querySelectorAll('[data-tema]').forEach(b => b.onclick = () => { tema = b.dataset.tema; store.set('tema', tema); aplicarTema(); ajustes(); });
   $('sheet').querySelectorAll('[data-ac]').forEach(b => b.onclick = () => { acentos[tema] = b.dataset.ac; store.set('acentos', acentos); aplicarTema(); ajustes(); });
 }
@@ -1533,14 +1559,23 @@ function cxRecibe(r) {
   }
   pintaDisp();
 }
+let cxCorre = false;
 async function cxBucle() {
+  if (cxCorre) return; cxCorre = true;
   let desde = 0;
-  for (;;) {
-    try { const r = await api(`/conectar?disp=${DISP}&nombre=${encodeURIComponent(DISP_NOMBRE)}&desde=${desde}`); desde = r.v; cxRecibe(r); }
+  while (rend.conectar) {
+    try { const r = await api(`/conectar?disp=${DISP}&nombre=${encodeURIComponent(DISP_NOMBRE)}&desde=${desde}`); desde = r.v; if (rend.conectar) cxRecibe(r); }
     catch (e) { await new Promise(ok => setTimeout(ok, 5000)); }
   }
+  cxCorre = false;
+}
+function cxEncender(on) {   // Ajustes → Rendimiento
+  if (on) { if (session) cxBucle(); return pintaDisp(); }
+  if (remoto && cx?.sonando) { remoto = false; cxAdopta(cx.sonando, false); }   // lo de allí queda aquí, en pausa
+  remoto = false; cx = null; pintaDisp();
 }
 setInterval(() => {   // cada segundo: el mando pinta el segundo y manda los cambios de la cola; el que suena los cuenta
+  if (!rend.conectar) return;
   if (remoto) {
     pintaTiempo(); if (cx?.sonando && !cx.sonando.pausa) ico(false);
     if (!cxAplicando && (qVer !== cxQVer || repeat !== cxRep)) cxManda('cola', cxCola());
@@ -1549,8 +1584,9 @@ setInterval(() => {   // cada segundo: el mando pinta el segundo y manda los cam
   if (!cur || (cx?.activo !== DISP && audio.paused)) return;
   if ([cur.id, qi, qVer, repeat, audio.paused].join('|') !== cxFirma || (!audio.paused && Date.now() - cxUltima > 15000)) cxCuenta();
 }, 1000);
-audio.addEventListener('seeked', () => { if (!remoto) cxCuenta(); });
+audio.addEventListener('seeked', () => { if (!remoto && rend.conectar) cxCuenta(); });
 function pintaDisp() {
+  $('npDisp').hidden = !rend.conectar;
   const fuera = remoto ? cxNombre(cx.activo) : '';
   $('npDisp').classList.toggle('fuera', !!fuera);
   $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : 'Este dispositivo · ' + DISP_NOMBRE;
@@ -1571,7 +1607,7 @@ $('npDisp').onclick = () => {
     cxManda('transferir', {a});
   });
 };
-if (session) cxBucle();
+if (session && rend.conectar) cxBucle();
 pintaDisp();
 
 // ---------- reproductor grande ----------
@@ -1643,7 +1679,7 @@ let canvasTimer = null;
 const cvDe = s => (s && canvasEst.get(s.id)) || {};
 async function canvasEstado(s, intento = 0) {
   clearTimeout(canvasTimer);
-  if (!s || sinMovimiento.matches || ['listo', 'no'].includes(cvDe(s).estado)) return pintaCanvas();
+  if (!s || sinMovimiento.matches || !rend.canvas || ['listo', 'no'].includes(cvDe(s).estado)) return pintaCanvas();
   let e;
   if (!/^[\w-]{11}$/.test(s.id)) e = {estado: 'no', motivo: 'no viene de YouTube'};
   else try { e = await api(`/canvas/${encodeURIComponent(s.id)}/estado`); }
@@ -1660,7 +1696,7 @@ const CV_ICO = {no: CV_FILM + '<path d="M2 2l20 20" stroke-width="2.4"/>', hacie
   espera: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', error: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>'};
 function pintaBadge() {
   const b = $('npCvB'), e = cvDe(cur), k = e.estado === 'haciendo' && e.espera ? 'espera' : e.estado;
-  b.hidden = !CV_ICO[k] || sinMovimiento.matches;
+  b.hidden = !CV_ICO[k] || sinMovimiento.matches || !rend.canvas;
   if (b.hidden) return;
   b.className = 'cvb ' + k;
   b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CV_ICO[k]}</svg>`;
@@ -1671,7 +1707,7 @@ $('npCvB').onclick = e => { e.stopPropagation(); toast($('npCvB').title); };
 async function pintaCanvas() {
   const v = $('npCanvasV'), s = cur;
   pintaBadge();
-  if (!s || cvDe(s).estado !== 'listo' || sinMovimiento.matches || !(panelFijo.matches || $('np').classList.contains('on'))) {
+  if (!s || cvDe(s).estado !== 'listo' || sinMovimiento.matches || !rend.canvas || !(panelFijo.matches || $('np').classList.contains('on'))) {
     $('np').classList.remove('con-canvas'); v.pause(); return ajustaEscena();
   }
   let url = canvasUrl.get(s.id);

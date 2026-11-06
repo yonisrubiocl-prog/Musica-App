@@ -194,3 +194,8 @@
       ("Este dispositivo" primero; el que suena en color de acento, "Suena aquí"); tocar otro → `orden transferir {a}`
       (si suena aquí, contar el estado justo antes para que siga en el mismo segundo). Con uno solo: "Abre la web o
       la app en otro dispositivo con tu cuenta y saldrá aquí".
+13. **Rendimiento** (Ajustes, debajo del tema; guardado en el teléfono): tres interruptores, encendidos por defecto:
+    **🎬 Canvas** (apagado: no llamar a `/canvas/...` ni enseñar el iconito; portada viva), **🔊 Escuchar en varios
+    dispositivos** (apagado: parar el bucle de `/conectar` y no contar el estado; si estaba de mando, quedarse con lo
+    de allí en pausa; sin botón 🔊) y **✨ Animaciones** (portada viva, fondo que respira, ecualizador quietos). Botón
+    "🔋 Modo ahorro: apagar todo" (y "Encender todo" si ya están apagados).

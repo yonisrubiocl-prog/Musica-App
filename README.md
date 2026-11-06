@@ -145,6 +145,10 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
   es solo otro bloque de variables. En Claro, los acentos muy luminosos (luminancia ≥ 0,3) pierden un 18 % de
   luminosidad para leerse; sobre un botón de acento el texto es negro si el acento es claro (> 0,45). El reproductor
   grande y la barra de lo que suena (van sobre la portada difuminada) son oscuros también en Claro.
+- **Rendimiento** (Ajustes, debajo del tema; se recuerda en cada navegador): interruptores para **Canvas** (apagado no
+  pregunta ni baja vídeos), **escuchar en varios dispositivos** (apagado deja de esperar al servidor: no se ve desde
+  los otros ni los maneja) y **animaciones** (portada viva, fondo que respira, ecualizador). "🔋 Modo ahorro" apaga
+  los tres. Para gastar menos datos y batería en el celular.
 - **Artistas como en Spotify:**
   - Biblioteca → Artistas enseña **solo los tuyos** (los que escuchas o tienes en Me gusta o playlists, los que
     más primero), con "Ver todos los artistas" al final; quien no tiene ninguno ve todos.
