@@ -75,9 +75,14 @@
    - **Canvas (como Spotify):** al empezar cada canción, `GET /canvas/{id}/estado` → `listo | haciendo | no`. Con
      `haciendo` (el servidor lo está haciendo, ~1 min) volver a preguntar cada 20 s unas 8 veces mientras siga esa
      canción. Con `listo`, y solo con el reproductor grande abierto, bajar `GET /canvas/{id}` (mp4 H.264 vertical
-     540×960, 7 s, sin sonido, ~100–500 KB) y ponerlo **de fondo a pantalla completa, en bucle y mudo**, con la
-     portada oculta y un degradado oscuro abajo para que se lean título y controles; se para cuando se pausa la
-     música. Guardar en memoria los últimos ~12. Sin Canvas (o con "reducir animaciones" del sistema): la portada viva.
+     540×960, 7 s, sin sonido, ~300–600 KB) y ponerlo **de fondo, en bucle y mudo**, con la portada oculta y un
+     degradado oscuro arriba y abajo para que se lean título y controles; se para cuando se pausa la música. Guardar
+     en memoria los últimos ~12. Sin Canvas (o con "reducir animaciones" del sistema): la portada viva.
+     **Cómo queda la pantalla (como en Spotify):** el vídeo, el título y los controles ocupan **la pantalla entera**
+     (la portada, invisible, crece para llenar el alto), con las pestañas Siguiente / Letra justo en el borde de abajo;
+     la cola y la letra van debajo, al bajar, sobre el fondo normal (el vídeo no sigue detrás de ellas). La barra de
+     pestañas, de cristal (fondo ~80 % + desenfoque) mientras hay Canvas. **No bajar la pantalla sola** hasta la
+     canción que suena en la cola mientras se mira la portada/el vídeo; **tocar una pestaña sí baja** hasta ella.
    - **Títulos limpios y portadas:** la API ya manda el `title` sin "(Official Video)", "// Letra" ni el artista
      delante ("Rompe La Cintura", no "Alexis y Fido - Rompe La Cintura // Letra"); la app no tiene que hacer nada,
      solo no volver a "limpiarlo" ella (y para buscar letras puede usarlo tal cual). `GET /album` trae ahora
