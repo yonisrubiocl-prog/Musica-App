@@ -25,8 +25,8 @@ sin publicarlo ni cobrar nada.
 - **Por usuario:** favoritas, historial y playlists (iguales en la app y la web), máximo 3 dispositivos por cuenta.
 - **Catálogo:** artistas → álbumes → canciones, género por artista (MusicBrainz y correcciones a mano), y de
   fondo: fichas de las canciones viejas y **precarga** de los álbumes de estudio de los artistas más escuchados.
-- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.39 (build 40) publicada** (03-11-2026), con
-  aviso de actualización propio; pide el audio con la sesión en la cabecera. La 1.0.38 y anteriores no suenan (usaban
+- **App Android** (fase 2) en marcha, la lleva otra sesión: **1.0.44 (build 45) publicada** (06-11-2026: ya con
+  Canvas, su iconito de estado, títulos limpios y 🔀 Aleatorio), con aviso de actualización propio; pide el audio con la sesión en la cabecera. La 1.0.38 y anteriores no suenan (usaban
   `?token=`): la app avisa de la nueva al abrirla. **App web** (hecha en el servidor) en `/web/`, a la que lleva la página principal tras entrar;
   es la referencia de cómo debe comportarse la app (`docs/app-paridad.md`).
 - **Seguridad:** la auditoría del servidor del 02-11-2026 está aplicada en lo de este proyecto (sección 2): API y bot
