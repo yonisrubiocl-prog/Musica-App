@@ -53,7 +53,7 @@
   @keyframes eq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
   .pausa { display: none; padding: .5vh 1.4vh; border-radius: 99vh; background: rgb(255 255 255 / .12); color: var(--texto); font-size: 1.8vh; }
   body.en-pausa .pausa { display: inline-block; }
-  h1 { font-size: 7.4vh; line-height: 1.08; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  h1 { font-size: 6.4vh; line-height: 1.08; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .artista { font-size: 3.8vh; color: var(--texto2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .album { font-size: 2.4vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .letra { margin-top: 2vh; min-height: 9vh; }
@@ -63,22 +63,24 @@
   .barra { margin-top: 2.4vh; height: .8vh; border-radius: 1vh; background: rgb(255 255 255 / .16); overflow: hidden; }
   .barra i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--acento), rgb(var(--acento-rgb) / .65)); border-radius: inherit; }
   .tiempos { display: flex; justify-content: space-between; color: var(--texto2); font-size: 2vh; font-variant-numeric: tabular-nums; }
-  .sigue { margin-top: 3vh; display: flex; align-items: center; gap: 1.6vh; padding: 1.4vh; border-radius: 1.8vh; background: rgb(255 255 255 / .07);
-           max-width: 70vh; }
-  .sigue[hidden] { display: none; }
-  .sigue img { width: 7vh; height: 7vh; border-radius: 1vh; object-fit: cover; background: #1c1930; flex: none; }
-  .sigue div { min-width: 0; }
-  .sigue small { display: block; color: var(--texto2); font-size: 1.7vh; font-weight: 600; letter-spacing: .15vh; text-transform: uppercase; }
-  .sigue b { display: block; font-size: 2.4vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sigue span { display: block; font-size: 2vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A continuación: las próximas en una fila (se eligen con el control) */
+  .cola { margin-top: 2.6vh; }
+  .cola[hidden] { display: none; }
+  .cola > small { display: block; color: var(--texto2); font-size: 1.8vh; font-weight: 600; letter-spacing: .15vh; text-transform: uppercase; margin-bottom: 1.2vh; }
+  .cola-fila { display: flex; gap: 1.8vh; }
+  .mini { width: 13vh; flex: none; border: 0; padding: 0; background: none; color: var(--texto); text-align: left; outline: none; transition: transform 150ms; }
+  .mini img, .mini .ph { width: 13vh; height: 13vh; border-radius: 1.2vh; object-fit: cover; background: #1c1930; display: grid; place-items: center; font-size: 4vh; }
+  .mini b { display: block; margin-top: .8vh; font-size: 1.8vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini small { display: block; font-size: 1.5vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini.f:focus img, .mini.f:focus .ph { box-shadow: 0 0 0 .45vh #fff, 0 1.2vh 3vh rgb(var(--acento-rgb) / .5); }
 
   /* botones (se manejan con el control remoto: el elegido, iluminado) */
   .controles { display: flex; align-items: center; gap: 2.4vh; margin-top: 2.6vh; }
-  .controles button { width: 8vh; height: 8vh; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+  .controles button { width: 7.4vh; height: 7.4vh; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
                       background: rgb(255 255 255 / .1); color: var(--texto); font: 700 2.3vh Roboto, system-ui, sans-serif;
                       transition: transform 150ms, background 150ms, box-shadow 150ms; outline: none; }
   .controles button svg { width: 4vh; height: 4vh; }
-  .controles button.grande { width: 11vh; height: 11vh; background: var(--acento); }
+  .controles button.grande { width: 10vh; height: 10vh; background: var(--acento); }
   .controles button.grande svg { width: 5.4vh; height: 5.4vh; }
   .controles button:focus { transform: scale(1.14); background: rgb(var(--acento-rgb) / .55);
                       box-shadow: 0 0 0 .5vh #fff, 0 1vh 4vh rgb(var(--acento-rgb) / .55); }
@@ -86,18 +88,42 @@
   /* ---- menús (Inicio, Biblioteca, Buscar, listas): se recorren con las flechas, el elegido iluminado ---- */
   .pestanas { position: fixed; top: 4vh; left: 7vw; z-index: 5; display: flex; gap: 1.2vh; }
   .pestanas button { padding: 1.2vh 2.6vh; border-radius: 99vh; border: 0; background: rgb(255 255 255 / .08); color: var(--texto2);
-                     font: 600 2.3vh Roboto, system-ui, sans-serif; outline: none; transition: transform 150ms, background 150ms; }
+                     font: 600 2.3vh Roboto, system-ui, sans-serif; outline: none; transition: transform 150ms, background 150ms;
+                     white-space: nowrap; word-break: keep-all; hyphens: none; letter-spacing: normal; flex: none; }
   .pestanas button.on { background: rgb(255 255 255 / .18); color: var(--texto); }
-  body.con-menu .escena { visibility: hidden; }
+  /* En los menús, la pantalla de Ahora se queda a la izquierda en pequeño (como el panel del reproductor de la web en el
+     PC): portada o Canvas, título, artista, barra y botones; los menús, a la derecha. Sin nada sonando, menú entero. */
+  body.con-menu .escena { position: fixed; left: 4vw; top: 12vh; bottom: 4vh; width: 24vw; height: auto; z-index: 2; display: flex;
+                          flex-direction: column; align-items: stretch; gap: 1.6vh; padding: 2.4vh; border-radius: 2.4vh;
+                          background: rgb(28 25 48 / .72); box-shadow: 0 2vh 6vh rgb(0 0 0 / .45); }
+  body.con-menu .media { height: 52vh; align-self: center; }
+  body.con-menu .info { gap: .8vh; }
+  body.con-menu .ahora, body.con-menu .album, body.con-menu .letra, body.con-menu .cola { display: none; }
+  body.con-menu h1 { font-size: 3.2vh; }
+  body.con-menu .artista { font-size: 2.2vh; }
+  body.con-menu .barra { margin-top: 1vh; }
+  body.con-menu .tiempos { font-size: 1.7vh; }
+  body.con-menu .controles { display: none; }
+  .panel-ir { display: none; }
+  body.con-menu .panel-ir { display: block; position: absolute; inset: 0; z-index: 3; border: 0; border-radius: inherit; background: none; outline: none; }
+  body.con-menu .panel-ir:focus { transform: none; box-shadow: 0 0 0 .5vh #fff, 0 0 6vh rgb(var(--acento-rgb) / .45); }
+  body.con-menu:not(.con-cancion) .escena { display: none; }
+  body.con-menu.con-pestanas .escena { padding: 2.4vh; }
+  body.con-menu.con-cancion .menu { left: 30vw; }
   body.con-pestanas .escena { padding-top: 12vh; }
-  .menu { position: fixed; inset: 0; padding: 12vh 7vw 6vh; overflow: hidden; z-index: 1; }
+  .menu { position: fixed; inset: 0; padding: 12vh 0 0; overflow: hidden; z-index: 1; }
   .menu[hidden] { display: none; }
-  .menu .scroll { height: 100%; overflow-y: auto; scrollbar-width: none; }
+  .menu .scroll { height: 100%; overflow-y: auto; scrollbar-width: none; padding: 0 7vw 8vh; scroll-padding: 6vh 0 8vh; }
+  body.con-menu.con-cancion .menu .scroll { padding: 0 4vw 8vh 2vw; }
+  body.con-menu.con-cancion .fila { margin: 0 -4vw 0 -2vw; padding: 2vh 4vw 2.6vh 2vw; scroll-padding: 0 4vw 0 2vw; }
   .menu .scroll::-webkit-scrollbar { display: none; }
   .menu h2 { font-size: 3vh; margin: 3vh 0 1.6vh; }
   .menu .vacio { color: var(--texto2); font-size: 2.6vh; margin-top: 6vh; }
-  .fila { display: flex; gap: 2.6vh; overflow: hidden; padding: 2vh 2.4vh 2.4vh; margin: 0 -2.4vh; }
-  .rejilla { display: flex; flex-wrap: wrap; gap: 2.6vh; padding: 2vh 2.4vh 2.4vh; margin: 0 -2.4vh; }
+  /* las filas salen del margen hasta el borde de la pantalla (como Netflix o Spotify): la primera portada alineada con
+     el título y, al moverse, la elegida entera (scroll-padding) */
+  .fila { display: flex; gap: 2.6vh; overflow: hidden; margin: 0 -7vw; padding: 2vh 7vw 2.6vh; scroll-padding: 0 7vw; }
+  .fila::after { content: ""; flex: none; width: 1px; }
+  .rejilla { display: flex; flex-wrap: wrap; gap: 2.6vh; padding: 2vh 0 2.6vh; }
   .tarjeta { flex: none; width: 22vh; border: 0; padding: 0; background: none; color: var(--texto); text-align: left; outline: none;
              transition: transform 150ms; }
   .tarjeta img, .tarjeta .ph { width: 22vh; height: 22vh; border-radius: 1.6vh; object-fit: cover; background: #1c1930; display: grid;
@@ -126,6 +152,17 @@
   .teclado button.ancha { grid-column: span 3; font-size: 2vh; }
   .consulta { font-size: 4vh; font-weight: 800; min-height: 5vh; border-bottom: .3vh solid rgb(255 255 255 / .2); padding-bottom: 1vh; }
   .consulta:empty::before { content: "Escribe con las flechas y OK"; color: var(--texto2); font-weight: 400; font-size: 2.6vh; }
+  /* saludo y accesos rápidos de Inicio (como Spotify) */
+  .saludo { font-size: 4.4vh; font-weight: 800; margin: 2vh 0 1vh; }
+  .accesos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.8vh; padding: 1.4vh 0 1vh; }
+  .acceso { display: flex; align-items: center; gap: 1.8vh; height: 9vh; border: 0; border-radius: 1.2vh; overflow: hidden; padding: 0 1.6vh 0 0;
+            background: rgb(255 255 255 / .08); color: var(--texto); text-align: left; font: 700 2.2vh Roboto, system-ui, sans-serif; outline: none; }
+  .acceso img, .acceso .ph { width: 9vh; height: 9vh; object-fit: cover; background: #2a2440; display: grid; place-items: center; font-size: 3.4vh; flex: none; }
+  .acceso span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acceso.f:focus { background: rgb(var(--acento-rgb) / .45); box-shadow: 0 0 0 .4vh #fff; transform: scale(1.03); }
+  /* número de cada canción y la que suena */
+  .cancion .n { width: 4vh; text-align: right; color: var(--texto2); font-size: 2vh; flex: none; }
+  .cancion.sonando b, .cancion.sonando .n { color: var(--acento); }
   /* lo elegido con el control: un poco más grande y con borde blanco */
   .f:focus { transform: scale(1.06); }
   .pestanas .f:focus, .pill.f:focus, .teclado .f:focus { background: rgb(var(--acento-rgb) / .6); color: #fff; box-shadow: 0 0 0 .4vh #fff; }
@@ -155,7 +192,10 @@
   <button class="f" data-vista="biblioteca">Biblioteca</button><button class="f" data-vista="buscar">Buscar</button>
 </nav>
 <section class="menu" id="menu" hidden></section>
+
 <main class="escena" id="ahora">
+  <!-- en los menús, el panel de la izquierda es solo información: entero se elige con el control y OK lleva a Ahora -->
+  <button class="panel-ir f" id="panelIr" aria-label="Ir a la pantalla de lo que suena"></button>
   <div class="media" id="media"><img id="tapaFondo" alt=""><img id="tapa" alt=""></div>
   <div class="info">
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i>Sonando en la TV<span class="pausa">En pausa</span></div>
@@ -169,11 +209,11 @@
     <div class="controles" id="controles">
       <button class="f" data-a="menos10" aria-label="Atrás 10 segundos"><span>−10</span></button>
       <button class="f" data-a="anterior" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-      <button class="f" data-a="playpausa" class="grande" id="bPlay" aria-label="Pausa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+      <button class="f grande" data-a="playpausa" id="bPlay" aria-label="Pausa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
       <button class="f" data-a="siguiente" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
       <button class="f" data-a="mas10" aria-label="Adelante 10 segundos"><span>+10</span></button>
     </div>
-    <div class="sigue" id="sigue" hidden><img id="sigueImg" alt=""><div><small>A continuación</small><b id="sigueT"></b><span id="sigueA"></span></div></div>
+    <div class="cola" id="cola" hidden><small>A continuación</small><div class="cola-fila" id="colaFila"></div></div>
   </div>
 </main>
 <div class="aviso" id="aviso"></div>

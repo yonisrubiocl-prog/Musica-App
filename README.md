@@ -393,6 +393,12 @@ pantalla) solo suena: no pide Canvas ni letra.
   suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
   web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
+- **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa). En los
+  menús, lo que suena queda **a la izquierda** en un panel solo de información (portada o Canvas, título, artista,
+  barra), como el panel del reproductor de la web en el PC; llegando a él con ← y OK se va a Ahora, donde están los
+  botones. Inicio empieza con un saludo ("Buenas tardes, Yoni") y accesos rápidos (Me gusta y 5 playlists); las filas
+  van de borde a borde, alineadas con los títulos. En las listas, cada canción con su número y la que suena marcada.
+  Las flechas: de lado gana lo que está a la misma altura; arriba/abajo, lo de la misma columna.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
   canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra

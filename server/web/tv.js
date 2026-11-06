@@ -57,7 +57,7 @@ function videoNuevo() {
 }
 
 // La canción que suena
-function pinta(media, siguiente) {
+function pinta(media, proximas = []) {
   if (!limpia(media)) return;
   const m = media.metadata || {}, u = new URL(media.contentUrl || media.contentId, location.href);
   const id = u.pathname.split('/')[2], t = u.searchParams.get('t') || '';
@@ -72,15 +72,22 @@ function pinta(media, siguiente) {
     $('media').classList.remove('con-canvas'); video()?.remove();
     $('letra').textContent = ''; lineas = []; lineaAhora = -2;
     if (!soloAudio) { canvas(actual); letra(actual); }
+    marcaSonando();
   }
-  pintaSiguiente(limpia(siguiente));
+  pintaCola(proximas.filter(p => limpia(p.media)));
 }
-function pintaSiguiente(n) {
-  $('sigue').hidden = !n;
-  if (!n) return;
-  const m = n.metadata || {}, img = imagenDe(n);
-  $('sigueT').textContent = m.title || ''; $('sigueA').textContent = m.artist || '';
-  if (img) $('sigueImg').src = img; else $('sigueImg').removeAttribute('src');
+// "A continuación": las próximas (hasta 6) en una fila; con OK sobre una, salta a esa. Solo se repinta si cambia
+// (Cast avisa de su estado a menudo y repintar quitaría el elegido).
+let colaFirma = '';
+function pintaCola(proximas) {
+  const lista = proximas.slice(0, 6), firma = lista.map(p => p.media.contentUrl || p.media.contentId).join('|');
+  if (firma === colaFirma) return; colaFirma = firma;
+  $('cola').hidden = !lista.length;
+  const enfocada = document.activeElement?.closest?.('#colaFila');
+  $('colaFila').innerHTML = lista.map(p => { const m = p.media.metadata || {}, img = imagenDe(p.media);
+    return `<button class="mini f" data-salto="${p.salto}">${img ? `<img src="${esc(img)}" alt="">` : '<span class="ph">♪</span>'}
+      <b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small></button>`; }).join('');
+  if (enfocada) enfoca($('colaFila').querySelector('.f') || document.querySelector('#controles .grande'));
 }
 
 // Canvas, con el ?t= de esa canción. Si se está haciendo (~1 min), se vuelve a preguntar.
@@ -123,7 +130,7 @@ function pintaLetra(t) {
 let acciones = {};   // las pone Cast (en la demo no hacen nada)
 let tocado = Date.now();   // última tecla (para cerrar solo tras un rato sin usarla ni sonar nada)
 // solo lo de la pantalla que se ve: las pestañas y, o los botones de "Ahora", o el menú abierto
-const visibles = () => [...document.querySelectorAll(vista === 'ahora' ? '#pestanas .f, #controles .f' : '#pestanas .f, #menu .f')]
+const visibles = () => [...document.querySelectorAll(vista === 'ahora' ? '#pestanas .f, #controles .f, #colaFila .f' : '#pestanas .f, #menu .f, #panelIr')]
   .filter(el => el.offsetParent !== null && !el.closest('[hidden]'));
 function vecino(dir) {
   const todos = visibles(), cur = todos.includes(document.activeElement) ? document.activeElement : null;
@@ -135,7 +142,9 @@ function vecino(dir) {
     const r = el.getBoundingClientRect(), dx = r.left + r.width / 2 - ax, dy = r.top + r.height / 2 - ay;
     const h = dir === 'izq' || dir === 'der';
     if (!(dir === 'izq' ? dx < -4 : dir === 'der' ? dx > 4 : dir === 'arr' ? dy < -4 : dy > 4)) continue;
-    const d = (h ? Math.abs(dx) : Math.abs(dy)) + 2.5 * (h ? Math.abs(dy) : Math.abs(dx));
+    // gana lo que está a la misma altura (de lado) o en la misma columna (arriba/abajo), como en las apps de TV
+    const solapa = h ? r.top < a.bottom && r.bottom > a.top : r.left < a.right && r.right > a.left;
+    const d = (h ? Math.abs(dx) : Math.abs(dy)) + (solapa ? 0 : 2000 + 2.5 * (h ? Math.abs(dy) : Math.abs(dx)));
     if (d < md) { md = d; mejor = el; }
   }
   return mejor;
@@ -147,6 +156,11 @@ function enfoca(el) {
 }
 function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); }
 document.getElementById('controles').addEventListener('click', e => { const b = e.target.closest('button'); if (b) pulsa(b.dataset.a); });
+document.getElementById('panelIr').addEventListener('click', () => { pila = []; irA('ahora'); });
+document.getElementById('colaFila').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const hecho = acciones.saltaA ? acciones.saltaA(+b.dataset.salto) : ''; log('a continuación: salto', b.dataset.salto); if (hecho) avisa(hecho);
+});
 const DIR = {37: 'izq', 39: 'der', 38: 'arr', 40: 'aba', ArrowLeft: 'izq', ArrowRight: 'der', ArrowUp: 'arr', ArrowDown: 'aba'};
 addEventListener('keydown', e => {
   const k = e.key, c = e.keyCode;
@@ -197,7 +211,7 @@ const tarjetas = (lista, k) => lista.map((s, i) => `<button class="tarjeta f" da
   <b>${esc(s.title)}</b><small>${esc(s.artist || '')}</small></button>`).join('');
 const artistas = lista => lista.map(a => `<button class="tarjeta redonda f" data-artista="${esc(a.name)}">${imgOk(a.thumb) ? `<img src="${imgOk(a.thumb)}" alt="">` : '<span class="ph">👤</span>'}
   <b>${esc(a.name)}</b><small>${a.songs || ''} canciones</small></button>`).join('');
-const filas = (lista, k) => lista.map((s, i) => `<button class="cancion f" data-l="${k}" data-i="${i}">${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<img alt="">'}
+const filas = (lista, k) => lista.map((s, i) => `<button class="cancion f${s.id === actual?.id ? ' sonando' : ''}" data-l="${k}" data-i="${i}" data-id="${esc(s.id)}"><span class="n">${s.id === actual?.id ? '▶' : i + 1}</span>${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<img alt="">'}
   <div><b>${esc(s.title)}</b><small>${esc([s.artist, s.album].filter(Boolean).join(' · '))}</small></div><span>${s.duration ? dur(s.duration) : ''}</span></button>`).join('');
 const volverBtn = () => '<div class="acciones" style="margin-top:0"><button class="pill f" data-accion="volver">← Volver</button></div>';
 function cabecera(img, titulo, sub, k, redonda) {
@@ -206,9 +220,15 @@ function cabecera(img, titulo, sub, k, redonda) {
 }
 const VISTAS = {
   async inicio() {
-    const [home, favs, pls] = await Promise.all([api('/home').catch(() => ({secciones: []})), api('/favorites').catch(() => ({songs: []})),
-                                                 api('/playlists').catch(() => ({playlists: []}))]);
-    let h = '';
+    const [home, favs, pls, me] = await Promise.all([api('/home').catch(() => ({secciones: []})), api('/favorites').catch(() => ({songs: []})),
+                                                     api('/playlists').catch(() => ({playlists: []})), api('/me').catch(() => ({}))]);
+    const hora = new Date().getHours(), nombre = (me.name || me.user?.name || '').split(' ')[0];
+    let h = `<div class="saludo">${hora < 12 ? 'Buenos días' : hora < 20 ? 'Buenas tardes' : 'Buenas noches'}${nombre ? ', ' + esc(nombre) : ''}</div>`;
+    plsCache = pls.playlists;
+    const accesos = [`<button class="acceso f" data-favs="1"><span class="ph">♥</span><span>Me gusta</span></button>`,
+      ...pls.playlists.slice(0, 5).map((p, i) => { const img = p.songs.find(x => imgOk(x.thumb))?.thumb;
+        return `<button class="acceso f" data-pl="${i}">${img ? `<img src="${imgOk(img)}" alt="">` : '<span class="ph">🎵</span>'}<span>${esc(p.name)}</span></button>`; })];
+    h += `<div class="accesos">${accesos.join('')}</div>`;
     for (const s of home.secciones) {
       if (s.tipo === 'canciones') h += `<h2>${esc(s.titulo)}</h2><div class="fila">${tarjetas(s.items.slice(0, 20), guarda(s.items))}</div>`;
       else if (s.tipo === 'artistas') h += `<h2>${esc(s.titulo)}</h2><div class="fila">${artistas(s.items.slice(0, 20))}</div>`;
@@ -267,6 +287,11 @@ async function busca() {
     $('resultados').innerHTML = (r.artists.length ? `<h2>Artistas</h2><div class="fila">${artistas(r.artists)}</div>` : '')
       + (listas[k].length ? `<h2>Canciones</h2>${filas(listas[k], k)}` : '<p class="vacio">Nada guardado con eso.</p>');
   } catch (e) { log('buscar:', e.message); }
+}
+// La canción que suena, marcada en las listas que se ven (al cambiar de canción)
+function marcaSonando() {
+  document.querySelectorAll('#menu .cancion').forEach(b => { const on = b.dataset.id === actual?.id;
+    b.classList.toggle('sonando', on); const n = b.querySelector('.n'); if (n) n.textContent = on ? '▶' : +b.dataset.i + 1; });
 }
 // Qué hace cada cosa al pulsarla con OK
 document.getElementById('menu').addEventListener('click', e => {
@@ -356,12 +381,14 @@ if (window.cast && cast.framework && !demo) {
     req.items = (req.items || []).filter(it => limpia(it.media));
     return req.items.length ? req : new M.ErrorData(M.ErrorType.INVALID_REQUEST);
   });
-  const siguiente = () => {
-    try { const q = pm.getQueueManager(), items = q.getItems() || [], i = q.getCurrentItemIndex(); return items[i + 1]?.media || null; }
-    catch (e) { return null; }
+  const proximas = () => {   // las que vienen detrás en la cola de Cast, con cuántas hay que saltar para llegar
+    try { const q = pm.getQueueManager(), items = q.getItems() || [], i = q.getCurrentItemIndex();
+          return items.slice(i + 1, i + 7).map((it, k) => ({media: it.media, salto: k + 1})); }
+    catch (e) { return []; }
   };
+  const siguiente = () => proximas()[0]?.media || null;
   leer = () => ({t: pm.getCurrentTimeSec() || 0, d: pm.getDurationSec() || 0, pausa: pm.getPlayerState() !== M.PlayerState.PLAYING});
-  const ahora = () => { const m = pm.getMediaInformation(); if (m) pinta(m, siguiente()); };
+  const ahora = () => { const m = pm.getMediaInformation(); if (m) pinta(m, proximas()); };
   pm.addEventListener(E.PLAYER_LOAD_COMPLETE, () => {
     log('cargada:', pm.getMediaInformation()?.metadata?.title, '· duración según Cast', pm.getDurationSec(),
         '· el <audio> tiene', audio.currentSrc ? 'el /stream' : 'NADA', '· vídeos en la página', document.querySelectorAll('video').length);
@@ -393,6 +420,7 @@ if (window.cast && cast.framework && !demo) {
     mas10: () => { pm.seek((pm.getCurrentTimeSec() || 0) + 10); return '+10 s'; },
     menos10: () => { pm.seek(Math.max(0, (pm.getCurrentTimeSec() || 0) - 10)); return '−10 s'; },
     siguiente: () => { salta(1); return '⏭'; },
+    saltaA: n => { salta(n); return '⏭'; },
     anterior: () => {
       const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (e) { return 0; } })();
       if ((pm.getCurrentTimeSec() || 0) > 3 || !i) pm.seek(0); else salta(-1);
@@ -432,7 +460,7 @@ if (window.cast && cast.framework && !demo) {
       cargandoPropia = true;
       try { await pm.load(req); } finally { cargandoPropia = false; }
       log('la TV pone', l.length, 'canciones desde la', req.queueData.startIndex + 1);
-      pila = []; irA('ahora');
+      marcaSonando();
       cxCuenta(true);
     } catch (e) { log('no pude poner la lista:', String(e?.message || e)); avisa('No pude ponerla'); }
   };
@@ -474,7 +502,7 @@ if (window.cast && cast.framework && !demo) {
     const ficha = (titulo, artista, img, album) => ({metadata: {title: titulo || '', artist: artista || '', albumName: album || '', images: img ? [{url: img}] : []}});
     pinta({contentUrl: `${location.origin}/stream/${p.get('id')}?t=${encodeURIComponent(p.get('t') || '')}`, duration: 215,
            ...ficha(p.get('titulo'), p.get('artista'), p.get('img'), p.get('album'))},
-          p.get('sig') ? {contentUrl: `${location.origin}/stream/${p.get('id')}`, ...ficha(p.get('sig'), p.get('sigA'), p.get('sigImg'))} : null);
+          p.getAll('sig').map((t, k) => ({salto: k + 1, media: {contentUrl: `${location.origin}/stream/${p.get('id')}?k=${k}`, ...ficha(t, p.getAll('sigA')[k], p.getAll('sigImg')[k])}})));
   }
   enfoca(document.querySelector('#controles .grande'));
   if (p.get('llave')) { llave = p.get('llave'); $('pestanas').hidden = false; document.body.classList.add('con-pestanas'); irA(p.get('vista') || 'inicio'); }
