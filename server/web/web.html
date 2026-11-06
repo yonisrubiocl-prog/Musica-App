@@ -1672,6 +1672,7 @@ function tvEmpieza(sesion, cargar) {
   remoto = false;   // si esto era un mando, al mandar a la TV la música pasa a ser de aquí (el otro se pausa solo)
   audio.pause();
   if (cargar && cur) tvCarga(qi, pos);
+  else tvSigue();
   tvLlave();
   toast('Suena en ' + tv.nombre); pintaDisp(); cxCuenta();
 }
@@ -1708,6 +1709,14 @@ async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: 
     tv.base = i; tv.hasta = i + items.length - 1;
     await new Promise((ok, mal) => tv.sesion.getSessionObj().queueLoad(req, ok, mal));
   } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
+}
+// Al recargar la página con la TV conectada (sesión retomada): la TV sigue con la cola que tenía; se mira hasta dónde
+// llega (la última que tiene) y se le añaden las que falten. Antes no se le añadía nada y "A continuación" se vaciaba.
+function tvSigue() {
+  if (!tv || remoto) return;
+  const its = tv.sesion.getMediaSession()?.items || [], ult = its[its.length - 1]?.media?.customData?.id;
+  const j = ult ? queue.findIndex((x, k) => k >= qi && x.id === ult) : -1;
+  if (j >= 0) { tv.hasta = j; tvMas(); }
 }
 async function tvMas() {   // que la TV tenga siempre las TV_PROX siguientes (si la cola es de aquí, no si la eligió la TV)
   if (!tv || tvMasCorre || remoto) return;
