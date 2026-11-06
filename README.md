@@ -374,11 +374,13 @@ pantalla) solo suena: no pide Canvas ni letra.
   la canción salta con una flecha, queda en el registro ("saltó sola con la flecha"). El marco del Canvas es siempre
   vertical (9:16): sin Canvas, la portada cuadrada en medio sobre ella misma difuminada, para que no cambie de tamaño.
 - **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
-  (sale si hay una TV con Cast en la red). Al conectar, lo que suena sigue en la TV en el mismo segundo: se le carga
-  la canción y las 6 siguientes (`TV_PROX`, las de "A continuación"; enlaces de una vez con `POST /stream/enlaces`)
-  y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
-  volumen manejan la TV; "varios dispositivos" cuenta lo de allí como "PC · Chrome → <TV>". Al desconectar, sigue en
-  la página en pausa.
+  (sale si hay una TV con Cast en la red). Al conectar, la web le da a la TV su llave y **la cola entera** (hasta 300,
+  `TV_COLA`; por el canal propio, `{tipo: "cola", cola, qi, pos, radio}`) y la TV la pone y suena ella, igual que al
+  elegir algo en sus menús: cuenta lo que suena en "varios dispositivos" y la web pasa a ser **un mando** de la TV
+  (play, siguiente, la barra, cambiar la cola… van como órdenes; el volumen, por Cast). Si es radio, el mando le busca
+  más cuando quedan 2. Al recargar la página, la TV sigue con lo suyo; al desconectar, lo de la TV queda en la página
+  en pausa. (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
+  sonar a la vez.) La app aún manda por Cast la cola a trozos: debería hacer lo mismo que la web.
 - **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web (y la app, pendiente) le
   pide una y se la manda a la TV por un canal propio de Cast (`urn:x-cast:com.yoneapolis.musica`, `{tipo: "llave",
   llave, caduca}`); al desconectar la anula (`DELETE /tv/llave`). Empieza por `tv.`, dura 24 h, no cuenta como
