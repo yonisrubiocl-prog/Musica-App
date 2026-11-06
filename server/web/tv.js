@@ -112,7 +112,37 @@ function pintaLetra(t) {
   for (const l of [lineas[i], lineas[i + 1]]) if (l) { const p = document.createElement('p'); p.textContent = l.txt; $('letra').append(p); }
 }
 
-// Aviso grande un momento al usar el control remoto (⏸, ▶, +10 s, ⏭…)
+// ---------- botones (control remoto): ← → eligen, OK pulsa; las teclas multimedia también valen ----------
+let acciones = {};   // las pone Cast (en la demo no hacen nada)
+const botones = () => [...document.querySelectorAll('#controles button')];
+let foco = 2;   // ⏯
+function enfoca(i) {
+  const b = botones(); foco = Math.max(0, Math.min(b.length - 1, i));
+  b.forEach((x, k) => x.classList.toggle('foco', k === foco)); b[foco].focus({preventScroll: true});
+}
+function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); }
+document.getElementById('controles').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { enfoca(botones().indexOf(b)); pulsa(b.dataset.a); } });
+addEventListener('keydown', e => {
+  const k = e.key, c = e.keyCode;
+  const tecla = k === 'MediaPlayPause' || c === 179 ? 'playpausa' : k === 'MediaPlay' || c === 126 ? 'play' : k === 'MediaPause' || c === 127 ? 'pausa'
+    : k === 'MediaTrackNext' || c === 176 ? 'siguiente' : k === 'MediaTrackPrevious' || c === 177 ? 'anterior'
+    : k === 'MediaFastForward' || c === 228 ? 'mas10' : k === 'MediaRewind' || c === 227 ? 'menos10' : '';
+  if (tecla) { e.preventDefault(); return pulsa(tecla); }
+  if (k === 'ArrowLeft' || c === 37) { e.preventDefault(); enfoca(foco - 1); }
+  else if (k === 'ArrowRight' || c === 39) { e.preventDefault(); enfoca(foco + 1); }
+  else if (k === 'Enter' || k === 'Select' || k === 'Accept' || c === 13 || c === 23 || c === 66 || k === ' ') { e.preventDefault(); pulsa(botones()[foco].dataset.a); }
+  else if (k === 'ArrowUp' || c === 38) { e.preventDefault(); pulsa('playpausa'); }   // por si el OK no llega a la página
+  else log('tecla:', k || '?', c);
+});
+const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const ICO_PAUSA = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+let iconoPausa = true;
+function pintaPlay(pausa) {
+  if (iconoPausa === !pausa) return; iconoPausa = !pausa;
+  $('bPlay').innerHTML = pausa ? ICO_PLAY : ICO_PAUSA; $('bPlay').setAttribute('aria-label', pausa ? 'Seguir' : 'Pausa');
+}
+
+// Aviso grande un momento al pulsar (⏸, ▶, +10 s, ⏭…)
 let avisoT = null;
 function avisa(txt) {
   const a = $('aviso'); a.textContent = txt; a.classList.add('on');
@@ -125,7 +155,7 @@ setInterval(() => {
   const {t, d, pausa} = leer(), total = d || actual.dur;
   $('progreso').style.width = total ? Math.min(100, 100 * t / total) + '%' : 0;
   $('actual').textContent = dur(t); $('total').textContent = dur(total);
-  document.body.classList.toggle('sonando', !pausa); document.body.classList.toggle('en-pausa', pausa);
+  document.body.classList.toggle('sonando', !pausa); document.body.classList.toggle('en-pausa', pausa); pintaPlay(pausa);
   const v = video(); if (v) { if (pausa && !v.paused) v.pause(); else if (!pausa && v.paused) v.play().catch(() => {}); }
   if (lineas.length) pintaLetra(t);
 }, 500);
@@ -177,31 +207,29 @@ if (window.cast && cast.framework && !demo) {
     document.body.classList.toggle('solo-audio', soloAudio);
     log('lista · pantalla:', !soloAudio);
   });
-  // ---- el control remoto de la TV: OK/⏯ pausa o sigue, ←/→ 10 s, ⏭/⏮ canción (Cast avisa a la app o la web del cambio)
+  // ---- botones en pantalla (y las teclas multimedia del mando): Cast avisa del cambio a la app o la web
   const salta = paso => {
     try { const r = new M.QueueUpdateRequestData(); r.jump = paso; pm.sendLocalMediaRequest(r); }
     catch (e) { log('no pude saltar de canción:', String(e)); }
   };
-  addEventListener('keydown', e => {
-    const k = e.key, c = e.keyCode, suena = pm.getPlayerState() === M.PlayerState.PLAYING, t = pm.getCurrentTimeSec() || 0;
-    let hecho = '';
-    if (k === 'MediaPlayPause' || c === 179 || k === 'Enter' || c === 13 || k === ' ') { suena ? pm.pause() : pm.play(); hecho = suena ? '⏸' : '▶'; }
-    else if (k === 'MediaPlay' || c === 126) { pm.play(); hecho = '▶'; }
-    else if (k === 'MediaPause' || c === 127) { pm.pause(); hecho = '⏸'; }
-    else if (k === 'ArrowRight' || c === 39 || k === 'MediaFastForward' || c === 228) { pm.seek(t + 10); hecho = '+10 s'; }
-    else if (k === 'ArrowLeft' || c === 37 || k === 'MediaRewind' || c === 227) { pm.seek(Math.max(0, t - 10)); hecho = '−10 s'; }
-    else if (k === 'MediaTrackNext' || c === 176) { salta(1); hecho = '⏭'; }
-    else if (k === 'MediaTrackPrevious' || c === 177) {
-      const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (err) { return 0; } })();
-      if (t > 3 || !i) pm.seek(0); else salta(-1);
-      hecho = '⏮';
-    }
-    log('tecla:', k || '?', c, hecho || '(nada)');
-    if (hecho) { e.preventDefault(); avisa(hecho); }
-  });
+  const suena = () => pm.getPlayerState() === M.PlayerState.PLAYING;
+  acciones = {
+    playpausa: () => { const s = suena(); s ? pm.pause() : pm.play(); return s ? '⏸' : '▶'; },
+    play: () => { pm.play(); return '▶'; },
+    pausa: () => { pm.pause(); return '⏸'; },
+    mas10: () => { pm.seek((pm.getCurrentTimeSec() || 0) + 10); return '+10 s'; },
+    menos10: () => { pm.seek(Math.max(0, (pm.getCurrentTimeSec() || 0) - 10)); return '−10 s'; },
+    siguiente: () => { salta(1); return '⏭'; },
+    anterior: () => {
+      const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (e) { return 0; } })();
+      if ((pm.getCurrentTimeSec() || 0) > 3 || !i) pm.seek(0); else salta(-1);
+      return '⏮';
+    },
+  };
   const op = new cast.framework.CastReceiverOptions();
   op.maxInactivity = 3600;   // que no se corte la conexión con la app en las pausas largas
   ctx.start(op);
+  enfoca(foco);
 } else if (demo) {
   // Para verla en un navegador: /tv/?demo&id=<id>&t=<firma>&titulo=…&artista=…&album=…&img=…&sig=…&sigA=…&sigImg=…
   const p = new URLSearchParams(location.search), t0 = Date.now();
@@ -212,4 +240,5 @@ if (window.cast && cast.framework && !demo) {
            ...ficha(p.get('titulo'), p.get('artista'), p.get('img'), p.get('album'))},
           p.get('sig') ? {contentUrl: `${location.origin}/stream/${p.get('id')}`, ...ficha(p.get('sig'), p.get('sigA'), p.get('sigImg'))} : null);
   }
+  enfoca(foco);
 }
