@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Música · TV</title>
+<link rel="icon" href="/logo-96.webp" type="image/webp">
+<script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<style>
+  /* La pantalla de la TV (receptor de Google Cast, App ID 25E4DFA9). La app manda la cola por Cast y desde allí se
+     manejan pausa, siguiente, etc.; aquí solo se enseña lo que suena, para mirarlo de lejos en 16:9: el Canvas (o la
+     portada que se mueve), título y artista grandes, la letra, la barra y "A continuación". Ligera a propósito (un
+     Chromecast tiene poca potencia): el fondo difuminado es una imagen quieta y solo cambia de opacidad.
+     En un parlante Cast (sin pantalla) solo suena: no se pide Canvas ni letra. El código está en tv.js (la CSP no deja
+     código dentro de la página). Ver README.md, "Pantalla de la TV". */
+  :root { --fondo: #0E0D16; --fondo-rgb: 14 13 22; --texto: #fff; --texto2: rgb(255 255 255 / .66); --acento: #9B5CF6; --acento-rgb: 155 92 246; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: var(--fondo); color: var(--texto); font-family: Roboto, system-ui, sans-serif;   /* la de la TV: sin fuentes de fuera (CSP) */ overflow: hidden;
+         -webkit-font-smoothing: antialiased; }
+  .fondo { position: fixed; inset: -8%; background-size: cover; background-position: center; filter: blur(70px) saturate(150%);
+           opacity: .5; transition: background-image 600ms; animation: respira 9s ease-in-out infinite alternate; animation-play-state: paused; }
+  .fondo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(var(--fondo-rgb) / .35), rgb(var(--fondo-rgb) / .8)); }
+  body.sonando .fondo { animation-play-state: running; }
+  @keyframes respira { from { opacity: .38; } to { opacity: .62; } }
+
+  /* márgenes seguros (~5 %): muchas TV recortan los bordes */
+  .escena { position: relative; height: 100vh; display: grid; grid-template-columns: auto 1fr; gap: 5.5vw; align-items: center;
+            padding: 7vh 7vw; }
+  .media { position: relative; height: 76vh; aspect-ratio: 1; border-radius: 2.2vh; overflow: hidden; background: #1c1930;
+           box-shadow: 0 4vh 10vh rgb(0 0 0 / .55), 0 0 9vh rgb(var(--acento-rgb) / .16); transition: aspect-ratio 500ms; }
+  .media.con-canvas { aspect-ratio: 9 / 16; }
+  .media img, .media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .media img { transform-origin: 50% 45%; animation: viva 24s ease-in-out infinite alternate; animation-play-state: paused; }
+  body.sonando .media img { animation-play-state: running; }
+  @keyframes viva { 0% { transform: scale(1.02); } 50% { transform: scale(1.1) translate(2%, -1.5%); } 100% { transform: scale(1.16) translate(-2%, 1%); } }
+  .media video { opacity: 0; transition: opacity 700ms; }
+  .media.con-canvas video { opacity: 1; }
+  .media.con-canvas img { opacity: 0; }
+
+  .info { min-width: 0; display: flex; flex-direction: column; gap: 1.6vh; }
+  .ahora { display: flex; align-items: center; gap: 1.2vh; color: var(--texto2); font-size: 2.1vh; font-weight: 600; letter-spacing: .1vh; }
+  .eq { display: inline-flex; align-items: flex-end; gap: .4vh; height: 2.2vh; }
+  .eq b { width: .45vh; height: 100%; border-radius: .3vh; background: var(--acento); transform-origin: bottom; transform: scaleY(.3);
+          animation: eq 1s ease-in-out infinite alternate; animation-play-state: paused; }
+  .eq b:nth-child(2) { animation-duration: .8s; animation-delay: -.3s; } .eq b:nth-child(3) { animation-duration: 1.2s; animation-delay: -.6s; }
+  body.sonando .eq b { animation-play-state: running; }
+  @keyframes eq { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+  .pausa { display: none; padding: .5vh 1.4vh; border-radius: 99vh; background: rgb(255 255 255 / .12); color: var(--texto); font-size: 1.8vh; }
+  body.en-pausa .pausa { display: inline-block; }
+  h1 { font-size: 7.4vh; line-height: 1.08; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .artista { font-size: 3.8vh; color: var(--texto2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .album { font-size: 2.4vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .letra { margin-top: 2vh; min-height: 9vh; }
+  .letra:empty { min-height: 0; margin-top: 0; }
+  .letra p { font-size: 3.6vh; font-weight: 700; line-height: 1.25; transition: opacity 300ms; }
+  .letra p + p { font-size: 2.6vh; font-weight: 600; color: var(--texto2); margin-top: .8vh; }
+  .barra { margin-top: 2.4vh; height: .8vh; border-radius: 1vh; background: rgb(255 255 255 / .16); overflow: hidden; }
+  .barra i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--acento), rgb(var(--acento-rgb) / .65)); border-radius: inherit; }
+  .tiempos { display: flex; justify-content: space-between; color: var(--texto2); font-size: 2vh; font-variant-numeric: tabular-nums; }
+  .sigue { margin-top: 3vh; display: flex; align-items: center; gap: 1.6vh; padding: 1.4vh; border-radius: 1.8vh; background: rgb(255 255 255 / .07);
+           max-width: 70vh; }
+  .sigue[hidden] { display: none; }
+  .sigue img { width: 7vh; height: 7vh; border-radius: 1vh; object-fit: cover; background: #1c1930; flex: none; }
+  .sigue div { min-width: 0; }
+  .sigue small { display: block; color: var(--texto2); font-size: 1.7vh; font-weight: 600; letter-spacing: .15vh; text-transform: uppercase; }
+  .sigue b { display: block; font-size: 2.4vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sigue span { display: block; font-size: 2vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* sin nada sonando */
+  .espera { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6vh;
+            background: var(--fondo); text-align: center; transition: opacity 500ms; }
+  .espera img { width: 20vh; height: 20vh; border-radius: 50%; box-shadow: 0 2vh 8vh rgb(var(--acento-rgb) / .35); }
+  .espera b { font-size: 4.4vh; } .espera span { font-size: 2.4vh; color: var(--texto2); }
+  body.con-cancion .espera { opacity: 0; pointer-events: none; }
+  body.solo-audio * { animation: none !important; }
+</style>
+</head>
+<body>
+<div class="fondo" id="fondo"></div>
+<main class="escena">
+  <div class="media" id="media"><img id="tapa" alt=""><video id="canvas" muted loop playsinline preload="auto"></video></div>
+  <div class="info">
+    <div class="ahora"><i class="eq"><b></b><b></b><b></b></i>Sonando en la TV<span class="pausa">En pausa</span></div>
+    <h1 id="titulo"></h1>
+    <div class="artista" id="artista"></div>
+    <div class="album" id="album"></div>
+    <div class="letra" id="letra"></div>
+    <div class="barra"><i id="progreso"></i></div>
+    <div class="tiempos"><span id="actual">0:00</span><span id="total">0:00</span></div>
+    <div class="sigue" id="sigue" hidden><img id="sigueImg" alt=""><div><small>A continuación</small><b id="sigueT"></b><span id="sigueA"></span></div></div>
+  </div>
+</main>
+<div class="espera"><img src="/logo-480.webp" alt=""><b>Música</b><span>Elige una canción en la app y mándala a la TV</span></div>
+<audio id="audio"></audio>
+<script src="/tv/tv.js"></script>
+</body>
+</html>

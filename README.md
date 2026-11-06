@@ -285,7 +285,9 @@ las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nue
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum y colaboraciones]}`; álbumes del más nuevo al más viejo. Con sesión de usuario, además **`tuyas`** (las suyas en tus favoritas, la última marcada primero, y luego en tus playlists) y **`todas`** (la cola de "Reproducir": las tuyas y luego las demás, las más puestas primero). 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, thumb, songs}` (`thumb`: la portada del álbum), por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
 | `GET /canvas/{id}/estado` | ¿Tiene Canvas? `{estado: listo \| haciendo \| no, motivo?, espera?}` (`motivo`: por qué no tiene; `espera`: por qué no se puede hacer ahora, p. ej. sin red con YouTube). Preguntarlo al empezar cada canción: si no lo tiene ni se intentó, se hace ya (~1 min). `no` es para siempre (portada viva). Pide sesión |
-| `GET /canvas/{id}` | El Canvas: `video/mp4` (H.264, 540×960, 7 s, sin sonido) para poner en bucle; 404 si no tiene. Pide sesión |
+| `GET /canvas/{id}` | El Canvas: `video/mp4` (H.264, 540×960, 7 s, sin sonido) para poner en bucle; 404 si no tiene. Pide sesión o el `?t=` del enlace de esa canción (la TV) |
+| `GET /lyrics/{id}` | La letra: `{synced (LRC con tiempos) o null, plain o null}`, de lrclib.net con el artista, el título limpio y la duración (si no, buscando). Se recuerda (las que no tienen, un día). Sesión o el `?t=` de esa canción |
+| `GET /tv/` | La pantalla de la TV (receptor de Google Cast, App ID `25E4DFA9`): sin login, ver "Pantalla de la TV" |
 | `GET /conectar?disp=&nombre=&desde=` | Escuchar en varios dispositivos: `{v, activo, activo_vivo, este, dispositivos: [{id, nombre, vivo}], sonando: {cancion, pos (el segundo de ahora), pausa, cola, qi, radio, repetir, aleatorio, duracion}, ordenes}` (`ordenes`, solo al que suena). Si `v` sigue siendo `desde`, espera un cambio (25 s). `disp`: 6–40 letras, números, `_` o `-`. Pide sesión |
 | `POST /conectar/estado` | `{disp, nombre, datos, tomar?, hecho?}`: el que suena cuenta lo que pasa (`datos` como `sonando`; `cola` solo si cambió). 409 si suena en otro dispositivo vivo, salvo `tomar`. `hecho`: la última orden ya hecha |
 | `POST /conectar/orden` | `{disp, tipo, datos}` para el que suena: `pausa {pausar}`, `siguiente`, `anterior`, `ir {pos}`, `cola {cola, qi, nueva?, radio?, repetir?, aleatorio?}`, `transferir {a}` (que suene en el dispositivo `a`, en el mismo segundo). 409 con el motivo |
@@ -342,6 +344,25 @@ manejan**. No toca YouTube.
   celular, con el nombre "Celular · App → <TV>". La API no necesitó nada nuevo (comprobado: 206 con Range por el túnel).
 - Se guarda en `/data/conectar.json` cada 20 s. Prueba con dos navegadores sin tocar cuentas reales:
   `tools/probar-conectar.sh` (servidor de mentira con la lógica real y audio de mentira).
+
+### Pantalla de la TV (Google Cast)
+
+Desde el 06-11-2026: `server/web/tv.html` + `tv.js`, en `https://musica.yoneapolis.com/tv/`, registrada en la consola
+de Cast como receptor propio (App ID `25E4DFA9`, inédito: solo en la TV registrada del dueño; modo invitado apagado).
+La app (sender) manda la cola por Cast (la que suena y las 2 siguientes: `contentUrl` = enlace firmado de
+`POST /stream/<id>/enlace`, `audio/webm`, metadata de música con portada, `customData.id`) y maneja pausa, siguiente,
+etc. La página suena en su `<audio>` con el reproductor de CAF y enseña, para mirarla de lejos en 16:9: el **Canvas**
+(vertical) o la portada que se mueve, el fondo difuminado que respira, título y artista grandes, la **letra** (línea
+actual y siguiente), la barra y **"A continuación"**. El vídeo se para con la música. En un parlante Cast (sin
+pantalla) solo suena: no pide Canvas ni letra.
+- **Seguridad:** pública y sin login, pero sin datos: nunca la sesión. El `?t=` del enlace vale solo para esa canción y
+  esa cuenta (audio, `/canvas/<id>` y `/lyrics/<id>`; nunca favoritas, playlists ni historial). Como cualquiera con el
+  App ID podría lanzarla, solo acepta audio de `/stream/…` de este dominio e imágenes de aquí, `i.ytimg.com` y
+  `*.googleusercontent.com` (portadas de YouTube Music); lo demás lo ignora (también al cargar o añadir a la cola).
+  CSP: `script-src 'self' https://www.gstatic.com` (el código va en `tv.js`), media y connect solo de aquí (+ gstatic),
+  sin fuentes de fuera; `X-Robots-Tag: noindex`.
+- **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra
+  necesitan un `t` válido). En la TV registrada se depura desde `chrome://inspect` del PC.
 
 ### Pestaña DC (controlar el bot desde la app)
 
@@ -750,9 +771,9 @@ Cada fase funciona por sí sola.
   (ver `docs/app-paridad.md`). Siguientes fases:
   afinar con datos y que las opiniones ajusten (3), mixes (4), lo de todos opcional (5), Descubre (6).
 - **Bloqueo automático** (sección 2) antes de repartir la app a todos.
-- **Letras:** dependen solo de lrclib.net, que la web consulta directamente; la API aún no tiene `/lyrics` (404).
-  El 31-10-2026 su API se cayó para todos (502 durante horas). Falta guardarlas en el servidor, añadir otra fuente y
-  que la web distinga "servicio caído" de "no hay letra" (hoy recuerda el fallo hasta recargar).
+- **Letras:** desde el 06-11-2026 la API tiene `/lyrics/<id>` (de lrclib.net, recordadas en memoria; la web la usa
+  primero y la TV solo esa). Sigue dependiendo solo de lrclib.net, que el 31-10-2026 se cayó horas: falta guardarlas en
+  disco, otra fuente y que la web distinga "servicio caído" de "no hay letra".
 - Revisar los géneros (`docker exec musicapp-api python genres.py`) y corregir a mano los que no cuadren.
 - Ruta de sincronización para favoritas hechas **sin conexión** en la app (cada cambio con su hora; gana el más
   reciente). Propuesta, sin hacer.
@@ -789,6 +810,7 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── versiones.py        cambia en favoritas/playlists las versiones de vídeo por la canción del disco
+│   ├── web/tv.html, tv.js  la pantalla de la TV (receptor de Google Cast; sección "Pantalla de la TV")
 │   ├── conectar.py         escuchar en varios dispositivos: qué suena y dónde, órdenes entre ellos (sección propia)
 │   ├── canvas.py           los Canvas: trozo de 7 s del videoclip de cada canción (sección "Portada viva" y "Canvas")
 │   ├── titulos.py          el título que se enseña, sin "(Official Video)" ni el artista delante (sección "Canciones")

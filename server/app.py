@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import html
 import secrets
+import requests
 import socket
 import subprocess
 import json
@@ -763,6 +764,77 @@ def access_page():
         return page(f.read().replace("{CLIENT_ID}", GOOGLE_CLIENT_ID))
 
 
+# ---------- letras (lrclib.net, gratis y sin clave; antes solo las buscaba la web) ----------
+LRCLIB = "https://lrclib.net/api"
+_letras = collections.OrderedDict()     # id -> (cuándo, {synced, plain}); las que no tienen, también (un día)
+LETRA_NO = 24 * 3600
+_letras_lock = threading.Lock()
+
+
+@app.get("/lyrics/{vid}", dependencies=[Depends(stream_user)])
+def lyrics(vid: str):
+    """La letra de una canción guardada: {synced (LRC con tiempos) o null, plain o null}, de lrclib.net con su artista,
+    el título limpio (titulos.py) y la duración; si no la encuentra así, buscando "artista título". Se recuerda (las
+    que no tienen, un día). Con la sesión o con el ?t= del enlace de esa canción (la TV, /tv/)."""
+    e = LIB.peek(f"yt-{valid_vid(vid)}")
+    if not e:
+        raise HTTPException(404, "no está guardada")
+    with _letras_lock:
+        hit = _letras.get(vid)
+        if hit and (hit[1]["synced"] or hit[1]["plain"] or time.time() - hit[0] < LETRA_NO):
+            _letras.move_to_end(vid)
+            return hit[1]
+    artist = e.get("artist") or LIB.artist_name(e)
+    title = titulos.nice(e.get("title"), artist, tuple(e.get("credits") or ()), e.get("channel") or "")
+    title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]|\s+(?:ft\.?|feat\.?)\s.*$", "", title, flags=re.I).strip() or title
+    out = {"synced": None, "plain": None}
+    try:
+        p = {"artist_name": artist, "track_name": title, **({"duration": round(e["duration"])} if e.get("duration") else {})}
+        r = requests.get(LRCLIB + "/get", params=p, timeout=8, headers={"User-Agent": "MusicApp (musica.yoneapolis.com)"})
+        j = r.json() if r.status_code == 200 else None
+        if not j:
+            r = requests.get(LRCLIB + "/search", params={"q": f"{artist} {title}".strip()}, timeout=8,
+                             headers={"User-Agent": "MusicApp (musica.yoneapolis.com)"})
+            hits = r.json() if r.status_code == 200 else []
+            d = e.get("duration") or 0
+            j = next((h for h in hits if h.get("syncedLyrics") and (not d or abs((h.get("duration") or d) - d) <= 4)), None) \
+                or next((h for h in hits if h.get("plainLyrics")), None)
+        if j:
+            out = {"synced": j.get("syncedLyrics"), "plain": j.get("plainLyrics")}
+    except (requests.RequestException, ValueError) as ex:
+        log.info("letra de %s: lrclib no contestó (%s)", vid, ex)
+        return out   # sin recordarlo: a la próxima se vuelve a intentar
+    with _letras_lock:
+        _letras[vid] = (time.time(), out)
+        while len(_letras) > 5000:
+            _letras.popitem(last=False)
+    return out
+
+
+# La pantalla de la TV (Google Cast, receptor propio: App ID 25E4DFA9, registrado con esta dirección). Sin login: lo
+# que enseña llega de la app por Cast (la canción, con su enlace firmado ?t=, que sirve también para pedir su Canvas).
+# Cualquiera con el App ID (va en el APK) podría lanzarla en su TV: no tiene datos ni sesión, solo reproduce
+# /stream/… de aquí (con su enlace firmado) y enseña imágenes de aquí o de YouTube; lo demás lo ignora (tv.js).
+CSP_TV = ("default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; "
+          "img-src 'self' https://i.ytimg.com https://*.googleusercontent.com; media-src 'self'; "
+          "connect-src 'self' https://www.gstatic.com; base-uri 'none'; object-src 'none'; form-action 'none'")
+TV_HEADERS = {"Cache-Control": "no-cache", "X-Robots-Tag": "noindex, nofollow"}
+
+
+@app.get("/tv", response_class=HTMLResponse)
+@app.get("/tv/", response_class=HTMLResponse)
+def tv():
+    """El receptor de Cast (web/tv.html): la canción que la app manda a la TV, con su Canvas, portada, letra y la
+    siguiente. En un parlante Cast (sin pantalla) solo suena."""
+    with open(os.path.join(WEB, "tv.html")) as f:
+        return HTMLResponse(f.read(), headers={**TV_HEADERS, "Content-Security-Policy": CSP_TV})
+
+
+@app.get("/tv/tv.js")
+def tv_js():
+    return FileResponse(os.path.join(WEB, "tv.js"), media_type="text/javascript", headers=TV_HEADERS)
+
+
 @app.get("/web", response_class=HTMLResponse)
 @app.get("/web/{path:path}", response_class=HTMLResponse)
 def web_app(path: str = ""):
@@ -772,7 +844,7 @@ def web_app(path: str = ""):
         return page(f.read(), {"Cache-Control": "no-cache"})
 
 
-@app.get("/canvas/{vid}/estado", dependencies=[Depends(check_token)])
+@app.get("/canvas/{vid}/estado", dependencies=[Depends(stream_user)])
 def canvas_state(vid: str):
     """¿Tiene Canvas? {estado: listo | haciendo | no, motivo?, espera?}. Preguntarlo al poner la canción: si no lo
     tiene ni se intentó, se hace ya (va la primera de la cola; tarda ~1 min). "no" es para siempre (queda la portada
@@ -780,9 +852,10 @@ def canvas_state(vid: str):
     return CANVAS.ask(valid_vid(vid))
 
 
-@app.get("/canvas/{vid}", dependencies=[Depends(check_token)])
+@app.get("/canvas/{vid}", dependencies=[Depends(stream_user)])
 def canvas(vid: str):
-    """El Canvas (vídeo vertical de 7 s, sin sonido, H.264, ~400 KB) para poner en bucle. 404 si no tiene."""
+    """El Canvas (vídeo vertical de 7 s, sin sonido, H.264, ~400 KB) para poner en bucle. 404 si no tiene. Como el
+    audio, con la sesión o con el ?t= del enlace de esa canción (/stream/{id}/enlace): así lo pide la TV (/tv/)."""
     path = CANVAS.path(valid_vid(vid))
     if not path:
         raise HTTPException(404, "sin canvas")
