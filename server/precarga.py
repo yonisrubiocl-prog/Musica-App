@@ -267,7 +267,9 @@ class Precarga:
         return NIGHT_UTC[0] <= datetime.datetime.now(datetime.timezone.utc).hour < NIGHT_UTC[1]
 
     def _run(self):
-        time.sleep(120)
+        # al reiniciar se respeta la espera que tocaba (next_at): si no, cada reinicio de la API se saltaba la pausa
+        # entre álbumes y bajaba a los 2 min
+        time.sleep(max(120, (self.state.get("now") or {}).get("next_at", 0) - time.time()))
         n = 0
         while True:
             try:
