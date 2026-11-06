@@ -366,6 +366,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   `*.googleusercontent.com` (portadas de YouTube Music); lo demás lo ignora (también al cargar o añadir a la cola).
   CSP: `script-src 'self' https://www.gstatic.com` (el código va en `tv.js`), media y connect solo de aquí (+ gstatic),
   sin fuentes de fuera; `X-Robots-Tag: noindex`.
+- **Control remoto de la TV:** OK o ⏯ pausa/sigue (▶ y ⏸ si el mando los tiene), ←/→ 10 s atrás/adelante, ⏭/⏮
+  canción (⏮ con más de 3 s vuelve al principio). Sale un aviso grande un momento; Cast avisa del cambio a la app o la
+  web que mandó la música. Cada tecla queda en el registro ("tecla: …") por si un mando manda otra cosa.
 - **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
   (sale si hay una TV con Cast en la red). Al conectar, lo que suena sigue en la TV en el mismo segundo: se le carga
   la canción y las 2 siguientes y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el

@@ -112,6 +112,13 @@ function pintaLetra(t) {
   for (const l of [lineas[i], lineas[i + 1]]) if (l) { const p = document.createElement('p'); p.textContent = l.txt; $('letra').append(p); }
 }
 
+// Aviso grande un momento al usar el control remoto (⏸, ▶, +10 s, ⏭…)
+let avisoT = null;
+function avisa(txt) {
+  const a = $('aviso'); a.textContent = txt; a.classList.add('on');
+  clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove('on'), 1100);
+}
+
 // Cada medio segundo: barra, tiempos, pausa (y el Canvas con ella) y la letra
 setInterval(() => {
   if (!actual || soloAudio) return;
@@ -169,6 +176,28 @@ if (window.cast && cast.framework && !demo) {
     soloAudio = !!caps && caps[cast.framework.system.DeviceCapabilities.DISPLAY_SUPPORTED] === false;   // parlante
     document.body.classList.toggle('solo-audio', soloAudio);
     log('lista · pantalla:', !soloAudio);
+  });
+  // ---- el control remoto de la TV: OK/⏯ pausa o sigue, ←/→ 10 s, ⏭/⏮ canción (Cast avisa a la app o la web del cambio)
+  const salta = paso => {
+    try { const r = new M.QueueUpdateRequestData(); r.jump = paso; pm.sendLocalMediaRequest(r); }
+    catch (e) { log('no pude saltar de canción:', String(e)); }
+  };
+  addEventListener('keydown', e => {
+    const k = e.key, c = e.keyCode, suena = pm.getPlayerState() === M.PlayerState.PLAYING, t = pm.getCurrentTimeSec() || 0;
+    let hecho = '';
+    if (k === 'MediaPlayPause' || c === 179 || k === 'Enter' || c === 13 || k === ' ') { suena ? pm.pause() : pm.play(); hecho = suena ? '⏸' : '▶'; }
+    else if (k === 'MediaPlay' || c === 126) { pm.play(); hecho = '▶'; }
+    else if (k === 'MediaPause' || c === 127) { pm.pause(); hecho = '⏸'; }
+    else if (k === 'ArrowRight' || c === 39 || k === 'MediaFastForward' || c === 228) { pm.seek(t + 10); hecho = '+10 s'; }
+    else if (k === 'ArrowLeft' || c === 37 || k === 'MediaRewind' || c === 227) { pm.seek(Math.max(0, t - 10)); hecho = '−10 s'; }
+    else if (k === 'MediaTrackNext' || c === 176) { salta(1); hecho = '⏭'; }
+    else if (k === 'MediaTrackPrevious' || c === 177) {
+      const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (err) { return 0; } })();
+      if (t > 3 || !i) pm.seek(0); else salta(-1);
+      hecho = '⏮';
+    }
+    log('tecla:', k || '?', c, hecho || '(nada)');
+    if (hecho) { e.preventDefault(); avisa(hecho); }
   });
   const op = new cast.framework.CastReceiverOptions();
   op.maxInactivity = 3600;   // que no se corte la conexión con la app en las pausas largas

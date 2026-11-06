@@ -67,6 +67,10 @@
   .sigue b { display: block; font-size: 2.4vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sigue span { display: block; font-size: 2vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  /* aviso del control remoto */
+  .aviso { position: fixed; left: 50%; bottom: 12vh; transform: translateX(-50%) scale(.9); padding: 2vh 4vh; border-radius: 99vh;
+           background: rgb(0 0 0 / .55); font-size: 5vh; font-weight: 800; opacity: 0; transition: opacity 200ms, transform 200ms; pointer-events: none; }
+  .aviso.on { opacity: 1; transform: translateX(-50%) scale(1); }
   /* sin nada sonando */
   .espera { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6vh;
             background: var(--fondo); text-align: center; transition: opacity 500ms; }
@@ -94,6 +98,7 @@
     <div class="sigue" id="sigue" hidden><img id="sigueImg" alt=""><div><small>A continuación</small><b id="sigueT"></b><span id="sigueA"></span></div></div>
   </div>
 </main>
+<div class="aviso" id="aviso"></div>
 <div class="espera"><img src="/logo-480.webp" alt=""><b>Música</b><span>Elige una canción en la app y mándala a la TV</span></div>
 <script src="/tv/tv.js"></script>
 </body>
