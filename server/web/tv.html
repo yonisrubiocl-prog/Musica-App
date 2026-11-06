@@ -190,6 +190,16 @@
   .pestanas .f:focus, .pill.f:focus, .teclado .f:focus { background: rgb(var(--acento-rgb) / .6); color: #fff; box-shadow: 0 0 0 .4vh #fff; }
   .tarjeta.f:focus img, .tarjeta.f:focus .ph { box-shadow: 0 0 0 .5vh #fff, 0 1.6vh 4vh rgb(var(--acento-rgb) / .5); }
   .cancion.f:focus { transform: none; background: rgb(var(--acento-rgb) / .35); box-shadow: inset 0 0 0 .3vh #fff; }
+  /* elegir qué hacer con una canción si ya suena algo */
+  #eleccion { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; display: grid; place-items: center; background: rgb(0 0 0 / .55); }
+  #eleccion .caja { display: flex; flex-direction: column; gap: 1.4vh; min-width: 46vh; max-width: 70vw; padding: 3.4vh 3.6vh;
+                    border-radius: 2.4vh; background: #1c1930; box-shadow: 0 3vh 8vh rgb(0 0 0 / .6); }
+  #eleccion .caja > b { font-size: 3.2vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #eleccion .caja > small { font-size: 2.2vh; color: var(--texto2); margin: -.6vh 0 1vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #eleccion button { padding: 1.8vh 2.4vh; border: 0; border-radius: 1.4vh; background: rgb(255 255 255 / .08); color: var(--texto);
+                     font: 700 2.6vh Roboto, system-ui, sans-serif; text-align: left; outline: none; }
+  #eleccion button small { font-weight: 400; font-size: 2vh; color: var(--texto2); margin-left: 1vh; }
+  #eleccion button.f:focus { background: var(--acento); color: #fff; transform: none; box-shadow: 0 0 0 .4vh #fff; }
   /* aviso del control remoto */
   .aviso { position: fixed; left: 50%; bottom: 12vh; transform: translateX(-50%) scale(.9); padding: 2vh 4vh; border-radius: 99vh;
            background: rgb(0 0 0 / .55); font-size: 5vh; font-weight: 800; opacity: 0; transition: opacity 200ms, transform 200ms; pointer-events: none; }

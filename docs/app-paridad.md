@@ -230,3 +230,10 @@
       tipo: "desconectar", datos: {a}}`. Vale aunque no sea la que suena y la conectara otro.
     - Lo que la TV hace sola (menús, Lista completa, sus botones, el espejo de lo que suena en otro, despedirse con
       `POST /conectar/salir`, cambiar de cuenta si otra persona la conecta) no necesita nada en la app.
+15. **No romper la lista que suena con una canción suelta** (06-11-2026; así la web): las tarjetas de canciones de
+    Inicio (Para ti, Escuchado recientemente…) llevan un **⋮** en la esquina (y pulsación larga) con el menú de la
+    canción. Tocar la tarjeta sigue poniéndola a sonar. En el menú de canción, junto a "⏭ Reproducir a continuación"
+    (detrás de la que suena y de las ya puestas así), nuevo **"📥 Añadir a la cola"**: al final de lo que suena, antes
+    de las recomendaciones de la radio (`_rec`). Las dos solo si suena otra; con la música en otro dispositivo, la
+    cola cambiada va como orden `cola` (sin `nueva`: no corta allí). La TV lo hace con una ventanita propia (⏭ Que
+    suene después · ➕ Al final · ▶ Ponerla ya): nada que hacer en la app.

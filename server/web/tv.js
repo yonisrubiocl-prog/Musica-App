@@ -136,7 +136,7 @@ function pintaLetra(t) {
 let acciones = {};   // las pone Cast (en la demo no hacen nada)
 let tocado = Date.now();   // última tecla (para cerrar solo tras un rato sin usarla ni sonar nada)
 // solo lo de la pantalla que se ve: las pestañas y, o los botones de "Ahora", o el menú abierto
-const visibles = () => [...document.querySelectorAll(vista === 'ahora' ? '#pestanas .f, #controles .f, #colaFila .f' : '#pestanas .f, #menu .f, #panelIr')]
+const visibles = () => [...document.querySelectorAll(eleccionAbierta() ? '#eleccion .f' : vista === 'ahora' ? '#pestanas .f, #controles .f, #colaFila .f' : '#pestanas .f, #menu .f, #panelIr')]
   .filter(el => el.offsetParent !== null && !el.closest('[hidden]'));
 function vecino(dir) {
   const todos = visibles(), cur = todos.includes(document.activeElement) ? document.activeElement : null;
@@ -164,7 +164,7 @@ function enfoca(el) {
 // cuadraditos encima de todo, y se queda el control). La mete Cast DENTRO de esta página (por eso sus iconos salen en
 // cuadraditos: la CSP no deja cargar su fuente y la página seguía recibiendo las teclas), así que se puede esconder:
 // lo que aparezca en el documento y no sea nuestro, fuera de la vista (y al registro, para saber qué es).
-const PROPIOS = new Set(['audio', 'fondo', 'pestanas', 'menu', 'ahora', 'aviso', 'espera', 'canvas']);
+const PROPIOS = new Set(['audio', 'fondo', 'pestanas', 'menu', 'ahora', 'aviso', 'espera', 'canvas', 'eleccion']);
 const NO_VISUAL = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'HEAD', 'BODY', 'TITLE', 'TEMPLATE']);
 function escondeIntrusos() {
   for (const el of [...document.documentElement.children, ...document.body.children]) {
@@ -215,6 +215,7 @@ addEventListener('keydown', e => {
   // TV no se puede volver a abrir). Si el sistema se la queda antes que la página, cierra igual: ver el registro.
   if (['GoBack', 'BrowserBack', 'Backspace', 'Escape', 'Back'].includes(k) || [4, 8, 27, 166, 461, 10009].includes(c)) {
     e.preventDefault(); log('atrás:', k, c);
+    if (eleccionAbierta()) return cierraEleccion();
     if (vista === 'detalle') return volver();
     if (vista !== 'ahora') { pila = []; return irA('ahora'); }
     return avisa('Para salir: ⏻ Salir, arriba');
@@ -320,6 +321,44 @@ const artista = nombre => async () => {
     ${imgOk(al.thumb) ? `<img src="${imgOk(al.thumb)}" alt="">` : '<span class="ph">💿</span>'}<b>${esc(al.name)}</b><small>${esc(al.year || '')}</small></button>`).join('')}</div>`;
   return h;
 };
+// ---------- elegir qué hacer con una canción si ya suena algo: ⏭ Que suene después · ➕ Al final · ▶ Ponerla ya ----------
+// (en la TV no hay ⋮ ni pulsación larga cómoda: un OK más y lo normal, "después", ya viene elegido; Atrás la cierra)
+const hayLista = () => !!((cx.propia && actual) || espejo);
+const eleccionAbierta = () => !!document.getElementById('eleccion');
+let eleccionDe = null;   // {lista, i, volverA: el elemento elegido antes}
+function abreEleccion(lista, i, desde) {
+  const s = lista[i]; if (!s) return;
+  eleccionDe = {lista, i, volverA: desde};
+  const el = document.createElement('div'); el.id = 'eleccion';
+  el.innerHTML = `<div class="caja"><b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small>
+    <button class="f" data-e="despues">⏭ Que suene después</button><button class="f" data-e="final">➕ Al final de la cola</button>
+    <button class="f" data-e="ya">▶ Ponerla ya <small>cambia tu lista</small></button></div>`;
+  el.addEventListener('click', e => { const x = e.target.closest('[data-e]'); if (x) elige(x.dataset.e); });
+  document.body.append(el);
+  enfoca(el.querySelector('.f'));
+}
+function cierraEleccion() { document.getElementById('eleccion')?.remove(); const v = eleccionDe?.volverA; eleccionDe = null; if (v && document.contains(v)) enfoca(v); }
+async function elige(que) {
+  const {lista, i} = eleccionDe || {}; cierraEleccion();
+  const s = lista?.[i]; if (!s) return;
+  if (que === 'ya') return tocar(lista, i);
+  const hecho = await meteEnCola(s, que === 'despues');
+  avisa(hecho ? (que === 'despues' ? 'Sonará después' : 'Al final de la cola') : 'No pude añadirla', 1600);
+}
+// Meter una canción en lo que suena (después de la actual o al final), suene aquí o en otro dispositivo (espejo)
+async function meteEnCola(s, despues) {
+  try {
+    if (espejo) {   // suena en otro: su cola con la canción metida, como orden (sin "nueva": no corta allí)
+      const c = (espejo.s.cola?.length ? espejo.s.cola : [espejo.s.cancion]).filter(x => x.id !== s.id || x.id === espejo.s.cancion.id);
+      const qi = Math.max(0, c.findIndex(x => x.id === espejo.s.cancion.id));
+      const cola = [...c]; cola.splice(despues ? qi + 1 : cola.length, 0, s);
+      await api('/conectar/orden', {method: 'POST', body: JSON.stringify({disp: cx.disp, tipo: 'cola', datos: {cola, qi, radio: !!espejo.s.radio}})});
+      log('meto', s.title, despues ? 'después' : 'al final', 'en lo que suena en', espejo.nombre);
+      return true;
+    }
+    return await acciones.mete?.(s, despues);
+  } catch (e) { log('no pude meterla en la cola:', e.message); return false; }
+}
 // La lista completa: toda la cola de la TV (la de Cast), la que suena marcada y elegida; OK salta a esa
 async function colaCompleta() {
   const {items, i} = acciones.cola ? acciones.cola() : {items: [], i: 0};
@@ -369,6 +408,9 @@ document.getElementById('menu').addEventListener('click', e => {
     return lista(a.name, `${a.artist}${a.year ? ' · ' + a.year : ''}`, a.thumb || a.songs[0]?.thumb, a.songs)(); });
   if (d.pl) { const p = plsCache[+d.pl]; return abre(lista(p.name, `Playlist · ${p.songs.length} canciones`, p.songs.find(s => s.thumb)?.thumb, p.songs)); }
   if (d.favs) return abre(async () => { const f = await api('/favorites'); return lista('Me gusta', `${f.songs.length} canciones`, f.songs[0]?.thumb, f.songs)(); });
+  // una canción suelta (tarjeta o fila) con algo ya sonando: elegir qué hacer, sin romper la lista que suena.
+  // ▶ Reproducir / 🔀 Aleatorio de una lista (pill) la cambian directamente
+  if (d.l && !b.classList.contains('pill') && hayLista()) return abreEleccion(listas[d.l] || [], +(d.i || 0), b);
   if (d.l) return tocar(listas[d.l] || [], +(d.i || 0), !!d.mezcla);
 });
 // Cerrar sola tras 30 min sin sonar nada ni tocar el control (Cast ya no la cierra a los 5 min: ver disableIdleTimeout)
@@ -662,6 +704,18 @@ if (window.cast && cast.framework && !demo) {
     cx.propia = true; cx.cola = [...antes, l[i], ...despues]; cx.radio = radio; cx.colaV++; cx.tomada = Date.now();
     log('cambio la cola sin cortar:', cx.cola.length, 'canciones, va en la', antes.length + 1);
     colaFirma = ''; ahora(); marcaSonando(); cxCuenta(true);
+    return true;
+  };
+  acciones.mete = async (s, despues) => {
+    const q = pm.getQueueManager(), ya = q.getCurrentItem(); if (!ya) return false;
+    const {enlaces} = await api('/stream/enlaces', {method: 'POST', body: JSON.stringify({ids: [s.id]})});
+    if (!enlaces[s.id]) return false;
+    const items = q.getItems() || [], k = items.findIndex(it => it.itemId === ya.itemId), sig = despues ? items[k + 1] : null;
+    q.insertItems([itemDe(s, enlaces[s.id])], sig ? sig.itemId : undefined);
+    const j = Math.max(0, cx.cola.findIndex(x => x.id === idDe(ya.media)));
+    cx.cola = [...cx.cola]; cx.cola.splice(despues ? j + 1 : cx.cola.length, 0, s); cx.colaV++;
+    log('meto', s.title, despues ? 'después' : 'al final', '(sin cortar)');
+    colaFirma = ''; ahora(); cxCuenta();
     return true;
   };
   tocar = async (canciones, i = 0, mezclar = false, desde = 0, radio = false) => {

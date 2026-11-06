@@ -140,6 +140,12 @@
   }
   .card { display: flex; flex-direction: column; justify-content: flex-start; text-align: left; border-radius: var(--radius); overflow: hidden; transition: transform 200ms var(--ease), background 200ms; }
   .card:hover { transform: translateY(-2px); background: var(--cristal2); }
+  /* ⋮ de las tarjetas de canciones: el menú (a continuación, al final de la cola, playlist…) sin cambiar la lista que
+     suena; tocar la tarjeta la pone a sonar. En el PC sale al pasar por encima; también con clic derecho o dejándola pulsada */
+  .card { position: relative; }
+  .card .cmenu { position: absolute; top: 8px; right: 8px; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid;
+                 place-items: center; background: rgb(0 0 0 / .5); color: #fff; font-size: 18px; font-weight: 700; line-height: 1; }
+  @media (hover: hover) { .card .cmenu { opacity: 0; transition: opacity 150ms; } .card:hover .cmenu, .card:focus-visible .cmenu { opacity: 1; } }
   .card img, .card .ph { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--elevado); }
   .card .ph { display: grid; place-items: center; font-size: 2.2rem; color: var(--texto2); }
   .card.round img { border-radius: 50%; width: calc(100% - 24px); margin: 12px auto 0; }
@@ -758,7 +764,8 @@ function songMenu(s, extra = []) {
   const opts = [
     ...(s.artist ? [{icon: '👤', label: 'Ir al artista', sub: s.artist, run: () => { closeNp(); showArtist(s.artist); }}] : []),
     ...(s.album && s.where !== 'youtube' ? [{icon: '💿', label: 'Ir al álbum', sub: s.album, run: () => { closeNp(); showAlbum(s.artist || '', s.album); }}] : []),
-    ...(cur && cur.id !== s.id ? [{icon: '⏭', label: 'Reproducir a continuación', sub: 'Solo en lo que suena ahora', run: () => playNext(s)}] : []),
+    ...(cur && cur.id !== s.id ? [{icon: '⏭', label: 'Reproducir a continuación', sub: 'Solo en lo que suena ahora', run: () => playNext(s)},
+                                  {icon: '📥', label: 'Añadir a la cola', sub: 'Al final de lo que suena', run: () => alFinal(s)}] : []),
     {icon: '➕', label: 'Añadir a playlist', run: () => pickPl(s)},
     {icon: on ? '💔' : '♡', label: on ? 'Quitar de Me gusta' : 'Me gusta', run: () => toggleFav(s)},
     ...(s.where !== 'youtube' ? [{icon: '📻', label: 'Iniciar radio', sub: 'Esta canción y detrás parecidas', run: () => { listCtx = 'radio'; playOne(s); }}] : []),
@@ -794,6 +801,7 @@ function rows(key) {
     <button class="kebab" data-menu data-l="${key}" data-i="${i}" aria-label="Más">${KEBAB}</button></div>`).join('');
 }
 const songCards = key => lists[key].songs.map((s, i) => `<button class="card glass" data-l="${key}" data-i="${i}" data-card>
+  <span class="cmenu" data-menu data-l="${key}" data-i="${i}" role="button" aria-label="Más opciones">⋮</span>
   <img src="${esc(s.thumb || '')}" loading="lazy" alt=""><div><b>${esc(s.title)}</b><small>${esc(s.artist || '')}</small></div></button>`).join('');
 const artistCards = arts => arts.map(a => `<button class="card glass round" data-artist="${esc(a.name)}">
   <img src="${esc(a.thumb || '')}" loading="lazy" alt=""><div><b>${esc(a.name)}</b><small>${nSongs(a.songs)}</small></div></button>`).join('');
@@ -1188,6 +1196,10 @@ function go(t) {
   return {inicio, buscar, biblioteca}[t]();
 }
 $('nav').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); };
+wrap.addEventListener('contextmenu', e => {   // clic derecho o pulsación larga en una tarjeta de canción: su menú
+  const c = e.target.closest('[data-card]'); const s = c && lists[c.dataset.l]?.songs[+c.dataset.i];
+  if (s) { e.preventDefault(); songMenu(s); }
+});
 wrap.addEventListener('click', e => {
   const at = el => lists[el.dataset.l]?.songs[+el.dataset.i];
   const h = e.target.closest('.heart[data-id]'); if (h) return toggleFav(at(h));
@@ -1240,7 +1252,14 @@ function playNext(s) {
   if (j >= 0) queue.splice(j, 1);
   let at = qi + 1; while (at < queue.length && queue[at]._cola) at++;
   queue.splice(at, 0, {...s, _cola: true});
-  qVer++; paintQueue(); toast('Sonará a continuación');
+  qVer++; paintQueue(); cxColaYa(); toast('Sonará a continuación');
+}
+// "Añadir a la cola": al final de lo que suena (antes de las recomendaciones de la radio), sin cambiar la lista
+function alFinal(s) {
+  if (!cur) { listCtx = 'busqueda'; return playOne(s); }
+  let at = queue.length; while (at > qi + 1 && queue[at - 1]._rec) at--;
+  queue.splice(at, 0, {...s, _cola: true});
+  qVer++; paintQueue(); cxColaYa(); toast('Añadida al final de la cola');
 }
 function playOne(s) { isRadio = true; fromArtist = false; queueSig = ''; qVer++; queue = [s]; qi = 0; start(); fillRadio(); }
 // Poner una lista tocando la canción i (cualquier lista: Inicio, Me gusta, playlist, álbum, artista): esa primero
