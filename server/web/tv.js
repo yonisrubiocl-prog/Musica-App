@@ -38,11 +38,14 @@ const log = (...a) => {
   const txt = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
   console.log('[tv]', txt); pendientes.push(txt); if (pendientes.length > 200) pendientes.shift();
 };
-setInterval(() => {
+function mandaAvisos(yaMismo) {   // yaMismo: al cerrarse la página (sendBeacon sale aunque se cierre)
   if (!pendientes.length || !actual?.t) return;
-  fetch('/tv/registro', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: actual.id, t: actual.t, lineas: pendientes.splice(0, 30)})}).catch(() => {});
-}, 3000);
+  const body = JSON.stringify({id: actual.id, t: actual.t, lineas: pendientes.splice(0, 30)});
+  if (yaMismo && navigator.sendBeacon) navigator.sendBeacon('/tv/registro', new Blob([body], {type: 'application/json'}));
+  else fetch('/tv/registro', {method: 'POST', headers: {'Content-Type': 'application/json'}, body}).catch(() => {});
+}
+setInterval(mandaAvisos, 3000);
+addEventListener('pagehide', () => { log('la página se cierra'); mandaAvisos(true); });
 addEventListener('error', e => log('error JS:', e.message, `${e.filename}:${e.lineno}`));
 addEventListener('unhandledrejection', e => log('promesa rechazada:', String(e.reason)));
 // El vídeo del Canvas se crea aquí, cuando hace falta (no en el HTML): así Cast nunca lo toma por el reproductor
@@ -176,7 +179,15 @@ addEventListener('keydown', e => {
     const el = visibles().includes(document.activeElement) ? document.activeElement : null;
     return el ? el.click() : enfoca(visibles()[0]);
   }
-  log('tecla:', k || '?', c);
+  // Atrás: dentro de los menús vuelve (como en Spotify); en Ahora no hace nada (salir cerraba la pantalla y desde la
+  // TV no se puede volver a abrir). Si el sistema se la queda antes que la página, cierra igual: ver el registro.
+  if (['GoBack', 'BrowserBack', 'Backspace', 'Escape', 'Back'].includes(k) || [4, 8, 27, 166, 461, 10009].includes(c)) {
+    e.preventDefault(); log('atrás:', k, c);
+    if (vista === 'detalle') return volver();
+    if (vista !== 'ahora') { pila = []; return irA('ahora'); }
+    return avisa('Para salir, desconecta desde la web o el celular');
+  }
+  log('tecla:', k || '?', c); mandaAvisos(true);
 }, true);
 for (const ev of ['keyup', 'keypress']) addEventListener(ev, e => {   // lo mismo al soltar (por si Cast la escucha ahí)
   if ([37, 38, 39, 40, 13, 23, 66].includes(e.keyCode) || /^(Arrow|Enter|Select|Accept)/.test(e.key)) { e.stopImmediatePropagation(); e.preventDefault(); }
@@ -213,7 +224,7 @@ const artistas = lista => lista.map(a => `<button class="tarjeta redonda f" data
   <b>${esc(a.name)}</b><small>${a.songs || ''} canciones</small></button>`).join('');
 const filas = (lista, k) => lista.map((s, i) => `<button class="cancion f${s.id === actual?.id ? ' sonando' : ''}" data-l="${k}" data-i="${i}" data-id="${esc(s.id)}"><span class="n">${s.id === actual?.id ? '▶' : i + 1}</span>${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<img alt="">'}
   <div><b>${esc(s.title)}</b><small>${esc([s.artist, s.album].filter(Boolean).join(' · '))}</small></div><span>${s.duration ? dur(s.duration) : ''}</span></button>`).join('');
-const volverBtn = () => '<div class="acciones" style="margin-top:0"><button class="pill f" data-accion="volver">← Volver</button></div>';
+const volverBtn = () => '<div class="acciones volver"><button class="pill f" data-accion="volver">← Volver</button></div>';
 function cabecera(img, titulo, sub, k, redonda) {
   return `${volverBtn()}<div class="cabecera${redonda ? ' redonda' : ''}">${imgOk(img) ? `<img src="${imgOk(img)}" alt="">` : ''}<div><h1>${esc(titulo)}</h1><p>${esc(sub)}</p>
     <div class="acciones"><button class="pill main f" data-l="${k}" data-i="0">▶ Reproducir</button><button class="pill f" data-l="${k}" data-mezcla="1">🔀 Aleatorio</button></div></div></div>`;
@@ -401,12 +412,13 @@ if (window.cast && cast.framework && !demo) {
     const v = video(); if (v) (pm.getPlayerState() === M.PlayerState.PLAYING ? v.play().catch(() => {}) : v.pause());
   });
   pm.addEventListener(E.MEDIA_FINISHED, () => { if (!siguiente()) { actual = null; document.body.classList.remove('con-cancion'); } });
+  ctx.addEventListener(cast.framework.system.EventType.SHUTDOWN, () => { log('Cast cierra la pantalla'); mandaAvisos(true); });
   ctx.addEventListener(cast.framework.system.EventType.READY, () => {
     pm.setMediaElement(audio);   // otra vez, por si acaso: el reproductor es el <audio>
     const caps = ctx.getDeviceCapabilities();
     soloAudio = !!caps && caps[cast.framework.system.DeviceCapabilities.DISPLAY_SUPPORTED] === false;   // parlante
     document.body.classList.toggle('solo-audio', soloAudio);
-    log('lista · pantalla:', !soloAudio);
+    log('lista · pantalla:', !soloAudio, '·', navigator.userAgent, '·', innerWidth + 'x' + innerHeight, '· dpr', devicePixelRatio);
   });
   // ---- botones en pantalla (y las teclas multimedia del mando): Cast avisa del cambio a la app o la web
   const salta = paso => {

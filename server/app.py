@@ -928,6 +928,16 @@ def tv_registro(request: Request, id: str = Body(embed=True, max_length=11), t: 
     return {"ok": True}
 
 
+@app.post("/web/registro")
+def web_registro(found=Depends(check_token), lineas: list[str] = Body(embed=True, max_length=30)):
+    """Lo que hace la web con la TV (qué le manda, qué canción dice la TV que suena) al registro de la API, como
+    /tv/registro: para ver los dos lados sin tener el PC delante."""
+    u = found[1] if found else {}
+    for x in lineas[:30]:
+        log.info("Web de %s: %s", u.get("email", "clave compartida"), str(x)[:300])
+    return {"ok": True}
+
+
 @app.get("/tv/tv.js")
 def tv_js():
     return FileResponse(os.path.join(WEB, "tv.js"), media_type="text/javascript", headers=TV_HEADERS)

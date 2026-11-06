@@ -389,8 +389,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   `/home` (recientes, Para ti, Vuelve a escuchar, Tus artistas), Tus Me gusta y Tus playlists; Biblioteca: Me gusta,
   playlists y tus artistas; dentro, playlist, álbum o artista con ▶ Reproducir / 🔀 Aleatorio y sus canciones; Buscar:
   teclado en pantalla y resultados de lo guardado (`/search?yt=0`). Se recorre con las flechas (van al elemento más
-  cercano en esa dirección; todo lo elegible lleva la clase `f`) y OK; "← Volver" en pantalla (Atrás es del sistema y
-  cierra la pantalla). Al elegir algo, **la TV pone su propia cola** (enlaces de `POST /stream/enlaces`, de una vez) y
+  cercano en esa dirección; todo lo elegible lleva la clase `f`) y OK; "← Volver" en pantalla; Atrás del mando también
+  vuelve (en Ahora solo avisa "Para salir, desconecta…"), si la TV deja que la página vea la tecla. Al elegir algo, **la TV pone su propia cola** (enlaces de `POST /stream/enlaces`, de una vez) y
   suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
   web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
@@ -402,6 +402,7 @@ pantalla) solo suena: no pide Canvas ni letra.
   Las flechas: de lado gana lo que está a la misma altura; arriba/abajo, lo de la misma columna.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
   canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
+  Lo que hace la web con la TV (cuántas le manda, a qué canción pasó) va a `POST /web/registro`: `grep "Web de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra
   necesitan un `t` válido). En la TV registrada se depura desde `chrome://inspect` del PC.
 

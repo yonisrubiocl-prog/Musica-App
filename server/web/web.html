@@ -1640,6 +1640,10 @@ pintaDisp();
 // la TV, y "varios dispositivos" cuenta lo que suena allí ("PC · Chrome → <TV>"). Al desconectar, sigue aquí en pausa.
 const TV_APP = '25E4DFA9', TV_CANAL = 'urn:x-cast:com.yoneapolis.musica';
 const TV_PROX = 6;   // cuántas siguientes tiene siempre la TV (las de "A continuación")
+// Lo que pasa con la TV, al registro de la API (POST /web/registro: "Web de …"), para depurar sin tener el PC delante
+const tvAvisos = [];
+const tvLog = (...a) => { const t = a.join(' '); console.log('[tv]', t); tvAvisos.push(t); };
+setInterval(() => { if (tvAvisos.length) api('/web/registro', {method: 'POST', body: JSON.stringify({lineas: tvAvisos.splice(0, 30)})}).catch(() => {}); }, 3000);
 // La llave de la TV (POST /tv/llave): con ella la TV es independiente (menús, sonar) pero no puede cambiar nada
 async function tvLlave() {
   if (!tv) return;
@@ -1667,6 +1671,7 @@ function tvEmpieza(sesion, cargar) {
   if (!sesion) return;
   const player = new cast.framework.RemotePlayer(), ctrl = new cast.framework.RemotePlayerController(player);
   tv = {sesion, player, ctrl, nombre: sesion.getCastDevice()?.friendlyName || 'la TV', base: qi, hasta: qi - 1, pos: 0};
+  tvLog(cargar ? 'conecta' : 'retoma (recargó)', 'con', tv.nombre, '· cola de aquí:', queue.length, 'va en la', qi + 1, '· mando:', remoto);
   ctrl.addEventListener(cast.framework.RemotePlayerEventType.ANY_CHANGE, tvCambio);
   const pos = remoto ? cxPosAhora() : audio.src ? audio.currentTime : cxPos || 0;
   remoto = false;   // si esto era un mando, al mandar a la TV la música pasa a ser de aquí (el otro se pausa solo)
@@ -1707,6 +1712,7 @@ async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: 
     const req = new chrome.cast.media.QueueLoadRequest(items);
     req.startIndex = 0; req.currentTime = pos || 0; req.repeatMode = chrome.cast.media.RepeatMode.OFF;
     tv.base = i; tv.hasta = i + items.length - 1;
+    tvLog('le mando', items.length, 'desde la', i + 1, 'de', queue.length);
     await new Promise((ok, mal) => tv.sesion.getSessionObj().queueLoad(req, ok, mal));
   } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
 }
@@ -1716,6 +1722,7 @@ function tvSigue() {
   if (!tv || remoto) return;
   const its = tv.sesion.getMediaSession()?.items || [], ult = its[its.length - 1]?.media?.customData?.id;
   const j = ult ? queue.findIndex((x, k) => k >= qi && x.id === ult) : -1;
+  tvLog('la TV tiene', its.length, '· la última es la', j + 1, 'de aquí');
   if (j >= 0) { tv.hasta = j; tvMas(); }
 }
 async function tvMas() {   // que la TV tenga siempre las TV_PROX siguientes (si la cola es de aquí, no si la eligió la TV)
@@ -1727,7 +1734,7 @@ async function tvMas() {   // que la TV tenga siempre las TV_PROX siguientes (si
       const items = await tvEnlaces(queue.slice(tv.hasta + 1, hasta + 1));
       if (items.length && tv) {
         await new Promise((ok, mal) => media.queueInsertItems(new chrome.cast.media.QueueInsertItemsRequest(items), ok, mal));
-        tv.hasta += items.length;
+        tv.hasta += items.length; tvLog('le añado', items.length, '· ya tiene hasta la', tv.hasta + 1);
       }
     }
   } catch (e) { console.warn('Cast', e); } finally { tvMasCorre = false; }
@@ -1738,9 +1745,11 @@ function tvCambio(e) {
   const p = tv.player;
   if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; pintaTiempo(); }
   else if (e.field === 'isPaused' || e.field === 'playerState') { ico(p.isPaused); cxCuenta(); }
+  else if (e.field === 'mediaInfo' && p.mediaInfo && remoto) tvLog('la TV cambió de canción pero aquí soy mando: no la sigo');
   else if (e.field === 'mediaInfo' && p.mediaInfo && !remoto) {   // la TV pasó de canción (si la cola es de aquí)
     const id = new URL(p.mediaInfo.contentId || p.mediaInfo.contentUrl || '/', location.href).pathname.split('/')[2];
     const j = queue.findIndex((x, k) => k >= tv.base && x.id === id);
+    tvLog('la TV pasó a', p.mediaInfo.metadata?.title || id, '· aquí es la', j + 1);
     if (j >= 0 && j !== qi) { qi = j; cur = queue[qi]; pintaCancion(); cxCuenta(); }
     tvMas();
   }
