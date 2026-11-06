@@ -415,7 +415,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
 - **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
   final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,
-  en un cuadrito de cristal. En los
+  en un cuadrito de cristal de **altura fija** (la línea actual hasta en 2 renglones y la siguiente en 1; lo que sobre,
+  con "…"): si crecía, la barra y "A continuación" se movían. En los
   menús, lo que suena queda **a la izquierda** en un panel solo de información, como el reproductor de la web: el
   Canvas (o la portada) de fondo en todo el panel y encima el título, el artista y la barra. El vídeo con medidas
   **fijas** (las del panel): con ancho/alto automáticos esa TV (Chrome 92) lo pintaba en blanco. El borde de elegido
