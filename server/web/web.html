@@ -1221,7 +1221,9 @@ wrap.addEventListener('click', e => {
 // o una lista (playlist, álbum, Me gusta…: con aleatorio, y al acabar sigue con parecidas si está activado).
 const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
-let tv = null, tvListo = false, tvRadioT = 0;   // conectada a la TV (Google Cast): {sesion, player, ctrl, nombre, pos, llave}; ver "enviar a la TV"
+let tv = null, tvListo = false, tvRadioT = 0;
+// ¿lo que suena va a la TV? Con la TV conectada pero la música pasada a este dispositivo ("Dónde suena"), suena aquí
+const enTv = () => !!tv && !tv.aqui;   // conectada a la TV (Google Cast): {sesion, player, ctrl, nombre, pos, llave}; ver "enviar a la TV"
 // Dos aleatorios independientes: el general (Inicio, Biblioteca, playlists, álbumes) y el de la página de un
 // artista (empieza apagado). El botón cambia el de lo que está sonando.
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
@@ -1343,7 +1345,7 @@ function informaFallo(donde, s, e) {
 // Si suena en otro dispositivo (remoto), no suena aquí: se le manda la cola nueva con la canción que toca.
 function start(desde = 0, sonar = true) {
   if (remoto && !cxAplicando) { cur = queue[qi]; if (!cur) return; cxManda('cola', {...cxCola(), nueva: true}); return pintaCancion(); }
-  if (tv) { cur = queue[qi]; if (!cur) return; tvPon(qi, desde); return pintaCancion(); }   // aún no es mando de la TV
+  if (enTv()) { cur = queue[qi]; if (!cur) return; tvPon(qi, desde); return pintaCancion(); }   // aún no es mando de la TV
   cierraLaQueSonaba();
   cur = queue[qi]; if (!cur) return;
   playing = {s: cur, ctx: cur._rec ? (['para_ti', 'vuelve'].includes(listCtx) ? listCtx : 'radio') : listCtx};
@@ -1377,12 +1379,12 @@ function prev() { if (remoto) return cxManda('anterior'); if (tiempo() > 3 || qi
 // play/pausa: aquí, o en el dispositivo donde suena. Lo que vino de otro (aún sin enlace) empieza en su segundo.
 function playPausa() {
   if (remoto) return cxManda('pausa', {pausar: !cx.sonando?.pausa});
-  if (tv) return tv.ctrl.playOrPause();
+  if (enTv()) return tv.ctrl.playOrPause();
   if (!cur) return;
   if (!audio.src) return start(cxPos || 0);
   audio.paused ? audio.play() : audio.pause();
 }
-const irA = t => { if (remoto) cxManda('ir', {pos: t}); else if (tv) { tv.player.currentTime = t; tv.ctrl.seek(); } else audio.currentTime = t; };
+const irA = t => { if (remoto) cxManda('ir', {pos: t}); else if (enTv()) { tv.player.currentTime = t; tv.ctrl.seek(); } else audio.currentTime = t; };
 $('next').onclick = e => { e.stopPropagation(); next(); };
 $('prev').onclick = e => { e.stopPropagation(); prev(); };
 $('play').onclick = e => { e.stopPropagation(); playPausa(); };
@@ -1398,7 +1400,7 @@ let vol = store.get('volumen', 100), volAntes = vol || 100;
 function ponVolumen(v, guardar = true) {
   vol = Math.max(0, Math.min(100, Math.round(v)));
   audio.volume = (vol / 100) ** 2;   // curva: así el tramo bajo se puede afinar (el oído no es lineal)
-  if (tv && guardar) { tv.player.volumeLevel = vol / 100; tv.ctrl.setVolumeLevel(); }   // en la TV, el de la TV
+  if (enTv() && guardar) { tv.player.volumeLevel = vol / 100; tv.ctrl.setVolumeLevel(); }   // en la TV, el de la TV
   document.querySelectorAll('[data-vol]').forEach(i => { i.value = vol; i.style.setProperty('--v', vol + '%'); });
   document.querySelectorAll('[data-mute]').forEach(b => { b.innerHTML = VOL_ICO(vol); b.setAttribute('aria-label', vol ? 'Silenciar' : 'Activar sonido'); });
   if (guardar) store.set('volumen', vol);
@@ -1427,9 +1429,9 @@ audio.onplay = () => { ico(false); cxYa(); }; audio.onpause = () => { ico(true);
 audio.addEventListener('ended', () => cxYa());
 let seeking = false;
 // el segundo y la duración de lo que suena: aquí, o lo que dice el dispositivo donde suena (contando lo que pasó desde)
-const tiempo = () => remoto ? cxPosAhora() : tv ? tv.player.currentTime || 0 : audio.currentTime;
-const duracion = () => (remoto ? cx?.sonando?.duracion : tv ? tv.player.duration : audio.duration) || cur?.duration || 0;
-const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : tv ? !tv.player.isPaused : !audio.paused;
+const tiempo = () => remoto ? cxPosAhora() : enTv() ? tv.player.currentTime || 0 : audio.currentTime;
+const duracion = () => (remoto ? cx?.sonando?.duracion : enTv() ? tv.player.duration : audio.duration) || cur?.duration || 0;
+const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : enTv() ? !tv.player.isPaused : !audio.paused;
 function pintaTiempo() {
   const t = tiempo(), d = duracion();
   $('progI').style.width = d ? (100 * Math.min(t, d) / d) + '%' : 0;
@@ -1517,7 +1519,7 @@ async function cxManda(tipo, datos = {}) {
   catch (e) { toast(e.status === 409 ? 'Ya no está sonando en ' + cxNombre(cx?.activo) : 'No pude mandar la orden'); }
 }
 async function cxCuenta() {   // el que suena cuenta lo que pasa (y se queda la música si suena aquí)
-  if (!cur || remoto || tv) return;   // con la TV conectada, la que cuenta es ella
+  if (!cur || remoto || enTv()) return;   // con la TV conectada (y sonando allí), la que cuenta es ella
   const cargada = audioDe === cur.id;   // si no, aún suena (o está parado) el audio de la anterior: va por el 0
   const datos = {cancion: fichaQ(cur), pos: cargada ? Math.round(tiempo() * 10) / 10 : 0, pausa: cargada && !sonandoAhora(), qi, radio: isRadio,
                  repetir: repeat, aleatorio: shuffleNow(), duracion: duracion()};
@@ -1568,13 +1570,15 @@ function cxRecibe(r) {
   const yaEra = cx; cx = r; cx.recibido = Date.now();
   const s = r.sonando, yo = r.activo === DISP, otro = r.activo && !yo && r.activo_vivo;
   if (yo) {
-    if (remoto) { remoto = false; cxAdopta(s, true); toast('Ahora suena aquí'); }        // me la pasaron
+    if (remoto) { remoto = false; if (tv) tv.aqui = true; cxAdopta(s, true); toast('Ahora suena aquí'); }   // me la pasaron
+    // (con la TV conectada: suena aquí y la TV queda abierta en pausa; elegirla en "Dónde suena" la vuelve a poner)
     else if (!cur && s) cxAdopta(s, false);                                                // recargó la página: en pausa
     const nuevas = r.ordenes.filter(o => o.n > cxOrden);
     for (const o of nuevas) { cxOrden = o.n; cxHaz(o); }
     if (nuevas.length) cxCuenta();   // sin setTimeout: en segundo plano lo frenaría el navegador
   } else if (otro && s?.cancion) {
     // otro dispositivo se quedó la música (también la TV conectada desde aquí: esto pasa a ser su mando)
+    if (tv && tv.aqui) { tv.aqui = false; audio.pause(); }
     if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
     cxEspejo(s);
     // la TV conectada desde aquí no busca más radio sola: se la busca su mando (le llega en la cola nueva)
@@ -1620,8 +1624,8 @@ function pintaDisp() {
   $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : otros ? 'Este dispositivo' : '';
   $('npDispT').hidden = !fuera && !otros;
   $('npDisp').classList.toggle('solo', !fuera && !otros);
-  $('pEn').hidden = !fuera && !tv; $('pEn').textContent = tv ? '📺 En ' + tv.nombre : fuera ? '🔊 En ' + fuera : '';
-  document.querySelector('.np .vol').style.visibility = fuera && !tv ? 'hidden' : '';   // el volumen es el de allí (el de la TV sí se maneja)
+  $('pEn').hidden = !fuera && !enTv(); $('pEn').textContent = enTv() ? '📺 En ' + tv.nombre : fuera ? '🔊 En ' + fuera : '';
+  document.querySelector('.np .vol').style.visibility = fuera && !enTv() ? 'hidden' : '';   // el volumen es el de allí (el de la TV sí se maneja)
 }
 $('npDisp').onclick = () => {
   const lista = [...(cx?.dispositivos || []).filter(d => d.vivo)];
@@ -1706,9 +1710,10 @@ function tvEmpieza(sesion, cargar) {
 }
 function tvTermina() {
   if (!tv) return;
-  const pos = tv.pos, llave = tv.llave, s = remoto ? cx?.sonando : null; tv = null;
+  const pos = tv.pos, llave = tv.llave, s = remoto ? cx?.sonando : null, aqui = tv.aqui; tv = null;
   if (llave) api('/tv/llave', {method: 'DELETE', body: JSON.stringify({llave})}).catch(() => {});
   toast('Se desconectó la TV');
+  if (aqui) return pintaDisp();   // la música ya sonaba aquí: sigue igual
   remoto = false;
   if (s?.cancion) cxAdopta({...s, pos: cxPosAhora()}, false);   // lo que sonaba en la TV queda aquí, en pausa
   else if (cur) start(pos, false);
@@ -1717,8 +1722,8 @@ function tvTermina() {
 function tvCambio(e) {   // solo el segundo y la pausa (para la barra); lo demás llega por "varios dispositivos"
   if (!tv) return;
   const p = tv.player;
-  if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; if (!remoto) pintaTiempo(); }
-  else if ((e.field === 'isPaused' || e.field === 'playerState') && !remoto) ico(p.isPaused);
+  if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; if (!remoto && enTv()) pintaTiempo(); }
+  else if ((e.field === 'isPaused' || e.field === 'playerState') && !remoto && enTv()) ico(p.isPaused);
 }
 function pintaTv() {
   const b = $('npTv'); if (!b) return;

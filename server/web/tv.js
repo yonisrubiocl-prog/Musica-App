@@ -376,6 +376,7 @@ let cxCuenta = async () => {}, cxHaz = () => {};   // también (ver abajo, "vari
 const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if (!d) localStorage.setItem('dispositivo', d = 'tv' + Math.random().toString(36).slice(2, 12)); return d; }
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
             propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
+let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
 async function cxBucle() {
   let desde = 0;
   while (llave) {
@@ -388,14 +389,26 @@ async function cxBucle() {
         return;
       }
       if (r.activo === cx.disp) {
+        // me pasaron la música ("Dónde suena" → TV) sin ser mía: la retomo desde lo que tiene el servidor (cola y segundo)
+        const s = r.sonando;
+        if (!cx.propia && !eraActiva && s?.cancion && Date.now() - cx.tomada > 5000) {
+          log('me pasan la música:', s.cancion.title || s.cancion.id);
+          const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
+          tocar(cola, i, false, s.pos || 0, !!s.radio);
+        }
+        eraActiva = true;
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
         for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo, o.tipo === 'pausa' ? (o.datos?.pausar ? 'pausar' : 'seguir') : ''); cxHaz(o); }
         if (nuevas.length) recuenta();
         if (nuevas.length) cxCuenta();
-      } else if (cx.propia && r.activo && r.activo_vivo && Date.now() - cx.tomada > 5000) {   // otro se quedó la música
-        // (no justo después de poner una cola: la respuesta que llega aún puede ser de antes de quedársela la TV)
-        cx.propia = false; log('ahora suena en', r.dispositivos?.find(d => d.id === r.activo)?.nombre || r.activo);
-        if (!leer().pausa) acciones.pausa?.();
+      } else if (r.activo && r.activo_vivo && Date.now() - cx.tomada > 5000) {   // otro se quedó la música: la TV se pausa
+        // (no justo después de poner una cola: la respuesta que llega aún puede ser de antes de quedársela la TV). Sea
+        // la cola de quien sea: antes solo si era propia, y al pasarla al celular seguía sonando también aquí
+        if (cx.propia || eraActiva) {
+          cx.propia = false; log('ahora suena en', r.dispositivos?.find(d => d.id === r.activo)?.nombre || r.activo);
+          if (!leer().pausa) acciones.pausa?.();
+        }
+        eraActiva = false;
       }
     } catch (e) { await new Promise(ok => setTimeout(ok, 5000)); }
   }

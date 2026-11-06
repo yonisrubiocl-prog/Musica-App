@@ -379,7 +379,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   elegir algo en sus menús: cuenta lo que suena en "varios dispositivos" y la web pasa a ser **un mando** de la TV
   (play, siguiente, la barra, cambiar la cola… van como órdenes; el volumen, por Cast). Si es radio, el mando le busca
   más cuando quedan 2. Al recargar la página, la TV sigue con lo suyo; al desconectar, lo de la TV queda en la página
-  en pausa. (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
+  en pausa. **Cambiar dónde suena con la TV conectada:** elegir este navegador en "Dónde suena" lo hace sonar
+  aquí (la TV queda abierta, en pausa); elegir la TV la vuelve a poner (la TV retoma la cola y el segundo del
+  servidor). Cualquier dispositivo que se quede la música pausa la TV, sea de quien sea la cola. (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
   sonar a la vez.) La app aún manda por Cast la cola a trozos: debería hacer lo mismo que la web.
 - **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web (y la app, pendiente) le
   pide una y se la manda a la TV por un canal propio de Cast (`urn:x-cast:com.yoneapolis.musica`, `{tipo: "llave",
