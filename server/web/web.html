@@ -1438,6 +1438,10 @@ $('npTabs').onclick = e => {
   if (tresColumnas.matches && b.dataset.np === 'letra') { letraOn = !letraOn; store.set('letra_visible', letraOn); }
   else npTab = b.dataset.np;
   paintNp();
+  if (!tresColumnas.matches) {   // tocar una pestaña la enseña: se baja hasta ella (la portada o el Canvas quedan arriba)
+    const box = panelFijo.matches ? document.querySelector('.np .in') : $('np');
+    if (box.scrollTop < $('npTabs').offsetTop - 40) box.scrollTo({top: $('npTabs').offsetTop, behavior: 'smooth'});
+  }
 };
 // ---------- Canvas ----------
 // Al poner una canción se pregunta si tiene (/canvas/<id>/estado). Si no lo tiene ni se intentó, el servidor lo hace
