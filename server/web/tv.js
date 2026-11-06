@@ -378,6 +378,24 @@ const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
             propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
+let cxCorta = null;   // para cortar la espera larga de /conectar (al cambiar de cuenta)
+// Otra persona conecta la TV con SU cuenta (otra llave): gana la última (como en Spotify), pero limpio. La TV se
+// despide de la cuenta de antes (POST /conectar/salir con la llave vieja: sus dispositivos lo ven ya, no a los 45 s),
+// deja lo de esa cuenta (espejo, órdenes, "suena aquí"), recarga los menús con lo de la nueva y avisa quién la usa.
+const quien = k => fetch('/me', {headers: {Authorization: 'Bearer ' + k}}).then(r => r.ok ? r.json() : null).catch(() => null)
+  .then(j => j && {id: j.email || j.user?.email || j.sub || j.user?.sub || '', nombre: (j.name || j.user?.name || 'otra persona').split(' ')[0]});
+async function cambioDeCuenta(vieja, nueva, t0) {
+  const [antes, ahora] = await Promise.all([quien(vieja), quien(nueva)]);
+  if (!ahora || (antes && antes.id === ahora.id)) return;   // la misma persona que vuelve a conectar: nada
+  log('otra cuenta conecta la TV:', ahora.nombre);
+  fetch('/conectar/salir', {method: 'POST', keepalive: true, headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + vieja},
+                            body: JSON.stringify({disp: cx.disp})}).catch(() => {});
+  quitaEspejo(); eraActiva = false; cx.orden = 0;
+  if (cx.tomada < t0) cx.propia = false;   // (si ya puso la cola de la nueva, esa sí es suya)
+  cxCorta?.abort();
+  avisa('Ahora la usa ' + ahora.nombre, 4000);
+  if (vista !== 'ahora') { pila = []; irA(VISTA_BASE); }
+}
 // Espejo: si la música suena en otro dispositivo (la pasaron al PC o al celular), la TV enseña eso (portada, título,
 // barra, "Sonando en PC · Chrome") en vez de quedarse en su última canción, y sus botones lo manejan a distancia
 // (órdenes de /conectar). Al devolverle la música, ya tiene la canción a la vista.
@@ -443,7 +461,8 @@ async function cxBucle() {
   let desde = 0;
   while (llave && !cx.ido) {
     try {
-      const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=${desde}`);
+      cxCorta = new AbortController();
+      const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=${desde}`, {signal: cxCorta.signal});
       desde = r.v;
       if (r.desconectar) {   // la web o la app (cualquiera, no solo la que la conectó) pidió cerrar la pantalla
         log('me piden cerrar desde otro dispositivo'); mandaAvisos(true); despedida();
@@ -476,7 +495,7 @@ async function cxBucle() {
         }
         eraActiva = false;
       }
-    } catch (e) { await new Promise(ok => setTimeout(ok, 5000)); }
+    } catch (e) { if (e.name === 'AbortError') { desde = -1; continue; } await new Promise(ok => setTimeout(ok, 5000)); }
   }
 }
 const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
@@ -489,9 +508,9 @@ function pintaPlay(pausa) {
 
 // Aviso grande un momento al pulsar (⏸, ▶, +10 s, ⏭…)
 let avisoT = null;
-function avisa(txt) {
+function avisa(txt, ms = 1100) {
   const a = $('aviso'); a.textContent = txt; a.classList.add('on');
-  clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove('on'), 1100);
+  clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove('on'), ms);
 }
 
 // Cada medio segundo: barra, tiempos, pausa (y el Canvas con ella) y la letra
@@ -596,8 +615,9 @@ if (window.cast && cast.framework && !demo) {
   ctx.addCustomMessageListener(CANAL, e => {
     const d = e.data || {};
     if (d.tipo === 'llave' && typeof d.llave === 'string' && /^tv\.[\w-]{20,80}$/.test(d.llave)) {
-      const primera = !llave;
+      const primera = !llave, vieja = llave;
       llave = d.llave; log('llave recibida, caduca', new Date((d.caduca || 0) * 1000).toISOString().slice(0, 16));
+      if (vieja && vieja !== llave) cambioDeCuenta(vieja, llave, Date.now());
       $('pestanas').hidden = false; document.body.classList.add('con-pestanas');
       if (primera && !actual) irA('inicio');
       if (primera) { cxBucle(); setTimeout(siNadaSuena, 5000); }

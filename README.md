@@ -393,6 +393,10 @@ pantalla) solo suena: no pide Canvas ni letra.
   dispositivo y **solo vale para mirar y escuchar** (`TV_ALLOWED` en `app.py`: Inicio, biblioteca, playlists, artistas,
   buscar, el enlace del audio, Canvas, letra, varios dispositivos, eventos); en lo demás (Me gusta, playlists, cuenta,
   Discord…) 403 "la TV solo puede mirar y escuchar". Huellas en `/data/tv-llaves.json`. Es la base de los menús en la TV.
+  **Si otra persona conecta la misma TV con su cuenta**, gana la última (como en Spotify): la TV se despide de la
+  cuenta de antes (`/conectar/salir` con la llave vieja; sus dispositivos lo ven al momento), recarga los menús con lo
+  de la nueva y avisa "Ahora la usa <nombre>". Ojo: "Dejar de enviar" del menú de Cast de Chrome cierra la TV para
+  todos (es de Google).
 - **Menús en la TV** (con la llave): pestañas **Ahora · Inicio · Biblioteca · Buscar** arriba. Inicio: las filas de
   `/home` (recientes, Para ti, Vuelve a escuchar, Tus artistas), Tus Me gusta y Tus playlists; Biblioteca: Me gusta,
   playlists y tus artistas; dentro, playlist, álbum o artista con ▶ Reproducir / 🔀 Aleatorio y sus canciones; Buscar:

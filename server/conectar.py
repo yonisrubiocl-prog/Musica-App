@@ -118,7 +118,8 @@ class Conectar:
                 await asyncio.wait_for(ev.wait(), ESPERA)
             except asyncio.TimeoutError:
                 pass
-            self._visto(sub, disp, nombre)
+            if c["disp"].get(disp, {}).get("visto"):   # si se despidió mientras esperaba (salir), no revivirlo
+                self._visto(sub, disp, nombre)
         return self.vista(sub, disp)
 
     def estado(self, sub, disp, nombre, datos, tomar=False, hecho=None):
