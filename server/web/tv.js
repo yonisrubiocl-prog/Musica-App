@@ -30,6 +30,7 @@ function limpia(media) {
   if (m) m.images = (m.images || []).filter(i => i && imagenOk(i.url));
   return media;
 }
+const idDe = media => { try { return new URL(media.contentUrl || media.contentId, location.href).pathname.split('/')[2]; } catch (e) { return null; } };
 const imagenDe = media => media?.metadata?.images?.[0]?.url || '';
 // Avisos: en la consola (chrome://inspect desde el PC) y en el registro de la API (POST /tv/registro, con la firma de
 // la canción que suena: sin ella el servidor no los acepta). Para depurar la TV sin tenerla delante.
@@ -383,7 +384,12 @@ if (window.cast && cast.framework && !demo) {
   const rechazo = () => new M.ErrorData(M.ErrorType.LOAD_FAILED);
   let cargandoPropia = 0;   // cuántas cargas propias van (pueden solaparse: la web manda 1 canción y al rato 11)
   pm.setMessageInterceptor(M.MessageType.LOAD, req => {
-    if (!cargandoPropia && cx.propia) { cx.propia = false; log('la cola la puso el celular o la web (Cast)'); }   // esa cola es suya
+    // Una cola nueva de un celular o una web por Cast: esa cola es suya y la TV deja de contar. Cast hace pasar por aquí
+    // también los saltos dentro de la cola de la TV ("A continuación", siguiente): esos no (son canciones de su cola).
+    if (!cargandoPropia && cx.propia) {
+      const ids = (req.queueData?.items || [req.media]).map(it => { const m = it?.media || it; return m?.customData?.id || idDe(m); });
+      if (!ids.every(id => id && cx.cola.some(s => s.id === id))) { cx.propia = false; log('la cola la puso el celular o la web (Cast)', req.senderId || ''); }
+    }
     if (req.queueData && req.queueData.items) req.queueData.items = req.queueData.items.filter(it => limpia(it.media));
     if (req.media && !limpia(req.media)) return rechazo();
     if (req.queueData && req.queueData.items && !req.queueData.items.length) return rechazo();
