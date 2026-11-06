@@ -1474,6 +1474,32 @@ def i_duplicadas_merge():
     return {"borradas": DUPLICADAS.merge()}
 
 
+@internal.post("/interno/cambiar")
+def i_cambiar(viejo: str = Body(embed=True, max_length=20), nuevo: str = Body(embed=True, max_length=20),
+              olvidar: bool = Body(True, embed=True)):
+    """Cambia una canción por otra versión en todas las cuentas (favoritas con su fecha, playlists en su sitio e
+    historial): p. ej. la del disco sin censura por el videoclip censurado (Frijolero, 06-11-2026). `nuevo` se baja
+    aunque parezca la misma (sin el apodo de duplicadas.py) y desde entonces pedir `viejo` da `nuevo`. olvidar
+    (por defecto): borra además la vieja, para que la limpieza de repetidas no las vuelva a juntar."""
+    old, new = "yt-" + valid_vid(viejo), "yt-" + valid_vid(nuevo)
+    with DUPLICADAS.lock:
+        DUPLICADAS.aliases.pop(new, None)
+        DUPLICADAS._save_aliases()
+    _, path = download(f"https://www.youtube.com/watch?v={new[3:]}", dedupe=False)
+    if not path:
+        raise HTTPException(502, "no se pudo bajar la nueva")
+    e = LIB.peek(new) or {}
+    info = {k: e.get(k) for k in userdata.FIELDS}
+    userdata.replace_everywhere(old[3:], new[3:], info)
+    with DUPLICADAS.lock:
+        DUPLICADAS.aliases[old] = new
+        DUPLICADAS._save_aliases()
+    gone = LIB.remove(old) if olvidar and LIB.peek(old) else None
+    log.info("cambiada: %s (%s) -> %s (%s)%s", (gone or {}).get("title") or old, old, e.get("title"), new,
+             ", la vieja olvidada" if gone else "")
+    return {"nueva": {"id": new[3:], **info}, "olvidada": bool(gone)}
+
+
 @internal.get("/interno/versiones")
 def i_versiones():
     """Cómo va el cambio de versiones de vídeo por las de disco (versiones.py), por cuenta."""
