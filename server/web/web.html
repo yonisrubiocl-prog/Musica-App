@@ -1669,7 +1669,7 @@ async function tvLlave(pon) {
     const {llave, caduca} = await api('/tv/llave', {method: 'POST'});
     if (!tv) return;
     tv.llave = llave;
-    await tv.sesion.sendMessage(TV_CANAL, {tipo: 'llave', llave, caduca});
+    await tv.sesion.sendMessage(TV_CANAL, {tipo: 'llave', llave, caduca, nombre: tv.nombre});
     if (pon) tvPon(pon.i, pon.pos);
   } catch (e) { console.warn('llave de la TV', e); toast('No pude darle la llave a la TV'); }
 }
@@ -1702,10 +1702,12 @@ function tvEmpieza(sesion, cargar) {
   ctrl.addEventListener(cast.framework.RemotePlayerEventType.ANY_CHANGE, tvCambio);
   tvLog(cargar ? 'conecta' : 'retoma (recargó)', 'con', tv.nombre, '· cola de aquí:', queue.length, 'va en la', qi + 1, '· mando:', remoto);
   const pos = remoto ? cxPosAhora() : audio.src ? audio.currentTime : cxPos || 0;
-  // lo que suena (aquí o, si esto era un mando, en otro dispositivo) pasa a la TV; al recargar, la TV sigue con lo suyo
-  const pon = cargar && cur ? {i: qi, pos} : null;
-  remoto = false;
-  audio.pause();
+  // lo que suena (aquí o, si esto era un mando, en otro dispositivo) pasa a la TV; al recargar, la TV sigue con lo suyo.
+  // Si la TV ya suena con esta cuenta (la conectó la app), solo la llave: sin cola, para no cortarla (antes se paraba
+  // un segundo al volver a ponerla); esto sigue de mando y maneja también su volumen.
+  const yaSuena = !!tvDeLaCuenta();
+  const pon = cargar && cur && !yaSuena ? {i: qi, pos} : null;
+  if (pon) { remoto = false; audio.pause(); }
   tvLlave(pon);
   toast('Suena en ' + tv.nombre); pintaDisp();
 }
@@ -1728,12 +1730,15 @@ function tvCambio(e) {   // solo el segundo y la pausa (para la barra); lo demá
   if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; if (!remoto && enTv()) pintaTiempo(); }
   else if ((e.field === 'isPaused' || e.field === 'playerState') && !remoto && enTv()) ico(p.isPaused);
 }
+// 📺: conectada desde aquí, o sonando en una TV de la cuenta aunque la conectara otro (la app): "En <TV>" igual
+function tvDeLaCuenta() { return cx?.activo?.startsWith('tv') && cx.activo_vivo ? cxNombre(cx.activo) : ''; }
 function pintaTv() {
   const b = $('npTv'); if (!b) return;
   const hay = tvListo && cast.framework.CastContext.getInstance().getCastState() !== cast.framework.CastState.NO_DEVICES_AVAILABLE;
-  b.hidden = !hay && !tv;
-  b.classList.toggle('fuera', !!tv); b.classList.toggle('solo', !tv);
-  $('npTvT').textContent = tv ? 'En ' + tv.nombre : ''; $('npTvT').hidden = !tv;
+  const en = tv ? tv.nombre : tvDeLaCuenta();
+  b.hidden = !hay && !en;
+  b.classList.toggle('fuera', !!en); b.classList.toggle('solo', !en);
+  $('npTvT').textContent = en ? 'En ' + en : ''; $('npTvT').hidden = !en;
 }
 $('npTv').onclick = () => { if (tvListo) cast.framework.CastContext.getInstance().requestSession().catch(() => {}); };
 

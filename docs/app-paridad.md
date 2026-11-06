@@ -222,6 +222,9 @@
       dispositivo: nada más que hacer en la app.
     - Al desconectar Cast, si en `/conectar` el activo es una TV (`tv…`) aún viva, mandar también la orden
       `desconectar {a}`: por si la TV se apagó sin despedirse (si no, se la ve "sonando" hasta 45 s más).
+    - El estado del botón de Cast: "En <TV>" también si en `/conectar` el activo es una TV (`tv…`) viva, aunque la
+      conectara otro dispositivo. Conectar en ese caso: solo `{tipo:"llave", llave, caduca, nombre}` (sin cola: no la
+      corta) y la app sigue de mando. `nombre` = el nombre de Cast de la TV (sale en "Dónde suena").
     - **Desconectar desde cualquiera** (06-11-2026): en "Dónde suena", cada TV (id `tv…`) con un botón ⏻
       "Desconectar" → `POST /conectar/orden {disp, tipo: "desconectar", datos: {a: <id de la TV>}}`. Vale aunque la
       TV no sea la que suena y la conectara otro. El servidor deja lo que sonaba allí en este dispositivo, en pausa en

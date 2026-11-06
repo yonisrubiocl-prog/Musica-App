@@ -383,7 +383,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   mensaje perderse), la TV pregunta a `/conectar` qué suena en la cuenta y lo pone ella. Al recargar la página, la TV sigue con lo suyo; al desconectar, lo de la TV queda en la página
   en pausa. **Cambiar dónde suena con la TV conectada:** elegir este navegador en "Dónde suena" lo hace sonar
   aquí (la TV queda abierta, en pausa); elegir la TV la vuelve a poner (la TV retoma la cola y el segundo del
-  servidor). Cualquier dispositivo que se quede la música pausa la TV, sea de quien sea la cola. Mientras suena en
+  servidor). Cualquier dispositivo que se quede la música pausa la TV, sea de quien sea la cola. El 📺 dice "En <TV>" también si la TV suena en la
+  cuenta conectada por otro (la app); conectar entonces desde la web solo le da la llave (sin cola: no la corta). La
+  llave lleva el nombre de la TV (`nombre`, el de Cast) y así sale en "Dónde suena". Mientras suena en
   otro, la TV hace de **espejo**: enseña esa canción, su barra y "Sonando en PC · Chrome", y sus botones la manejan
   a distancia (órdenes de `/conectar`). (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
   sonar a la vez.) La app aún manda por Cast la cola a trozos: debería hacer lo mismo que la web.

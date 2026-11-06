@@ -376,7 +376,7 @@ let tocar = async () => {};   // la pone Cast: poner una lista en la TV, que sue
 let cxCuenta = async () => {}, cxHaz = () => {};   // también (ver abajo, "varios dispositivos")
 const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if (!d) localStorage.setItem('dispositivo', d = 'tv' + Math.random().toString(36).slice(2, 12)); return d; }
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
-            propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
+            nombre: 'TV', propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
 let cxCorta = null;   // para cortar la espera larga de /conectar (al cambiar de cuenta)
 // Otra persona conecta la TV con SU cuenta (otra llave): gana la última (como en Spotify), pero limpio. La TV se
@@ -443,7 +443,7 @@ function sigoAqui(s, cola) {
 async function siNadaSuena() {
   if (actual || cx.propia || cx.ido) return;
   try {
-    const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=-1`), s = r.sonando;
+    const r = await api(`/conectar?disp=${cx.disp}&nombre=${encodeURIComponent(cx.nombre)}&desde=-1`), s = r.sonando;
     if (actual || cx.propia || !s?.cancion) return log('nadie me pasó la cola y en la cuenta no suena nada');
     log('nadie me pasó la cola: pongo lo que suena en la cuenta,', s.cancion.title || s.cancion.id);
     const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
@@ -462,7 +462,7 @@ async function cxBucle() {
   while (llave && !cx.ido) {
     try {
       cxCorta = new AbortController();
-      const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=${desde}`, {signal: cxCorta.signal});
+      const r = await api(`/conectar?disp=${cx.disp}&nombre=${encodeURIComponent(cx.nombre)}&desde=${desde}`, {signal: cxCorta.signal});
       desde = r.v;
       if (r.desconectar) {   // la web o la app (cualquiera, no solo la que la conectó) pidió cerrar la pantalla
         log('me piden cerrar desde otro dispositivo'); mandaAvisos(true); despedida();
@@ -616,6 +616,7 @@ if (window.cast && cast.framework && !demo) {
     const d = e.data || {};
     if (d.tipo === 'llave' && typeof d.llave === 'string' && /^tv\.[\w-]{20,80}$/.test(d.llave)) {
       const primera = !llave, vieja = llave;
+      if (typeof d.nombre === 'string' && d.nombre.trim()) cx.nombre = d.nombre.trim().slice(0, 40);
       llave = d.llave; log('llave recibida, caduca', new Date((d.caduca || 0) * 1000).toISOString().slice(0, 16));
       if (vieja && vieja !== llave) cambioDeCuenta(vieja, llave, Date.now());
       $('pestanas').hidden = false; document.body.classList.add('con-pestanas');
@@ -664,7 +665,7 @@ if (window.cast && cast.framework && !demo) {
                    qi: cx.cola.indexOf(s), duracion: pm.getDurationSec() || s.duration || 0, radio: cx.radio, repetir: 'off'};
     const v = cx.colaV; if (cx.colaContadaV !== v) datos.cola = cx.cola;   // la cola, si no se contó ESTA (no otra de antes)
     try {
-      await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: cx.disp, nombre: 'TV', datos, tomar, hecho: cx.orden})});
+      await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: cx.disp, nombre: cx.nombre, datos, tomar, hecho: cx.orden})});
       if (datos.cola) cx.colaContadaV = v; cx.ultima = Date.now();
     } catch (e) { log('no pude contar lo que suena:', e.message); }
   };
