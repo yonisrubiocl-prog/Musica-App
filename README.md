@@ -335,6 +335,11 @@ manejan**. No toca YouTube.
   elegir otro (`transferir`), el de antes se pausa y el nuevo sigue **en el mismo segundo**. Con un solo dispositivo abierto es
   solo el icono, sin texto; con otro abierto dice "Este dispositivo".
 - Si el que sonaba se cierra, lo de allí queda en los demás **en pausa, en su segundo**, para seguir donde se dejó.
+- El que suena cuenta play, pausa, fin de canción y cada orden **al momento** (no espera al intervalo: con la pestaña
+  en segundo plano Chrome lo frena a una vez por minuto; lo avisó la sesión de la app el 06-11-2026).
+- **Google Cast (app, próxima versión):** el celular manda a la TV los enlaces de `POST /stream/<id>/enlace` (la TV
+  pide `/stream/<id>?t=…` con Range; firmados, sin sesión en la cabecera, 6 h); en `/conectar` sigue de activo el
+  celular, con el nombre "Celular · App → <TV>". La API no necesitó nada nuevo (comprobado: 206 con Range por el túnel).
 - Se guarda en `/data/conectar.json` cada 20 s. Prueba con dos navegadores sin tocar cuentas reales:
   `tools/probar-conectar.sh` (servidor de mentira con la lógica real y audio de mentira).
 

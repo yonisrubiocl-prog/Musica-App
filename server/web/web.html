@@ -1311,12 +1311,13 @@ function opinar(ctx) {
 
 // <audio> no puede mandar la cabecera con la sesión: la API da un enlace solo para esa canción, que caduca y no
 // lleva la sesión dentro (si se copia, no da acceso a la cuenta).
+let audioDe = null;   // la canción cuyo audio está cargado (al cambiar, hasta que llega el enlace sigue el de antes)
 async function playAudio(s, desde = 0, sonar = true) {
   let url;
   try { url = (await api(`/stream/${encodeURIComponent(s.id)}/enlace`, {method: 'POST'})).url; }
   catch (e) { if (cur === s) toast('No se pudo reproducir'); return; }
   if (cur !== s) return;   // cambió de canción mientras pedía el enlace
-  audio.src = url;
+  audio.src = url; audioDe = s.id;
   if (desde > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once: true});
   if (!sonar) return;   // lista para seguir aquí (venía de otro dispositivo): suena al darle a play
   audio.play().catch(e => { if (e.name === 'AbortError') return;   // cambió de canción antes de empezar
@@ -1405,7 +1406,11 @@ audio.onerror = () => { if (playing) playing.error = true; if (cur) { toast('No 
 const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause;
   $('np').classList.toggle('sonando', !p); document.body.classList.toggle('sonando', !p);   // la portada viva solo se mueve mientras suena
   const v = $('npCanvasV'); if (p) v.pause(); else if ($('np').classList.contains('con-canvas')) v.play().catch(() => {}); };   // y el Canvas
-audio.onplay = () => ico(false); audio.onpause = () => ico(true);
+// Al momento, sin esperar al intervalo de 1 s (con la pestaña en segundo plano el navegador lo frena a 1 vez por
+// minuto): play, pausa, fin de canción y cada orden de otro dispositivo se cuentan en seguida (ver cxCuenta).
+const cxYa = () => { if (rend.conectar && !remoto && cur) cxCuenta(); };
+audio.onplay = () => { ico(false); cxYa(); }; audio.onpause = () => { ico(true); cxYa(); };
+audio.addEventListener('ended', () => cxYa());
 let seeking = false;
 // el segundo y la duración de lo que suena: aquí, o lo que dice el dispositivo donde suena (contando lo que pasó desde)
 const tiempo = () => remoto ? cxPosAhora() : audio.currentTime;
@@ -1499,7 +1504,8 @@ async function cxManda(tipo, datos = {}) {
 }
 async function cxCuenta() {   // el que suena cuenta lo que pasa (y se queda la música si suena aquí)
   if (!cur || remoto) return;
-  const datos = {cancion: fichaQ(cur), pos: Math.round((audio.currentTime || 0) * 10) / 10, pausa: audio.paused, qi, radio: isRadio,
+  const cargada = audioDe === cur.id;   // si no, aún suena (o está parado) el audio de la anterior: va por el 0
+  const datos = {cancion: fichaQ(cur), pos: cargada ? Math.round((audio.currentTime || 0) * 10) / 10 : 0, pausa: cargada && audio.paused, qi, radio: isRadio,
                  repetir: repeat, aleatorio: shuffleNow(), duracion: audio.duration || cur.duration || 0};
   const v = qVer; if (v !== cxColaContada) datos.cola = queue.map(fichaQ);
   cxFirma = [cur.id, qi, qVer, repeat, audio.paused].join('|'); cxUltima = Date.now();
@@ -1552,7 +1558,7 @@ function cxRecibe(r) {
     else if (!cur && s) cxAdopta(s, false);                                                // recargó la página: en pausa
     const nuevas = r.ordenes.filter(o => o.n > cxOrden);
     for (const o of nuevas) { cxOrden = o.n; cxHaz(o); }
-    if (nuevas.length) setTimeout(cxCuenta, 300);
+    if (nuevas.length) cxCuenta();   // sin setTimeout: en segundo plano lo frenaría el navegador
   } else if (otro && s?.cancion) {
     if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
     cxEspejo(s);
