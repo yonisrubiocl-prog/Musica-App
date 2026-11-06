@@ -67,6 +67,19 @@ class Conectar:
         if not era:
             self._cambio(sub)
 
+    def salir(self, sub, disp):
+        """`disp` se cierra (la TV al apagarse, por ejemplo): deja de estar abierto ya, sin esperar a VIVO. Si sonaba
+        ahí, lo que sonaba queda en pausa en su segundo (los otros lo ven como cuando se cierra el que suena)."""
+        c = self._cuenta(sub)
+        x = c["disp"].get(disp)
+        if not x:
+            return
+        x["visto"] = 0
+        if c["activo"] == disp and c["sonando"]:
+            c["sonando"] = {**c["sonando"], "pos": self._pos(c["sonando"]), "pausa": True, "at": time.time()}
+        log.info("conectar: %s cierra %s", sub[:6], x["nombre"])
+        self._cambio(sub)
+
     def _pos(self, s):
         """El segundo por el que va ahora (el que suena lo dijo hace un rato)."""
         if not s:

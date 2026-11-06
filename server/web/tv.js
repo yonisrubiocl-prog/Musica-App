@@ -46,7 +46,7 @@ function mandaAvisos(yaMismo) {   // yaMismo: al cerrarse la página (sendBeacon
   else fetch('/tv/registro', {method: 'POST', headers: {'Content-Type': 'application/json'}, body}).catch(() => {});
 }
 setInterval(mandaAvisos, 3000);
-addEventListener('pagehide', () => { log('la página se cierra'); mandaAvisos(true); });
+addEventListener('pagehide', () => { log('la página se cierra'); mandaAvisos(true); despedida(); });
 addEventListener('error', e => log('error JS:', e.message, `${e.filename}:${e.lineno}`));
 addEventListener('unhandledrejection', e => log('promesa rechazada:', String(e.reason)));
 // El vídeo del Canvas se crea aquí, cuando hace falta (no en el HTML): así Cast nunca lo toma por el reproductor
@@ -257,7 +257,7 @@ let salirT = 0;
 function salir(b) {
   if (Date.now() - salirT > 4000) { salirT = Date.now(); b.textContent = '¿Salir? Pulsa OK otra vez';
     setTimeout(() => { if (Date.now() - salirT >= 4000) b.textContent = '⏻ Salir'; }, 4100); return; }
-  log('salir con el botón'); mandaAvisos(true);
+  log('salir con el botón'); mandaAvisos(true); despedida();
   try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) { avisa('No pude cerrarla'); }
 }
 const tarjetas = (lista, k) => lista.map((s, i) => `<button class="tarjeta f" data-l="${k}" data-i="${i}">${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<span class="ph">♪</span>'}
@@ -377,14 +377,21 @@ const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
             propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
+// Al cerrarse, la TV se despide (POST /conectar/salir): si no, los demás la veían "sonando" hasta 45 s más (VIVO del
+// servidor) aunque ya no estuviera. keepalive: sale aunque la página se esté cerrando. Después ya no pregunta más.
+function despedida() {
+  if (!llave || cx.ido) return; cx.ido = true;
+  try { fetch('/conectar/salir', {method: 'POST', keepalive: true, headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + llave},
+                                  body: JSON.stringify({disp: cx.disp})}).catch(() => {}); } catch (e) {}
+}
 async function cxBucle() {
   let desde = 0;
-  while (llave) {
+  while (llave && !cx.ido) {
     try {
       const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=${desde}`);
       desde = r.v;
       if (r.desconectar) {   // la web o la app (cualquiera, no solo la que la conectó) pidió cerrar la pantalla
-        log('me piden cerrar desde otro dispositivo'); mandaAvisos(true);
+        log('me piden cerrar desde otro dispositivo'); mandaAvisos(true); despedida();
         try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) {}
         return;
       }
@@ -497,7 +504,7 @@ if (window.cast && cast.framework && !demo) {
     const v = video(); if (v) (pm.getPlayerState() === M.PlayerState.PLAYING ? v.play().catch(() => {}) : v.pause());
   });
   pm.addEventListener(E.MEDIA_FINISHED, () => { if (!siguiente()) { actual = null; document.body.classList.remove('con-cancion'); } });
-  ctx.addEventListener(cast.framework.system.EventType.SHUTDOWN, () => { log('Cast cierra la pantalla'); mandaAvisos(true); });
+  ctx.addEventListener(cast.framework.system.EventType.SHUTDOWN, () => { log('Cast cierra la pantalla'); mandaAvisos(true); despedida(); });
   ctx.addEventListener(cast.framework.system.EventType.READY, () => {
     pm.setMediaElement(audio);   // otra vez, por si acaso: el reproductor es el <audio>
     const caps = ctx.getDeviceCapabilities();
@@ -569,7 +576,7 @@ if (window.cast && cast.framework && !demo) {
   // ---- "varios dispositivos": la TV es uno más ("TV"). Cuando suena lo que eligió ella, lo cuenta y hace las órdenes
   // de los otros (pausa, siguiente, poner otra cola…); si otro dispositivo se queda la música, la TV se pausa.
   cxCuenta = async (tomar = false) => {
-    if (!cx.propia || !llave) return;
+    if (!cx.propia || !llave || cx.ido) return;
     const m = pm.getMediaInformation(), id = m ? new URL(m.contentUrl || m.contentId, location.href).pathname.split('/')[2] : null;
     const s = cx.cola.find(x => x.id === id); if (!s) return;
     const datos = {cancion: s, pos: Math.round((pm.getCurrentTimeSec() || 0) * 10) / 10, pausa: pm.getPlayerState() !== M.PlayerState.PLAYING,

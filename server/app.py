@@ -635,7 +635,7 @@ TV_ALLOWED = {
     "GET": re.compile(r"^/(me|home|library|genres|artists|artist|album|favorites|playlists|history|radio|search|suggest"
                       r"|search/albums|search/album/[\w-]+|canvas/[\w-]{11}(/estado)?|lyrics/[\w-]{11}|stream/[\w-]{11}"
                       r"|conectar|recomendaciones/preguntar)$"),
-    "POST": re.compile(r"^/(stream/[\w-]{11}/enlace|stream/enlaces|eventos|conectar/estado|conectar/orden|tv/registro|web/fallo)$"),
+    "POST": re.compile(r"^/(stream/[\w-]{11}/enlace|stream/enlaces|eventos|conectar/estado|conectar/orden|conectar/salir|tv/registro|web/fallo)$"),
 }
 _tv_keys_lock = threading.Lock()
 try:
@@ -1565,6 +1565,13 @@ async def conectar_ver(disp: str = Query(pattern=DISP), nombre: str = Query("", 
     """Dónde y qué está sonando en la cuenta, y sus dispositivos abiertos. Si la versión sigue siendo `desde`, espera un
     cambio (hasta 25 s). Al que suena le llegan también las órdenes de los otros (`ordenes`)."""
     return await CONECTAR.esperar(need_user(found), disp, nombre, desde)
+
+
+@app.post("/conectar/salir")
+async def conectar_salir(disp: str = Body(embed=True, pattern=DISP), found=Depends(check_token)):
+    """El dispositivo `disp` se cierra: los demás lo dejan de ver al momento (si sonaba ahí, queda en pausa)."""
+    CONECTAR.salir(need_user(found), disp)
+    return {"ok": True}
 
 
 @app.post("/conectar/estado")

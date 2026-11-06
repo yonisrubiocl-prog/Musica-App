@@ -1712,6 +1712,8 @@ function tvTermina() {
   if (!tv) return;
   const pos = tv.pos, llave = tv.llave, s = remoto ? cx?.sonando : null, aqui = tv.aqui; tv = null;
   if (llave) api('/tv/llave', {method: 'DELETE', body: JSON.stringify({llave})}).catch(() => {});
+  // por si la TV no llegó a despedirse (se apagó de golpe): que el servidor no la siga dando por "sonando"
+  if (cx?.activo?.startsWith('tv') && cx.activo_vivo) cxManda('desconectar', {a: cx.activo});
   toast('Se desconectó la TV');
   if (aqui) return pintaDisp();   // la música ya sonaba aquí: sigue igual
   remoto = false;
