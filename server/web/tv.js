@@ -159,6 +159,22 @@ function enfoca(el) {
   el.focus({preventScroll: true});
   el.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
 }
+// La interfaz de serie de Cast (en la Chromecast con Google TV: al pausar, título, barra blanca e iconos en
+// cuadraditos encima de todo, y se queda el control). La mete Cast DENTRO de esta página (por eso sus iconos salen en
+// cuadraditos: la CSP no deja cargar su fuente y la página seguía recibiendo las teclas), así que se puede esconder:
+// lo que aparezca en el documento y no sea nuestro, fuera de la vista (y al registro, para saber qué es).
+const PROPIOS = new Set(['audio', 'fondo', 'pestanas', 'menu', 'ahora', 'aviso', 'espera', 'canvas']);
+const NO_VISUAL = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'HEAD', 'BODY', 'TITLE', 'TEMPLATE']);
+function escondeIntrusos() {
+  for (const el of [...document.documentElement.children, ...document.body.children]) {
+    if (NO_VISUAL.has(el.tagName) || PROPIOS.has(el.id) || el.dataset.escondido) continue;
+    el.dataset.escondido = '1'; el.style.setProperty('display', 'none', 'important');
+    log('escondo lo que puso Cast:', `<${el.tagName.toLowerCase()}${el.id ? ' id=' + el.id : ''}${el.className && typeof el.className === 'string' ? ' class=' + el.className : ''}>`);
+  }
+}
+new MutationObserver(escondeIntrusos).observe(document.documentElement, {childList: true, subtree: false});
+new MutationObserver(escondeIntrusos).observe(document.body, {childList: true});
+escondeIntrusos();
 // Si algo de fuera (la interfaz de Cast) se queda el control un rato, al volver se elige otra vez lo de antes
 let ultimoFoco = null;
 addEventListener('focusin', e => { if (e.target?.classList?.contains('f')) ultimoFoco = e.target; });
@@ -459,6 +475,11 @@ if (window.cast && cast.framework && !demo) {
   });
   pm.addEventListener(E.ERROR, e => log('error de Cast:', e.detailedErrorCode, e.error));
   pm.addEventListener(E.MEDIA_STATUS, ahora);
+  pm.addEventListener(E.PAUSE, () => setTimeout(() => {
+    const ae = document.activeElement;
+    log('en pausa · foco en', ae ? `<${ae.tagName.toLowerCase()}${ae.id ? ' id=' + ae.id : ''}>` : 'nada', '· elementos en <body>:',
+        [...document.body.children].map(el => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')).join(' '));
+  }, 1500));
   pm.addEventListener([E.PAUSE, E.PLAYING], () => {
     const v = video(); if (v) (pm.getPlayerState() === M.PlayerState.PLAYING ? v.play().catch(() => {}) : v.pause());
   });
