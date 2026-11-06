@@ -635,7 +635,7 @@ TV_ALLOWED = {
     "GET": re.compile(r"^/(me|home|library|genres|artists|artist|album|favorites|playlists|history|radio|search|suggest"
                       r"|search/albums|search/album/[\w-]+|canvas/[\w-]{11}(/estado)?|lyrics/[\w-]{11}|stream/[\w-]{11}"
                       r"|conectar|recomendaciones/preguntar)$"),
-    "POST": re.compile(r"^/(stream/[\w-]{11}/enlace|eventos|conectar/estado|conectar/orden|tv/registro|web/fallo)$"),
+    "POST": re.compile(r"^/(stream/[\w-]{11}/enlace|stream/enlaces|eventos|conectar/estado|conectar/orden|tv/registro|web/fallo)$"),
 }
 _tv_keys_lock = threading.Lock()
 try:
@@ -1432,6 +1432,14 @@ def stream_link(vid: str, found=Depends(check_token)):
     sub = need_user(found)
     until = int(time.time()) + STREAM_LINK_TTL
     return {"url": f"/stream/{vid}?t={sub}.{until}.{stream_sig(vid, sub, until)}"}
+
+
+@app.post("/stream/enlaces")
+def stream_links(ids: list[str] = Body(embed=True, max_length=500), found=Depends(check_token)):
+    """Los enlaces de muchas canciones de una vez (la TV, al poner una lista entera): {enlaces: {id: url}}."""
+    sub = need_user(found)
+    until = int(time.time()) + STREAM_LINK_TTL
+    return {"enlaces": {v: f"/stream/{v}?t={sub}.{until}.{stream_sig(v, sub, until)}" for v in ids if VIDEO_ID.fullmatch(v)}}
 
 
 @app.post("/web/fallo")

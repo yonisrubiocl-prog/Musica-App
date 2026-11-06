@@ -384,6 +384,15 @@ pantalla) solo suena: no pide Canvas ni letra.
   dispositivo y **solo vale para mirar y escuchar** (`TV_ALLOWED` en `app.py`: Inicio, biblioteca, playlists, artistas,
   buscar, el enlace del audio, Canvas, letra, varios dispositivos, eventos); en lo demás (Me gusta, playlists, cuenta,
   Discord…) 403 "la TV solo puede mirar y escuchar". Huellas en `/data/tv-llaves.json`. Es la base de los menús en la TV.
+- **Menús en la TV** (con la llave): pestañas **Ahora · Inicio · Biblioteca · Buscar** arriba. Inicio: las filas de
+  `/home` (recientes, Para ti, Vuelve a escuchar, Tus artistas), Tus Me gusta y Tus playlists; Biblioteca: Me gusta,
+  playlists y tus artistas; dentro, playlist, álbum o artista con ▶ Reproducir / 🔀 Aleatorio y sus canciones; Buscar:
+  teclado en pantalla y resultados de lo guardado (`/search?yt=0`). Se recorre con las flechas (van al elemento más
+  cercano en esa dirección; todo lo elegible lleva la clase `f`) y OK; "← Volver" en pantalla (Atrás es del sistema y
+  cierra la pantalla). Al elegir algo, **la TV pone su propia cola** (enlaces de `POST /stream/enlaces`, de una vez) y
+  suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
+  web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
+  se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
   canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra

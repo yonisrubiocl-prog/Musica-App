@@ -1568,7 +1568,8 @@ function cxRecibe(r) {
     for (const o of nuevas) { cxOrden = o.n; cxHaz(o); }
     if (nuevas.length) cxCuenta();   // sin setTimeout: en segundo plano lo frenaría el navegador
   } else if (otro && s?.cancion) {
-    if (!remoto && tv && sonandoAhora()) tv.ctrl.playOrPause();   // otro dispositivo se quedó la música: la TV se pausa
+    // otro dispositivo se quedó la música: la TV se pausa (salvo que sea la propia TV, que eligió algo en sus menús)
+    if (!remoto && tv && sonandoAhora() && !r.activo.startsWith('tv')) tv.ctrl.playOrPause();
     if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
     cxEspejo(s);
   } else if (remoto || (!cur && s?.cancion)) {   // el que sonaba se cerró: lo de allí queda aquí, en pausa
@@ -1703,8 +1704,8 @@ async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: 
     await new Promise((ok, mal) => tv.sesion.getSessionObj().queueLoad(req, ok, mal));
   } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
 }
-async function tvMas() {   // que la TV tenga siempre las 2 siguientes
-  if (!tv || tvMasCorre) return;
+async function tvMas() {   // que la TV tenga siempre las 2 siguientes (si la cola es de aquí, no si la eligió la TV)
+  if (!tv || tvMasCorre || remoto) return;
   tvMasCorre = true;
   try {
     const media = tv.sesion.getMediaSession();
@@ -1721,7 +1722,7 @@ function tvCambio(e) {
   const p = tv.player;
   if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; pintaTiempo(); }
   else if (e.field === 'isPaused' || e.field === 'playerState') { ico(p.isPaused); cxCuenta(); }
-  else if (e.field === 'mediaInfo' && p.mediaInfo) {   // la TV pasó de canción
+  else if (e.field === 'mediaInfo' && p.mediaInfo && !remoto) {   // la TV pasó de canción (si la cola es de aquí)
     const id = new URL(p.mediaInfo.contentId || p.mediaInfo.contentUrl || '/', location.href).pathname.split('/')[2];
     const j = queue.findIndex((x, k) => k >= tv.base && x.id === id);
     if (j >= 0 && j !== qi) { qi = j; cur = queue[qi]; pintaCancion(); cxCuenta(); }

@@ -80,9 +80,57 @@
   .controles button svg { width: 4vh; height: 4vh; }
   .controles button.grande { width: 11vh; height: 11vh; background: var(--acento); }
   .controles button.grande svg { width: 5.4vh; height: 5.4vh; }
-  .controles button:focus, .controles button.foco { transform: scale(1.14); background: rgb(var(--acento-rgb) / .55);
+  .controles button:focus { transform: scale(1.14); background: rgb(var(--acento-rgb) / .55);
                       box-shadow: 0 0 0 .5vh #fff, 0 1vh 4vh rgb(var(--acento-rgb) / .55); }
-  .controles button.grande:focus, .controles button.grande.foco { background: var(--acento); }
+  .controles button.grande:focus { background: var(--acento); }
+  /* ---- menús (Inicio, Biblioteca, Buscar, listas): se recorren con las flechas, el elegido iluminado ---- */
+  .pestanas { position: fixed; top: 4vh; left: 7vw; z-index: 5; display: flex; gap: 1.2vh; }
+  .pestanas button { padding: 1.2vh 2.6vh; border-radius: 99vh; border: 0; background: rgb(255 255 255 / .08); color: var(--texto2);
+                     font: 600 2.3vh Roboto, system-ui, sans-serif; outline: none; transition: transform 150ms, background 150ms; }
+  .pestanas button.on { background: rgb(255 255 255 / .18); color: var(--texto); }
+  body.con-menu .escena { visibility: hidden; }
+  body.con-pestanas .escena { padding-top: 12vh; }
+  .menu { position: fixed; inset: 0; padding: 12vh 7vw 6vh; overflow: hidden; z-index: 1; }
+  .menu[hidden] { display: none; }
+  .menu .scroll { height: 100%; overflow-y: auto; scrollbar-width: none; }
+  .menu .scroll::-webkit-scrollbar { display: none; }
+  .menu h2 { font-size: 3vh; margin: 3vh 0 1.6vh; }
+  .menu .vacio { color: var(--texto2); font-size: 2.6vh; margin-top: 6vh; }
+  .fila { display: flex; gap: 2.6vh; overflow: hidden; padding: 2vh 2.4vh 2.4vh; margin: 0 -2.4vh; }
+  .rejilla { display: flex; flex-wrap: wrap; gap: 2.6vh; padding: 2vh 2.4vh 2.4vh; margin: 0 -2.4vh; }
+  .tarjeta { flex: none; width: 22vh; border: 0; padding: 0; background: none; color: var(--texto); text-align: left; outline: none;
+             transition: transform 150ms; }
+  .tarjeta img, .tarjeta .ph { width: 22vh; height: 22vh; border-radius: 1.6vh; object-fit: cover; background: #1c1930; display: grid;
+                               place-items: center; font-size: 7vh; transition: box-shadow 150ms; }
+  .tarjeta.redonda img { border-radius: 50%; }
+  .tarjeta b { display: block; margin-top: 1.2vh; font-size: 2.2vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tarjeta small { display: block; font-size: 1.8vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cancion { display: flex; align-items: center; gap: 2vh; width: 100%; border: 0; padding: 1vh 1.4vh; border-radius: 1.4vh; outline: none;
+             background: none; color: var(--texto); text-align: left; font: inherit; }
+  .cancion img { width: 7vh; height: 7vh; border-radius: 1vh; object-fit: cover; background: #1c1930; flex: none; }
+  .cancion div { flex: 1; min-width: 0; }
+  .cancion b { display: block; font-size: 2.4vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cancion small { display: block; font-size: 1.9vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cancion span { color: var(--texto2); font-size: 2vh; font-variant-numeric: tabular-nums; }
+  .cabecera { display: flex; align-items: flex-end; gap: 4vh; margin-bottom: 2vh; }
+  .cabecera img { width: 26vh; height: 26vh; border-radius: 1.6vh; object-fit: cover; background: #1c1930; box-shadow: 0 2vh 6vh rgb(0 0 0 / .5); }
+  .cabecera.redonda img { border-radius: 50%; }
+  .cabecera h1 { font-size: 6vh; } .cabecera p { color: var(--texto2); font-size: 2.4vh; margin-top: 1vh; }
+  .acciones { display: flex; gap: 2vh; margin-top: 2.4vh; }
+  .pill { padding: 1.4vh 3vh; border-radius: 99vh; border: 0; background: rgb(255 255 255 / .1); color: var(--texto);
+          font: 700 2.3vh Roboto, system-ui, sans-serif; outline: none; transition: transform 150ms; }
+  .pill.main { background: var(--acento); }
+  .teclado { display: grid; grid-template-columns: repeat(10, 6.4vh); gap: 1vh; margin: 1.6vh 0; }
+  .teclado button { height: 6.4vh; border: 0; border-radius: 1vh; background: rgb(255 255 255 / .08); color: var(--texto);
+                    font: 700 2.6vh Roboto, system-ui, sans-serif; outline: none; }
+  .teclado button.ancha { grid-column: span 3; font-size: 2vh; }
+  .consulta { font-size: 4vh; font-weight: 800; min-height: 5vh; border-bottom: .3vh solid rgb(255 255 255 / .2); padding-bottom: 1vh; }
+  .consulta:empty::before { content: "Escribe con las flechas y OK"; color: var(--texto2); font-weight: 400; font-size: 2.6vh; }
+  /* lo elegido con el control: un poco más grande y con borde blanco */
+  .f:focus { transform: scale(1.06); }
+  .pestanas .f:focus, .pill.f:focus, .teclado .f:focus { background: rgb(var(--acento-rgb) / .6); color: #fff; box-shadow: 0 0 0 .4vh #fff; }
+  .tarjeta.f:focus img, .tarjeta.f:focus .ph { box-shadow: 0 0 0 .5vh #fff, 0 1.6vh 4vh rgb(var(--acento-rgb) / .5); }
+  .cancion.f:focus { transform: none; background: rgb(var(--acento-rgb) / .35); box-shadow: inset 0 0 0 .3vh #fff; }
   /* aviso del control remoto */
   .aviso { position: fixed; left: 50%; bottom: 12vh; transform: translateX(-50%) scale(.9); padding: 2vh 4vh; border-radius: 99vh;
            background: rgb(0 0 0 / .55); font-size: 5vh; font-weight: 800; opacity: 0; transition: opacity 200ms, transform 200ms; pointer-events: none; }
@@ -92,7 +140,7 @@
             background: var(--fondo); text-align: center; transition: opacity 500ms; }
   .espera img { width: 20vh; height: 20vh; border-radius: 50%; box-shadow: 0 2vh 8vh rgb(var(--acento-rgb) / .35); }
   .espera b { font-size: 4.4vh; } .espera span { font-size: 2.4vh; color: var(--texto2); }
-  body.con-cancion .espera { opacity: 0; pointer-events: none; }
+  body.con-cancion .espera, body.con-pestanas .espera { opacity: 0; pointer-events: none; }
   body.solo-audio * { animation: none !important; }
 </style>
 </head>
@@ -101,7 +149,13 @@
      tv.js después; si estuviera aquí, Cast podía cogerlo a él: sin sonido, 7 s y a la siguiente, 06-11-2026) -->
 <audio id="audio" preload="auto"></audio>
 <div class="fondo" id="fondo"></div>
-<main class="escena">
+<!-- pestañas (salen cuando la TV tiene la llave: entonces es independiente) -->
+<nav class="pestanas" id="pestanas" hidden>
+  <button class="f" data-vista="ahora">Ahora</button><button class="f" data-vista="inicio">Inicio</button>
+  <button class="f" data-vista="biblioteca">Biblioteca</button><button class="f" data-vista="buscar">Buscar</button>
+</nav>
+<section class="menu" id="menu" hidden></section>
+<main class="escena" id="ahora">
   <div class="media" id="media"><img id="tapaFondo" alt=""><img id="tapa" alt=""></div>
   <div class="info">
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i>Sonando en la TV<span class="pausa">En pausa</span></div>
@@ -113,17 +167,17 @@
     <div class="tiempos"><span id="actual">0:00</span><span id="total">0:00</span></div>
     <!-- botones para el control remoto: ← → para elegir, OK para pulsar -->
     <div class="controles" id="controles">
-      <button data-a="menos10" aria-label="Atrás 10 segundos"><span>−10</span></button>
-      <button data-a="anterior" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
-      <button data-a="playpausa" class="grande" id="bPlay" aria-label="Pausa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
-      <button data-a="siguiente" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-      <button data-a="mas10" aria-label="Adelante 10 segundos"><span>+10</span></button>
+      <button class="f" data-a="menos10" aria-label="Atrás 10 segundos"><span>−10</span></button>
+      <button class="f" data-a="anterior" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+      <button class="f" data-a="playpausa" class="grande" id="bPlay" aria-label="Pausa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+      <button class="f" data-a="siguiente" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+      <button class="f" data-a="mas10" aria-label="Adelante 10 segundos"><span>+10</span></button>
     </div>
     <div class="sigue" id="sigue" hidden><img id="sigueImg" alt=""><div><small>A continuación</small><b id="sigueT"></b><span id="sigueA"></span></div></div>
   </div>
 </main>
 <div class="aviso" id="aviso"></div>
-<div class="espera"><img src="/logo-480.webp" alt=""><b>Música</b><span>Elige una canción en la app y mándala a la TV</span></div>
+<div class="espera" id="espera"><img src="/logo-480.webp" alt=""><b>Música</b><span>Elige una canción en la app y mándala a la TV</span></div>
 <script src="/tv/tv.js"></script>
 </body>
 </html>
