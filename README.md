@@ -334,7 +334,9 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 Desde el 06-11-2026, solo en pantallas de 1100 px o más (en el móvil el reproductor grande ya hace de "Ahora"). Idea
 de la pantalla Ahora de la TV (solo lo que suena, sin el ruido de las tarjetas) con la distribución de
 `docs/afina-ahora-propuesta-20261106/` y **los colores del tema** (no los de la propuesta). Dos columnas:
-- **Derecha (~38 %):** el Canvas (o la portada sobre ella misma difuminada) de arriba abajo, con pantalla completa.
+- **Derecha:** el Canvas (o la portada sobre ella misma difuminada) **en el sitio exacto del reproductor** de las
+  demás pestañas (de arriba abajo, `--panel` de ancho), con pantalla completa: la barra de navegación y el contenido
+  quedan donde en las demás, y al cambiar de pestaña la tarjeta de la derecha no se mueve.
 - **Izquierda:** "AHORA" y dónde suena (abre Dónde suena); portada pequeña, título, artista y álbum (llevan a su
   página), ♡ y ⋮; un panel **Letra | Cola · N**: la letra con la línea anterior, la actual y la siguiente (altura
   fija) o **la cola de la página** (la misma lista, con arrastrar para mover); la barra con su bolita (se arrastra en vivo y va al soltar); aleatorio ·

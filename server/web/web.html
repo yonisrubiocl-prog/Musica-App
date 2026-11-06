@@ -469,12 +469,15 @@
   .solo-pc { display: none !important; }
   @media (min-width: 1100px) {
     #nav .solo-pc { display: flex !important; }
-    body.en-ahora { padding-left: 0 !important; padding-right: 0 !important; }
+    /* el Canvas ocupa justo el sitio del reproductor de la derecha (de arriba abajo): la barra de navegación y el
+       contenido quedan donde en las demás pestañas, y al cambiar de pestaña la tarjeta de la derecha no se mueve */
+    body.en-ahora { padding-left: 0 !important; }
     body.en-ahora :is(.np, .qside) { display: none !important; }
-    body.en-ahora .dock { left: 0 !important; right: 0 !important; }
     body.en-ahora .wrap { max-width: none; margin: 0; padding: 0; }
-    .ahv { display: grid; grid-template-columns: minmax(0, 60fr) minmax(0, 38fr); gap: 2.5vw; height: 100vh; padding: 3vh 2.5vw 116px; }
-    .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; }
+    .ahv { display: block; height: 100vh; padding: 3vh 1.5vw 116px 2.5vw; }
+    .ahv-izq { height: 100%; }
+    .ahv-der { position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--panel); }
+    .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; padding-right: calc(var(--panel) + var(--pgap) * 2); }
     .ahv-izq { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
     .ahv-der { min-height: 0; }
     /* el Canvas: alto del todo, a lo ancho de su columna, esquinas redondeadas */
@@ -568,7 +571,7 @@
     .ahv-nada { color: var(--texto2); grid-column: 1 / -1; }
     .ahv-vacio { display: none; }
     .ahv.sin > :not(.ahv-vacio) { display: none; }
-    .ahv.sin { grid-template-columns: 1fr; place-items: center; }
+    .ahv.sin { display: grid; place-items: center; }
     .ahv.sin .ahv-vacio { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--texto2); text-align: center; }
     .ahv-vacio img { width: 130px; height: 130px; border-radius: 50%; } .ahv-vacio b { color: var(--texto); font-size: 1.2rem; }
   }
