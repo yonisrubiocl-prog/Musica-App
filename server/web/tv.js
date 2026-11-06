@@ -326,13 +326,15 @@ const artista = nombre => async () => {
 const hayLista = () => !!((cx.propia && actual) || espejo);
 const eleccionAbierta = () => !!document.getElementById('eleccion');
 let eleccionDe = null;   // {lista, i, volverA: el elemento elegido antes}
-function abreEleccion(lista, i, desde) {
+// enLista: la canción es de una playlist, álbum o artista abiertos: además, "reproducir esta lista desde aquí"
+function abreEleccion(lista, i, desde, enLista) {
   const s = lista[i]; if (!s) return;
   eleccionDe = {lista, i, volverA: desde};
   const el = document.createElement('div'); el.id = 'eleccion';
   el.innerHTML = `<div class="caja"><b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small>
+    <button class="f" data-e="ya">▶ Ponerla ya <small>tu lista sigue después</small></button>
     <button class="f" data-e="despues">⏭ Que suene después</button><button class="f" data-e="final">➕ Al final de la cola</button>
-    <button class="f" data-e="ya">▶ Ponerla ya <small>cambia tu lista</small></button></div>`;
+    ${enLista ? '<button class="f" data-e="lista">🔁 Reproducir esta lista desde aquí <small>cambia tu lista</small></button>' : ''}</div>`;
   el.addEventListener('click', e => { const x = e.target.closest('[data-e]'); if (x) elige(x.dataset.e); });
   document.body.append(el);
   enfoca(el.querySelector('.f'));
@@ -341,22 +343,26 @@ function cierraEleccion() { document.getElementById('eleccion')?.remove(); const
 async function elige(que) {
   const {lista, i} = eleccionDe || {}; cierraEleccion();
   const s = lista?.[i]; if (!s) return;
-  if (que === 'ya') return tocar(lista, i);
-  const hecho = await meteEnCola(s, que === 'despues');
-  avisa(hecho ? (que === 'despues' ? 'Sonará después' : 'Al final de la cola') : 'No pude añadirla', 1600);
+  if (que === 'lista') return tocar(lista, i);
+  const hecho = await meteEnCola(s, que !== 'final', que === 'ya');
+  avisa(hecho ? {ya: '▶', despues: 'Sonará después', final: 'Al final de la cola'}[que] : 'No pude añadirla', 1600);
 }
-// Meter una canción en lo que suena (después de la actual o al final), suene aquí o en otro dispositivo (espejo)
-async function meteEnCola(s, despues) {
+// Meter una canción en lo que suena (después de la actual o al final; ya: después y saltar a ella, la lista sigue
+// detrás), suene aquí o en otro dispositivo (espejo)
+async function meteEnCola(s, despues, ya = false) {
   try {
     if (espejo) {   // suena en otro: su cola con la canción metida, como orden (sin "nueva": no corta allí)
       const c = (espejo.s.cola?.length ? espejo.s.cola : [espejo.s.cancion]).filter(x => x.id !== s.id || x.id === espejo.s.cancion.id);
       const qi = Math.max(0, c.findIndex(x => x.id === espejo.s.cancion.id));
       const cola = [...c]; cola.splice(despues ? qi + 1 : cola.length, 0, s);
-      await api('/conectar/orden', {method: 'POST', body: JSON.stringify({disp: cx.disp, tipo: 'cola', datos: {cola, qi, radio: !!espejo.s.radio}})});
+      await api('/conectar/orden', {method: 'POST', body: JSON.stringify({disp: cx.disp, tipo: 'cola',
+        datos: ya ? {cola, qi: qi + 1, nueva: true, radio: !!espejo.s.radio} : {cola, qi, radio: !!espejo.s.radio}})});
       log('meto', s.title, despues ? 'después' : 'al final', 'en lo que suena en', espejo.nombre);
       return true;
     }
-    return await acciones.mete?.(s, despues);
+    const ok = await acciones.mete?.(s, despues);
+    if (ok && ya) acciones.siguiente();
+    return ok;
   } catch (e) { log('no pude meterla en la cola:', e.message); return false; }
 }
 // La lista completa: toda la cola de la TV (la de Cast), la que suena marcada y elegida; OK salta a esa
@@ -410,7 +416,7 @@ document.getElementById('menu').addEventListener('click', e => {
   if (d.favs) return abre(async () => { const f = await api('/favorites'); return lista('Me gusta', `${f.songs.length} canciones`, f.songs[0]?.thumb, f.songs)(); });
   // una canción suelta (tarjeta o fila) con algo ya sonando: elegir qué hacer, sin romper la lista que suena.
   // ▶ Reproducir / 🔀 Aleatorio de una lista (pill) la cambian directamente
-  if (d.l && !b.classList.contains('pill') && hayLista()) return abreEleccion(listas[d.l] || [], +(d.i || 0), b);
+  if (d.l && !b.classList.contains('pill') && hayLista()) return abreEleccion(listas[d.l] || [], +(d.i || 0), b, vista === 'detalle');
   if (d.l) return tocar(listas[d.l] || [], +(d.i || 0), !!d.mezcla);
 });
 // Cerrar sola tras 30 min sin sonar nada ni tocar el control (Cast ya no la cierra a los 5 min: ver disableIdleTimeout)
