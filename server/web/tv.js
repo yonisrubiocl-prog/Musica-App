@@ -391,7 +391,8 @@ if (window.cast && cast.framework && !demo) {
   const ahora = () => { const m = pm.getMediaInformation(); if (m) pinta(m, proximas()); };
   pm.addEventListener(E.PLAYER_LOAD_COMPLETE, () => {
     log('cargada:', pm.getMediaInformation()?.metadata?.title, '· duración según Cast', pm.getDurationSec(),
-        '· el <audio> tiene', audio.currentSrc ? 'el /stream' : 'NADA', '· vídeos en la página', document.querySelectorAll('video').length);
+        '· el <audio> tiene', audio.currentSrc ? 'el /stream' : 'NADA', '· vídeos en la página', document.querySelectorAll('video').length,
+        '· cola de Cast:', (() => { try { const q = pm.getQueueManager(); return `${(q.getItems() || []).length} (va en la ${q.getCurrentItemIndex() + 1})`; } catch (e) { return '?'; } })());
     ahora();
   });
   pm.addEventListener(E.ERROR, e => log('error de Cast:', e.detailedErrorCode, e.error));

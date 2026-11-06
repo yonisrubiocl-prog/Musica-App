@@ -879,8 +879,12 @@ TV_HEADERS = {"Cache-Control": "no-cache", "X-Robots-Tag": "noindex, nofollow"}
 def tv():
     """El receptor de Cast (web/tv.html): la canción que la app manda a la TV, con su Canvas, portada, letra y la
     siguiente. En un parlante Cast (sin pantalla) solo suena."""
+    # tv.js con su versión en la dirección: Cloudflare le pone 4 h de caché a los .js aunque digamos no-cache, y la
+    # TV seguía con el viejo después de publicar
+    v = int(os.path.getmtime(os.path.join(WEB, "tv.js")))
     with open(os.path.join(WEB, "tv.html")) as f:
-        return HTMLResponse(f.read(), headers={**TV_HEADERS, "Content-Security-Policy": CSP_TV})
+        html = f.read().replace('src="/tv/tv.js"', f'src="/tv/tv.js?v={v}"')
+    return HTMLResponse(html, headers={**TV_HEADERS, "Content-Security-Policy": CSP_TV})
 
 
 @app.post("/tv/llave")
