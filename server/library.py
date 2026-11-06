@@ -473,13 +473,27 @@ class Library:
                 close += [x for x in word_map[t] if x not in close]
         return sorted((by[c] for c in close), key=lambda a: -a["songs"])[:n]
 
+    @staticmethod
+    def is_art(thumb):
+        """Portada cuadrada de YouTube Music (lh3.googleusercontent…=w544-h544), no un fotograma de vídeo."""
+        return bool(thumb) and "googleusercontent." in thumb
+
+    @staticmethod
+    def cover(entries):
+        """La portada de un álbum: la que más se repite entre sus canciones, mejor si es portada de verdad (las
+        bajadas como vídeo traen un fotograma o la imagen que puso el canal, a veces de otro disco)."""
+        thumbs = collections.Counter(e.get("thumb") for e in entries if e.get("thumb"))
+        if not thumbs:
+            return None
+        return max(thumbs, key=lambda t: (Library.is_art(t), thumbs[t]))
+
     def artists(self):
         """Todos los artistas: [{name, songs, albums, thumb}], los que más canciones tienen primero."""
         with self.lock:
             out = []
             for n, (name, songs) in self._by_artist().items():
                 albums = {self._norm(e.get("album")) for _, e in songs if e.get("album")}
-                best = max(songs, key=lambda s: (s[1].get("plays", 0), s[1].get("used", 0)))[1]
+                best = max(songs, key=lambda s: (self.is_art(s[1].get("thumb")), s[1].get("plays", 0), s[1].get("used", 0)))[1]
                 out.append({"name": name, "songs": len(songs) + len(self._feats_of(n)), "albums": len(albums),
                             "thumb": best.get("thumb")})
         return sorted(out, key=lambda a: (-a["songs"], a["name"].lower()))
@@ -492,15 +506,17 @@ class Library:
             if not found:
                 return None
             shown, songs = found
-            albums, loose = {}, []
+            albums, loose, of = {}, [], collections.defaultdict(list)
             for k, e in songs:
                 if e.get("album"):
-                    a = albums.setdefault(self._norm(e["album"]), {"name": e["album"], "year": e.get("year"),
-                                                                   "songs": 0, "thumb": e.get("thumb")})
+                    a = albums.setdefault(self._norm(e["album"]), {"name": e["album"], "year": e.get("year"), "songs": 0})
                     a["songs"] += 1
                     a["year"] = a["year"] or e.get("year")
+                    of[self._norm(e["album"])].append(e)
                 else:
                     loose.append((k, dict(e)))
+            for n, a in albums.items():
+                a["thumb"] = self.cover(of[n])
             feats = [(k, dict(e)) for k, e in self._feats_of(self._norm(name))]   # colaboraciones ("Apache, Canserbero")
         loose.sort(key=lambda s: (-s[1].get("plays", 0), (s[1].get("title") or "").lower()))
         albums = sorted(albums.values(), key=lambda a: (-(a["year"] or 0), a["name"].lower()))
@@ -517,7 +533,8 @@ class Library:
             return None
         hits.sort(key=lambda s: (s[1].get("date") or "", (s[1].get("title") or "").lower()))
         e0 = hits[0][1]
-        return {"name": e0["album"], "artist": found[0], "year": e0.get("year"), "songs": hits}
+        return {"name": e0["album"], "artist": found[0], "year": e0.get("year"), "thumb": self.cover([e for _, e in hits]),
+                "songs": hits}
 
     SORTS = ("recientes", "populares", "nombre", "artista")
 

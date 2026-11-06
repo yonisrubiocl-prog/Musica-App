@@ -104,6 +104,15 @@ autocompletado, faltas de ortografía, álbumes (la misma que tenía el bot).
   segundos y suena en Discord como 💾 Local sin volver a bajarse; una bajada desde Discord la encuentra la app
   al buscar. Probado el 29-10-2026 (Culpables · KAROL G: primera vez 🌐 Online, la segunda 💾 Local).
 
+**Títulos** (`server/titulos.py`, desde el 06-11-2026): la API enseña el título **sin lo que pone YouTube**:
+"Alexis y Fido - Rompe La Cintura // Letra" → "Rompe La Cintura", "Aqua - Barbie Girl (Official Music Video)" →
+"Barbie Girl", "A Besitos, Los Diablitos - Video Oficial" → "A Besitos". Quita las etiquetas de vídeo/letra
+(entre paréntesis, tras `|`, `//` o ` - `), el canal al final y el artista delante o detrás (solo si de verdad es
+uno de sus artistas). Lo que cambia la canción se queda: "(En Vivo)", "(Remix)", "(Cover Audio)", "ft. X". **Solo
+para enseñar:** `index.json` guarda el título de YouTube tal cual (con él se buscan repetidas y versiones de vídeo,
+y el bot lo sigue viendo así). Cambia ~275 de 3.750. Las portadas de álbum y de artista prefieren la portada de
+YouTube Music (cuadrada) a un fotograma de vídeo; ~1.250 álbumes de 1–2 canciones no tienen ninguna.
+
 ### Repartir la app y versión web
 
 **Flujo de la página principal** (`https://musica.yoneapolis.com/`; `https://yoneapolis.com` lleva aquí):
@@ -705,6 +714,7 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── versiones.py        cambia en favoritas/playlists las versiones de vídeo por la canción del disco
+│   ├── titulos.py          el título que se enseña, sin "(Official Video)" ni el artista delante (sección "Canciones")
 │   ├── duplicadas.py       junta la misma canción guardada varias veces (cada noche) y la quita de "Buscar en YouTube"
 │   ├── recomendar.py       recomendaciones: radio, Para ti, Vuelve a escuchar, eventos, opiniones (docs/recomendaciones.md)
 │   ├── library.py          la biblioteca única (carpeta + catálogo, búsqueda, tope de espacio); la música está en /var/lib/music

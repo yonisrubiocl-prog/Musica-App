@@ -72,6 +72,11 @@
    - **Si ya suena esa misma lista** (compara los ids de la lista con los de la que armó la cola), no rehacer la
      cola: la tocada se saca de donde esté y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya
      sonaron; si toca la que suena, nada). "▶ Reproducir" o una canción de otra lista sí empiezan de cero.
+   - **Títulos limpios y portadas:** la API ya manda el `title` sin "(Official Video)", "// Letra" ni el artista
+     delante ("Rompe La Cintura", no "Alexis y Fido - Rompe La Cintura // Letra"); la app no tiene que hacer nada,
+     solo no volver a "limpiarlo" ella (y para buscar letras puede usarlo tal cual). `GET /album` trae ahora
+     `thumb` (la portada del álbum): usarla en la cabecera en vez de la de la primera canción. En las tarjetas
+     (artistas, álbumes, playlists) el nombre va en **hasta 2 líneas**, no en una cortada.
    - **"🔀 Aleatorio"** al lado de "▶ Reproducir" (arriba de Me gusta, y en playlists, álbumes y géneros; solo si
      hay 2 o más): enciende el aleatorio general (se queda encendido) y empieza de cero con una cualquiera de la
      lista y el resto mezclado. En la página de un artista no hace falta (tiene su propio aleatorio).

@@ -134,16 +134,18 @@
   .rail-arrow.l { left: -12px; } .rail-arrow.r { right: -12px; }
   .rail-arrow svg { width: 20px; height: 20px; }
   @media (hover: hover) and (pointer: fine) {
-    .rail-arrow { display: grid; }
+    .rail-arrow { display: grid; pointer-events: none; }
+    .rail-arrow.on { opacity: .55; pointer-events: auto; }   /* siempre a la vista si hay más hacia ese lado */
     .rail-box:hover .rail-arrow.on { opacity: 1; }
   }
-  .card { text-align: left; border-radius: var(--radius); overflow: hidden; transition: transform 200ms var(--ease), background 200ms; }
+  .card { display: flex; flex-direction: column; justify-content: flex-start; text-align: left; border-radius: var(--radius); overflow: hidden; transition: transform 200ms var(--ease), background 200ms; }
   .card:hover { transform: translateY(-2px); background: var(--cristal2); }
   .card img, .card .ph { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--elevado); }
   .card .ph { display: grid; place-items: center; font-size: 2.2rem; color: var(--texto2); }
   .card.round img { border-radius: 50%; width: calc(100% - 24px); margin: 12px auto 0; }
   .card div { padding: 10px 12px 12px; }
-  .card b { display: block; font-size: .92rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: .92rem; font-weight: 600;
+            line-height: 1.25; overflow: hidden; overflow-wrap: anywhere; }   /* hasta 2 líneas: «Mariposa Traicionera» entero */
   .card small { color: var(--texto2); font-size: .8rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 
@@ -1006,7 +1008,7 @@ async function showAlbum(artist, name) {
   try { a = await api(`/album?artist=${encodeURIComponent(artist)}&name=${encodeURIComponent(name)}`); }
   catch (e) { return toast('No hay canciones guardadas de este álbum'); }
   lists = {}; setList('view', a.songs, 'lista');
-  wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img: a.songs.find(x => x.thumb)?.thumb, title: a.name,
+  wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img: a.thumb || a.songs.find(x => x.thumb)?.thumb, title: a.name,
       sub: `<a data-artist="${esc(a.artist)}">${esc(a.artist)}</a>${a.year ? ' · ' + esc(a.year) : ''}`, songs: a.songs})}
     <div class="list">${rows('view')}</div></div>`;
   scrollTo({top: 0});

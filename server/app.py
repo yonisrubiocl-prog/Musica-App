@@ -29,6 +29,7 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
 import discord_dc
+import titulos
 import userdata
 from enrich import Enricher
 from genres import Genres
@@ -489,7 +490,9 @@ def youtube_info(vid):
 # ---------- app (por internet) ----------
 
 def entry(key, e, where):
-    return {"id": key[3:], "title": e.get("title"), "artist": e.get("artist") or "", "album": e.get("album") or "",
+    return {"id": key[3:], "title": titulos.nice(e.get("title"), e.get("artist") or "", tuple(e.get("credits") or ()),
+                                             e.get("channel") or ""),
+            "artist": e.get("artist") or "", "album": e.get("album") or "",
             "duration": e.get("duration"), "thumb": e.get("thumb"), "genre": LIB.genre_of(key), "where": where}
 
 
@@ -944,7 +947,7 @@ def album(artist: str = Query(min_length=1, max_length=200), name: str = Query(m
     a = LIB.album(artist, name)
     if not a:
         raise HTTPException(404, "no hay canciones de ese álbum")
-    return {"name": a["name"], "artist": a["artist"], "year": a["year"], "songs": yt_entries(a["songs"])}
+    return {"name": a["name"], "artist": a["artist"], "year": a["year"], "thumb": a["thumb"], "songs": yt_entries(a["songs"])}
 
 
 def need_user(found):
