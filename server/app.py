@@ -126,6 +126,27 @@ YT_STATE = "/data/youtube-estado.json"      # cómo está YouTube ahora (lo lee 
 YT_BLOCKS = "/data/youtube-bloqueos.jsonl"  # historial de bloqueos
 
 
+def _yt_restore():
+    """Al arrancar, las peticiones de la última hora y el bloqueo, de lo último guardado en YT_STATE (cada 30 s). Antes
+    se perdían al reiniciar: la cuenta volvía a 0 (se le podía pedir a YouTube de más y el freno del Canvas no
+    saltaba) y un bloqueo se olvidaba."""
+    global _yt_blocked_until
+    try:
+        with open(YT_STATE) as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return
+    now = time.time()
+    _yt_recent.extend(sorted(t for t in st.get("recientes") or [] if t > now - 3600))
+    _yt_blocked_until = max(_yt_blocked_until, st.get("bloqueado_hasta") or 0)
+    log.info("YouTube: %d peticiones en la última hora (de antes de arrancar)%s", len(_yt_recent),
+             ", bloqueados hasta " + time.strftime("%H:%M", time.localtime(_yt_blocked_until))
+             if _yt_blocked_until > now else "")
+
+
+_yt_restore()
+
+
 def yt_blocked(source, err):
     """YouTube pidió "confirmar que no eres un bot" (o 429): no se le pide nada durante YT_PAUSE y queda apuntado en
     el historial y en el estado (el panel lo pone en rojo y el bot avisa en el canal de registro)."""
@@ -154,7 +175,8 @@ def yt_state():
     now = time.time()
     st = {"bloqueado_hasta": int(_yt_blocked_until) if _yt_blocked_until > now else 0,
           "peticiones_hora": sum(1 for t in _yt_recent if t > now - 3600), "tope_hora": YT_PER_HOUR,
-          "ultimo_bloqueo": last, "cuando": int(now)}
+          "ultimo_bloqueo": last, "cuando": int(now),
+          "recientes": [round(t, 1) for t in _yt_recent if t > now - 3600]}   # para no perderlas al reiniciar
     try:
         with open(YT_STATE + ".tmp", "w") as f:
             json.dump(st, f, ensure_ascii=False)
