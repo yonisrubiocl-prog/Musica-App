@@ -1844,6 +1844,8 @@ async function pintaCanvas() {
   }
   let url = canvasUrl.get(s.id);
   if (!url) {
+    // mientras baja, fuera el de la canción anterior (si no, se veía el Canvas de otra canción)
+    if (v.dataset.id !== s.id) { $('np').classList.remove('con-canvas'); v.pause(); ajustaEscena(); }
     try {
       const r = await fetch('/canvas/' + encodeURIComponent(s.id), {headers: {Authorization: 'Bearer ' + session}});
       if (!r.ok) throw new Error(r.status);
@@ -1851,7 +1853,9 @@ async function pintaCanvas() {
     } catch (e) { canvasEst.set(s.id, {estado: 'error', motivo: 'el vídeo no se pudo bajar'}); return pintaCanvas(); }
     canvasUrl.set(s.id, url);
     if (canvasUrl.size > 12) { const [k, old] = canvasUrl.entries().next().value; URL.revokeObjectURL(old); canvasUrl.delete(k); }
-    if (cur !== s) return;   // cambió de canción mientras bajaba
+    // cambió de canción mientras bajaba (por la canción, no por el objeto: siendo mando, la cola se rehace con cada
+    // estado del que suena y "cur" pasa a ser otro objeto de la misma canción: no se ponía y quedaba el de la anterior)
+    if (cur?.id !== s.id) return;
   }
   if (v.dataset.id !== s.id) { v.src = url; v.dataset.id = s.id; }
   $('np').classList.add('con-canvas'); ajustaEscena();
