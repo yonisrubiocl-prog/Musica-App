@@ -332,15 +332,15 @@
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   /* Dónde suena (escuchar en varios dispositivos): botón con un altavoz debajo de los controles; en color de acento si
      suena en otro dispositivo (lo de aquí es un mando) */
-  .np .disps { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
-  .np .disp { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 14px;
+  :is(.np, .ahv) .disps { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  :is(.np, .ahv) .disp { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 14px;
               border-radius: 999px; color: var(--texto2); font-size: .86rem; font-weight: 600; }
-  .np .disp[hidden] { display: none; }
-  .np .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
-  .np .disp svg { width: 19px; height: 19px; flex: none; }
-  .np .disp.fuera { color: var(--acento); }
-  .np .disp.solo { padding: 7px; opacity: .6; }
-  .np .disp.solo:hover { opacity: 1; }
+  :is(.np, .ahv) .disp[hidden] { display: none; }
+  :is(.np, .ahv) .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
+  :is(.np, .ahv) .disp svg { width: 19px; height: 19px; flex: none; }
+  :is(.np, .ahv) .disp.fuera { color: var(--acento); }
+  :is(.np, .ahv) .disp.solo { padding: 7px; opacity: .6; }
+  :is(.np, .ahv) .disp.solo:hover { opacity: 1; }
   .bar .en { color: var(--acento); font-size: .74rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sheet .opt.dsp-on { color: var(--acento); }
   .dsp-fila { display: flex; align-items: center; gap: 8px; }
@@ -440,7 +440,8 @@
               -webkit-line-clamp: 2; overflow: hidden; }
     .ahv-art { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--texto2); font-family: inherit; font-weight: 600; font-size: clamp(1.2rem, 2vw, 1.9rem); cursor: pointer; }
     .ahv-art:hover { color: var(--texto); text-decoration: underline; }
-    .ahv-alb { color: var(--texto2); font-size: 1rem; }
+    .ahv-alb { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--texto2); font-family: inherit; font-size: 1rem; cursor: pointer; }
+    .ahv-alb:hover { color: var(--texto); text-decoration: underline; }
     /* la letra: altura fija (la actual hasta en 2 renglones y la siguiente en 1): si no, todo se movía */
     .ahv-letra { height: 150px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; margin-top: 6px;
                  padding: 14px 22px; border-radius: 18px; background: var(--cristal); border: 1px solid var(--linea); }
@@ -458,20 +459,41 @@
     .ahv-ctl button svg { width: 26px; height: 26px; fill: currentColor; }
     .ahv-ctl .grande { width: 76px; height: 76px; background: var(--acento); color: var(--sobre-acento); }
     .ahv-ctl .grande svg { width: 34px; height: 34px; }
-    .ahv-ctl .hueco { flex: 1; }
-    .ahv-sig > small { display: block; color: var(--texto2); font-size: .8rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; margin: 14px 0 10px; }
-    .ahv-fila { display: flex; gap: 14px; overflow: hidden; }
-    .ahv-mini { width: 110px; flex: none; border: 0; padding: 0; background: none; color: var(--texto); text-align: left; cursor: pointer; }
-    .ahv-mini img, .ahv-mini .ph { width: 110px; height: 110px; border-radius: 12px; object-fit: cover; background: var(--elevado); display: grid;
-                                   place-items: center; font-size: 2rem; transition: transform 150ms var(--ease); }
-    .ahv-mini:hover :is(img, .ph) { transform: scale(1.05); }
-    .ahv-mini b { display: block; margin-top: 6px; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ahv-mini small { display: block; font-size: .75rem; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ahv-ctl .hueco, .ahv-extra .hueco { flex: 1; }
+    .ahv-ctl .ctl.toggle { width: 44px; height: 44px; background: none; } .ahv-ctl .ctl.toggle svg { width: 24px; height: 24px; }
+    .ahv-extra { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .ahv-extra .heart { width: 44px; height: 44px; } .ahv-extra .heart svg { width: 26px; height: 26px; }
+    .ahv-extra .vol input { width: 140px; }
+    .ahv-extra .disps { margin-top: 0; }
+    /* A continuación: tercera columna (lista con desplazamiento) en pantallas anchas; debajo, en las más estrechas */
+    .ahv { grid-template-columns: auto minmax(0, 1fr) minmax(300px, 380px); }
+    .ahv-sig { align-self: stretch; display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 5vh - 120px);
+               border-radius: 22px; background: var(--cristal); border: 1px solid var(--linea); overflow: hidden; }
+    .ahv-sig-head { padding: 18px 20px 10px; font-weight: 700; font-size: 1.05rem; }
+    .ahv-sig-head small { color: var(--texto2); font-weight: 600; font-size: .85rem; margin-left: 6px; }
+    .ahv-lista { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+    .ahv-c { display: flex; align-items: center; gap: 12px; width: 100%; padding: 7px 10px; border: 0; border-radius: 12px; background: none;
+             color: var(--texto); text-align: left; cursor: pointer; font: inherit; }
+    .ahv-c:hover { background: var(--cristal2); }
+    .ahv-c .n { width: 22px; text-align: right; color: var(--texto2); font-size: .85rem; flex: none; font-variant-numeric: tabular-nums; }
+    .ahv-c img, .ahv-c .ph { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--elevado); flex: none; display: grid; place-items: center; }
+    .ahv-c div { flex: 1; min-width: 0; }
+    .ahv-c b { display: block; font-size: .92rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ahv-c small { display: block; color: var(--texto2); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ahv-c .d { color: var(--texto2); font-size: .8rem; font-variant-numeric: tabular-nums; flex: none; }
+    .ahv-nada { color: var(--texto2); padding: 10px 20px; }
     .ahv-vacio { display: none; }
     .ahv.sin > :not(.ahv-vacio) { display: none; }
     .ahv.sin { grid-template-columns: 1fr; }
     .ahv.sin .ahv-vacio { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--texto2); text-align: center; }
     .ahv-vacio img { width: 130px; height: 130px; border-radius: 50%; } .ahv-vacio b { color: var(--texto); font-size: 1.2rem; }
+  }
+  @media (min-width: 1100px) and (max-width: 1399px) {   /* más estrecho: las tres columnas, con portada y lista menores */
+    .ahv { grid-template-columns: auto minmax(0, 1fr) minmax(250px, 300px); gap: 3vw; padding-left: 3.5vw; padding-right: 3.5vw; }
+    .ahv-media { height: min(62vh, 640px); }
+    .ahv h1 { font-size: clamp(1.9rem, 3.4vw, 3rem); }
+    .ahv-ctl { gap: 8px; } .ahv-ctl button { width: 44px; height: 44px; } .ahv-ctl .grande { width: 62px; height: 62px; }
+    .ahv-ctl .ctl.toggle { width: 36px; height: 36px; } .ahv-extra .vol input { width: 100px; }
   }
   /* Pantallas muy anchas: tres tarjetas iguales y simétricas: la cola a la izquierda, el contenido en medio y el
      reproductor a la derecha (que entonces solo tiene la pestaña Letra). */
@@ -628,8 +650,8 @@ aplicarTema();
       <button class="ctl" id="npNext" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
       <button class="ctl toggle" id="npRepeat" aria-label="Repetir"></button>
     </div>
-    <div class="vol"><button data-mute aria-label="Silenciar"></button><input type="range" min="0" max="100" data-vol aria-label="Volumen"></div>
-    <div class="disps"><button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
+    <div class="vol" id="npVol"><button data-mute aria-label="Silenciar"></button><input type="range" min="0" max="100" data-vol aria-label="Volumen"></div>
+    <div class="disps" id="npDisps"><button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
       <button class="disp" id="npTv" hidden aria-label="Enviar a la TV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span id="npTvT"></span></button></div>
     <div class="tabs" id="npTabs"><button data-np="cola" class="on">Siguiente</button><button data-np="letra">Letra</button></div>
     <div id="npPanel"></div>
@@ -1710,7 +1732,7 @@ function pintaDisp() {
   $('npDispT').hidden = !fuera && !otros;
   $('npDisp').classList.toggle('solo', !fuera && !otros);
   $('pEn').hidden = !fuera && !enTv(); $('pEn').textContent = enTv() ? '📺 En ' + tv.nombre : fuera ? '🔊 En ' + fuera : '';
-  document.querySelector('.np .vol').style.visibility = fuera && !enTv() ? 'hidden' : '';   // el volumen es el de allí (el de la TV sí se maneja)
+  $('npVol').style.visibility = fuera && !enTv() ? 'hidden' : '';   // el volumen es el de allí (el de la TV sí se maneja)
 }
 $('npDisp').onclick = () => {
   const lista = [...(cx?.dispositivos || []).filter(d => d.vivo)];
@@ -1851,27 +1873,30 @@ function vistaAhora() {
     <div class="ahv-media"><img id="ahvFondo" alt=""><img id="ahvImg" alt=""><video id="ahvV" muted loop playsinline></video></div>
     <div class="ahv-info">
       <div class="ahv-donde"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i><span id="ahvDonde"></span></div>
-      <h1 id="ahvT"></h1><button class="ahv-art" id="ahvA"></button><div class="ahv-alb" id="ahvAl"></div>
+      <h1 id="ahvT"></h1><button class="ahv-art" id="ahvA"></button><button class="ahv-alb" id="ahvAl"></button>
       <div class="ahv-letra" id="ahvL"></div>
       <div class="ahv-barra" id="ahvBar"><i id="ahvP"></i></div><div class="ahv-tiempos"><span id="ahvCur">0:00</span><span id="ahvDur">0:00</span></div>
       <div class="ahv-ctl">
+        <span data-pon="npShuffle"></span>
         <button data-ahv="menos10" aria-label="Atrás 10 segundos">−10</button>
         <button data-ahv="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button data-ahv="play" class="grande" id="ahvPlay" aria-label="Reproducir"></button>
         <button data-ahv="next" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         <button data-ahv="mas10" aria-label="Adelante 10 segundos">+10</button>
+        <span data-pon="npRepeat"></span>
         <span class="hueco"></span>
         <button data-ahv="pantalla" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       </div>
-      <div class="ahv-sig"><small>A continuación</small><div class="ahv-fila" id="ahvSig"></div></div>
+      <div class="ahv-extra"><span data-pon="npFav"></span><span data-pon="npVol"></span><span class="hueco"></span><span data-pon="npDisps"></span><span data-pon="npMore"></span></div>
     </div>
+    <div class="ahv-sig"><div class="ahv-sig-head">A continuación <small id="ahvSigN"></small></div><div class="ahv-lista" id="ahvSig"></div></div>
     <div class="ahv-vacio"><img src="/logo-480.webp" alt=""><b>Aquí sonará tu música</b><span>Elige algo en Inicio, Buscar o Biblioteca.</span></div>
   </section>`;
   $('ahv').onclick = e => {
     const b = e.target.closest('[data-ahv]'), sig = e.target.closest('[data-sig]');
     if (sig) return saltaEnCola(+sig.dataset.sig);
-    if (e.target.closest('[data-todo]')) return colaEntera();
     if (e.target.closest('#ahvA') && cur?.artist) return showArtist(cur.artist);
+    if (e.target.closest('#ahvAl') && cur?.album && cur.where !== 'youtube') return showAlbum(cur.artist || '', cur.album);
     if (e.target.closest('#ahvBar')) { const d = duracion(), r = $('ahvBar').getBoundingClientRect(); if (d) irA(d * (e.clientX - r.left) / r.width); return; }
     if (!b) return;
     const a = b.dataset.ahv;
@@ -1879,8 +1904,25 @@ function vistaAhora() {
     else if (a === 'mas10' || a === 'menos10') irA(Math.max(0, tiempo() + (a === 'mas10' ? 10 : -10)));
     else if (a === 'pantalla') document.fullscreenElement ? document.exitFullscreen() : $('ahv').requestFullscreen?.().catch(() => {});
   };
+  prestaAhora();
   ahvLinea = -2; pintaAhora(); pintaAhoraSig(); pintaAhoraCanvas(); ico(!sonandoAhora()); pintaTiempo();
 }
+// Los controles de la página (Me gusta, aleatorio, repetir, volumen, Dónde suena, 📺 TV, ⋮) no se copian: los mismos
+// del panel se mueven a Ahora mientras está abierta y vuelven a su sitio al salir. Así funcionan igual y con su estado.
+let prestados = [];
+function prestaAhora() {
+  for (const hueco of document.querySelectorAll('#ahv [data-pon]')) {
+    const el = $(hueco.dataset.pon); if (!el) continue;
+    prestados.push({el, padre: el.parentNode, sig: el.nextSibling}); hueco.replaceWith(el);
+  }
+}
+function devuelveAhora() {
+  for (const {el, padre, sig} of prestados.reverse()) padre.insertBefore(el, sig && sig.parentNode === padre ? sig : null);
+  prestados = [];
+}
+// al salir de Ahora por donde sea (otra pestaña, ir al artista o al álbum…): devolver los controles y quitar el modo
+new MutationObserver(() => { if (!$('ahv')) { if (prestados.length) devuelveAhora(); document.body.classList.remove('en-ahora'); } })
+  .observe(wrap, {childList: true});
 function pintaAhora() {
   if (!$('ahv')) return;
   $('ahv').classList.toggle('sin', !cur);
@@ -1909,13 +1951,14 @@ function pintaAhoraTiempo(t, d) {
   if (i === ahvLinea) return; ahvLinea = i;
   $('ahvL').innerHTML = [L[i], L[i + 1]].filter(Boolean).map(x => `<p>${esc(x.text)}</p>`).join('');
 }
+// "A continuación": lista (mejor para el ratón que la fila de portadas de la TV) con todo lo que falta; clic salta a esa
 function pintaAhoraSig() {
   if (!$('ahv')) return;
-  const sig = queue.slice(qi + 1, qi + 7);
-  $('ahvSig').innerHTML = sig.map((s, k) => `<button class="ahv-mini" data-sig="${qi + 1 + k}">${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : '<span class="ph">♪</span>'}
-      <b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small></button>`).join('')
-    + (queue.length > 1 ? `<button class="ahv-mini todo" data-todo><span class="ph">☰</span><b>Lista completa</b><small>${queue.length} canciones</small></button>` : '');
-  $('ahv').querySelector('.ahv-sig').hidden = !queue.length;
+  const sig = queue.slice(qi + 1, qi + 1 + 300);
+  $('ahvSigN').textContent = sig.length ? sig.length : '';
+  $('ahvSig').innerHTML = sig.length ? sig.map((s, k) => `<button class="ahv-c" data-sig="${qi + 1 + k}"><span class="n">${k + 1}</span>
+      ${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : '<span class="ph">♪</span>'}<div><b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small></div>
+      <span class="d">${dur(s.duration) || ''}</span></button>`).join('') : '<p class="ahv-nada">No hay nada más en la cola.</p>';
 }
 function pintaAhoraCanvas() {
   if (!$('ahv')) return;
@@ -1927,12 +1970,6 @@ function pintaAhoraCanvas() {
 }
 // saltar a la canción i de la cola (aquí, o en el dispositivo donde suena: start() lo manda como orden)
 function saltaEnCola(i) { if (!queue[i] || i === qi) return; qi = i; start(); }
-function colaEntera() {
-  sheet('<h4>Lista completa</h4>' + queue.map((s, i) => `<button class="opt${i === qi ? ' dsp-on' : ''}" data-qi="${i}"><i>${i === qi ? '▶' : i + 1}</i>
-      <span>${esc(s.title || '')}<small>${esc(s.artist || '')}</small></span></button>`).join(''));
-  $('sheet').querySelectorAll('[data-qi]').forEach(b => b.onclick = () => { closeSheet(); saltaEnCola(+b.dataset.qi); });
-  $('sheet').querySelector('.dsp-on')?.scrollIntoView({block: 'center'});
-}
 
 // ---------- reproductor grande ----------
 let npTab = 'cola';

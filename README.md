@@ -322,13 +322,16 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 ### Pestaña Ahora de la web (PC)
 
 Desde el 06-11-2026, solo en pantallas de 1100 px o más (en el móvil el reproductor grande ya hace de "Ahora"): una
-cuarta pestaña, **Ahora**, como la pantalla Ahora de la TV y sin el ruido de las tarjetas. Canvas o portada en grande
-a la izquierda; a la derecha "Sonando aquí / en <dispositivo>", título, artista (lleva a su página), álbum, la letra
-en un cuadro de **altura fija** (actual y siguiente), la barra (clic para ir a un segundo), −10 · ⏮ · ⏯ · ⏭ · +10,
-**pantalla completa** y "A continuación" (6, clic salta a esa) con **☰ Lista completa** (hoja con toda la cola). En
-esta pestaña se esconden el panel de la derecha y la cola de la izquierda; en las demás, el reproductor sigue a un
-lado como siempre. Usa lo mismo que el resto (`pintaCancion`, `pintaTiempo`, `paintQueue`, `pintaCanvas`, `ico`):
-funciona igual sonando aquí, en otro dispositivo (mando) o en la TV.
+cuarta pestaña, **Ahora**, con la idea de la pantalla Ahora de la TV (solo lo que suena, sin el ruido de las tarjetas)
+pero con todo lo de la página. Tres columnas: Canvas o portada en grande; "Sonando aquí / en <dispositivo>", título,
+artista y álbum (llevan a su página), la letra en un cuadro de **altura fija**, la barra (clic para ir a un segundo),
+aleatorio · −10 · ⏮ · ⏯ · ⏭ · +10 · repetir, pantalla completa, y debajo ♡ Me gusta, volumen, 🔊 Dónde suena / 📺 TV
+y ⋮ (el menú de la canción); y **"A continuación" como lista** (portada, título, artista, duración; toda la cola que
+falta, con desplazamiento; clic salta a esa). Los controles de la página **no se copian**: los mismos del panel se
+mueven a Ahora mientras está abierta (`prestaAhora`) y vuelven al salir por donde sea (`devuelveAhora`, con un
+`MutationObserver` sobre el contenido), así funcionan igual y con su estado. En esta pestaña se esconden el panel de
+la derecha y la cola de la izquierda; en las demás, el reproductor sigue a un lado. Usa lo mismo que el resto
+(`pintaCancion`, `pintaTiempo`, `paintQueue`, `pintaCanvas`, `ico`): igual sonando aquí, en otro dispositivo o en la TV.
 
 ### Escuchar en varios dispositivos (como Spotify Connect)
 
