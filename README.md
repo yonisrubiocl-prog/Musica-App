@@ -659,18 +659,20 @@ El túnel **solo reenvía, no filtra**: toda petición llega a la API, así que 
   que usa la API: va en `server/.env` (`DISCORD_CLIENT_SECRET`) y, si se filtra, se rota en ese portal. El `state` de
   cada enlace evita que alguien una su Discord a una cuenta ajena. El servidor interno del bot (8100) no se publica.
 
-**Velocidad (medida):** desde este servidor contra su propia dirección pública (ida y vuelta por internet),
-con una canción de 3,8 MB (3:42, ~140 kbps):
+**Velocidad (medida el 06-11-2026):** el servidor va **por cable** (`enp1s0`, 1 Gbps dúplex completo; el wifi
+`wlp2s0` queda conectado de respaldo, con menos prioridad). Internet de casa contra Cloudflare (Santiago): **~700
+Mbps de bajada y 230–620 de subida**. A través del túnel (del servidor a su propia dirección pública, ida y vuelta):
 
-| Prueba | Cloudflare | Tailscale Funnel |
+| Prueba | Cloudflare | Tailscale Funnel (29-10) |
 |---|---|---|
-| Hasta el primer byte del audio | ~0,4–0,5 s | ~1,4 s |
-| 1 descarga | ~1,5 MB/s (~12 Mbps), la canción en 2,5 s | 150–225 KB/s |
-| 6 descargas a la vez | ~256 KB/s cada una, ~12 Mbps en total (~15× lo que dura la canción) | 63–107 KB/s cada una, ~3 Mbps en total |
-| APK al actualizar (~30–50 MB) | ~30 s | ~3–5 min |
+| Hasta el primer byte del audio | ~0,4–0,7 s | ~1,4 s |
+| 1 descarga (canción de 7,8 MB) | **50–80 Mbps** | 150–225 KB/s |
+| 6 descargas a la vez | ~30 Mbps cada una, **~150 Mbps en total** | 63–107 KB/s cada una, ~3 Mbps en total |
+| APK al actualizar (~30–50 MB) | unos segundos | ~3–5 min |
 
-Con Cloudflare el tope parece ser la subida de internet de casa (~12 Mbps), no el túnel. Falta confirmarlo
-desde móviles fuera de casa. Una canción (~134 kbps, ver "Calidad del audio") ocupa ~1/90 de esa subida.
+Una canción va a ~134 kbps (ver "Calidad del audio"): sobra para cientos a la vez. El 29-10 el túnel daba ~12 Mbps
+en total y se creyó que era la subida de casa; no lo era (la subida es de cientos de Mbps). Para los que escuchan
+lejos (p. ej. Venezuela) cuenta sobre todo la distancia (~100–250 ms más por cada clic) y su propia conexión.
 
 **Respaldo: Tailscale Funnel** (contenedor `musicapp-tailscale`, `https://musicapp.tail66213e.ts.net`).
 Gratis y sin dominio, pero más lento (tabla de arriba) y sin la IP real del cliente. Necesita el permiso
