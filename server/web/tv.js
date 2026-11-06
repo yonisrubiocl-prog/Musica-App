@@ -159,7 +159,10 @@ function enfoca(el) {
   el.focus({preventScroll: true});
   el.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
 }
-function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); }
+function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); recuenta(); }
+// Tras play/pausa o un salto, contarlo ya (y otra vez al rato): si el aviso de Cast no llega, el mando (la web o el
+// celular) seguía creyendo que sonaba y su play mandaba "pausar" a una TV ya en pausa (le pasó a Juancho, 06-11-2026)
+const recuenta = () => { setTimeout(() => cxCuenta(), 400); setTimeout(() => cxCuenta(), 2000); };
 document.getElementById('controles').addEventListener('click', e => { const b = e.target.closest('button'); if (b) pulsa(b.dataset.a); });
 document.getElementById('panelIr').addEventListener('click', () => { pila = []; irA('ahora'); });
 document.getElementById('colaFila').addEventListener('click', e => {
@@ -346,7 +349,8 @@ async function cxBucle() {
       desde = r.v;
       if (r.activo === cx.disp) {
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
-        for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo); cxHaz(o); }
+        for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo, o.tipo === 'pausa' ? (o.datos?.pausar ? 'pausar' : 'seguir') : ''); cxHaz(o); }
+        if (nuevas.length) recuenta();
         if (nuevas.length) cxCuenta();
       } else if (cx.propia && r.activo && r.activo_vivo && Date.now() - cx.tomada > 5000) {   // otro se quedó la música
         // (no justo después de poner una cola: la respuesta que llega aún puede ser de antes de quedársela la TV)
