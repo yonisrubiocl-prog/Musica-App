@@ -31,7 +31,11 @@ sin publicarlo ni cobrar nada.
   es la referencia de cómo debe comportarse la app (`docs/app-paridad.md`).
 - **Seguridad:** la auditoría del servidor del 02-11-2026 está aplicada en lo de este proyecto (sección 2): API y bot
   sin root ni `lainer`, FFmpeg solo con los formatos que usamos, sesión solo en la cabecera, cabeceras de seguridad
-  y CSP, imágenes al día. Falta el parche de FFmpeg de Debian (ver Pendientes).
+  y CSP, imágenes al día. Falta el parche de FFmpeg de Debian (ver Pendientes). Tras el barrido de la app
+  (06-11-2026): HSTS con `includeSubDomains`; una IP que manda **10 sesiones (o enlaces de audio) falsas distintas en
+  10 min** recibe 429 en todo lo que pide sesión durante 15 min (una sesión caducada repetida no cuenta; la IP es la
+  de `CF-Connecting-IP`); y `/app/version` y `/app/enlace` dan el `sha256` del APK para que la app lo compruebe antes
+  de instalar. Descartado a propósito: fijar el certificado (Cloudflare lo cambia solo), ofuscar la app y Frida.
 
 **Repositorio:** GitHub privado **yonisrubiocl-prog/Musica-App** (solo el servidor; la app Flutter tiene el suyo).
 El servidor sube con su propia llave de despliegue, que solo vale para ese repo (`~/.ssh/github_musicapp`, alias
@@ -209,8 +213,8 @@ las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nue
 | `GET /` y `GET /acceso` | **La página principal** (`server/web/acceso.html`, estilo Dark Premium y logo del perrito): entrar con Google; al aprobado le abre la app web, a los demás les dice si quedaron pendientes (ver "Repartir la app y versión web"). Sin clave |
 | `GET /web/…` | **La app en el navegador** (`server/web/web.html`): Inicio, Buscar, Biblioteca, favoritas y reproductor. Cualquier ruta bajo `/web/` da la misma página. Usa la sesión que guardó la página principal; sin ella, vuelve a `/`. Sin clave (la página en sí no tiene datos) |
 | `GET /logo.png`, `/logo-480.webp`, `/logo-96.webp` | El logo: original PNG 512×512 (505 KB) y las versiones ligeras que usa la página (WebP 25 KB y 3 KB; el de 96 también es el icono de la pestaña). Solo nombres `logo…png/webp` de `server/web/`. Sin clave |
-| `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date}`); 404 si aún no hay APK |
-| `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
+| `POST /app/enlace` | Para aprobados: enlace de descarga de la app que sirve 10 min (`{url, minutes, size, date, sha256}`); 404 si aún no hay APK |
+| `GET /app/version` | Versión publicada de la app (`version.json` junto al APK, p. ej. `{"build": 18, "version": "1.0.17"}`, más `sha256`: la huella del APK que se sirve, calculada por la API); la app avisa si `build` es mayor que el suyo y se actualiza con `/app/enlace`. 404 si no hay. Pide sesión |
 | `GET /app/descargar/<enlace>` | El APK (`musica.apk`). Enlace caducado o inventado → 404. Sin clave: el enlace ya lo es |
 | `GET /search?q=…` | Primero lo guardado (de 20 en 20 con `&offset=&limit=` hasta 200; `total` dice cuántas guardadas hay en total: "rawayana" → 78; `artists`: los artistas que encajan, también con faltas ("cancerbero" → Canserbero), en la primera página; todas las palabras en título/artista/álbum, pero cada una vale exacta, a medio escribir o en plural/singular: "one pilot" encuentra la banda, "hope" encuentra Hope y Hopeless. **Las faltas** ("chayane", "stresed out") solo cuentan en palabras de 5 letras o más, y **las faltas y los plurales** ("pilots" → "pilot") **solo si sin ellos no sale nada** (si no, "juanes" traía a Juan Luis Guerra y Juan Magán como plural de "juan"). Ver `Library.find`). Con `&yt=1` (por defecto, solo en la primera página) trae en `internet` hasta **20 canciones de YouTube Music** **tal cual las da su buscador**: las mismas, en el mismo orden, sin añadir, quitar ni reordenar (con artista, álbum y duración). Lo guardado sigue en su fila marcado como `guardada` (y con el `id` de la copia del servidor si está con otro título) y `results` lleva detrás solo las de `youtube`, para versiones viejas de la app. Cada resultado: `id`, `title`, `artist`, `album`, `duration`, `thumb`, `where` (`guardada`/`youtube`). `&yt=0` = solo lo guardado (sin tocar YouTube) |
 | `GET /suggest?q=…&n=8` | **Sugerencias mientras se escribe**, de lo guardado (sin YouTube, ~45 ms): artistas (con su nº de canciones), álbumes y canciones cuyas palabras empiezan por lo escrito ("raw" → Rawayana · 78, RawayanaLand…): `{sugerencias: [{tipo: artista\|album\|cancion, texto, artista, id, canciones, thumb}]}` |

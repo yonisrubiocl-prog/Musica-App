@@ -48,7 +48,11 @@
      (500, sin red), seguir con la cola que hay y reintentar más tarde, sin cortar la música.
    - `GET /recomendaciones/preguntar?contexto=` y `POST /recomendaciones/opinion {contexto, semilla, gusto: si|no,
      opciones, texto, canciones}`.
-10. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva).
+10. **Actualizaciones** — `GET /app/version` y `POST /app/enlace` (aviso de versión nueva). Los dos traen `sha256`
+    (huella del APK, en minúsculas): comprobarla con lo bajado **antes de instalar**; si no coincide, borrarlo y
+    decir "La descarga llegó mal, vuelve a intentarlo". Si falta el campo (servidor viejo), instalar como siempre.
+    Un **429** en cualquier ruta = demasiadas sesiones falsas desde esa IP: enseñar el mensaje (`detail`), no
+    volver al login.
 11. **Sesiones** — máximo **3 dispositivos** por cuenta (administradores sin límite). Ante un **401**: volver al login
     con "Se inició sesión en otro dispositivo", sin quedarse callada.
 

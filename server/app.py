@@ -7,6 +7,7 @@ directo del disco (solo lectura); todo lo que escribe o habla con YouTube lo pid
 import asyncio
 import collections
 import difflib
+import hashlib
 import hmac
 import html
 import secrets
@@ -82,6 +83,14 @@ _yt_blocked_until = 0.0
 _downloads = {}                         # clave -> lock: dos peticiones de la misma canción la bajan una vez
 _downloads_lock = threading.Lock()
 _apk_links = {}                         # enlace de descarga de la app -> hasta cuándo sirve
+_apk_sha = (None, "")                   # (tamaño y fecha del APK, su sha256): se recalcula solo si cambia
+# Intentos con sesiones falsas (auditoría de la app del 06-11-2026): por IP, las claves distintas rechazadas en
+# BAD_KEY_WINDOW; al llegar a BAD_KEY_MAX, esa IP recibe 429 en todo lo que pide sesión durante BAD_KEY_BLOCK. Cuentan
+# claves distintas para que una app con la sesión caducada (siempre la misma) no se bloquee sola.
+BAD_KEY_MAX, BAD_KEY_WINDOW, BAD_KEY_BLOCK = 10, 10 * 60, 15 * 60
+_bad_keys = {}                          # ip -> {huella de la clave: cuándo}
+_blocked_ips = {}                       # ip -> hasta cuándo
+_bad_keys_lock = threading.Lock()
 
 
 def ydl(**extra):
@@ -491,15 +500,51 @@ def given_key(request: Request):
     return auth[7:] if auth.lower().startswith("bearer ") else ""
 
 
+def client_ip(request: Request):
+    """La IP de quien pide: la que pone Cloudflare (por el túnel todo llega desde cloudflared), la de Funnel, o la
+    de la conexión (pruebas desde el servidor)."""
+    fwd = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0]
+    return fwd.strip() or (request.client.host if request.client else "?")
+
+
+def check_blocked(ip):
+    with _bad_keys_lock:
+        until = _blocked_ips.get(ip, 0)
+    if until > time.time():
+        raise HTTPException(429, f"demasiados intentos con sesiones no válidas; prueba en ~{int(until - time.time()) // 60 + 1} min")
+
+
+def bad_key(ip, key):
+    """Apunta una clave rechazada de esa IP y la bloquea si ya van BAD_KEY_MAX distintas."""
+    now = time.time()
+    with _bad_keys_lock:
+        for i in [i for i, until in _blocked_ips.items() if until < now]:
+            del _blocked_ips[i]
+        for i in list(_bad_keys):
+            _bad_keys[i] = {k: t for k, t in _bad_keys[i].items() if t > now - BAD_KEY_WINDOW}
+            if not _bad_keys[i]:
+                del _bad_keys[i]
+        seen = _bad_keys.setdefault(ip, {})
+        seen[hashlib.sha256(key.encode()).hexdigest()[:16]] = now
+        if len(seen) >= BAD_KEY_MAX:
+            _blocked_ips[ip] = now + BAD_KEY_BLOCK
+            del _bad_keys[ip]
+            log.warning("bloqueada %s %d min: %d sesiones no válidas seguidas", ip, BAD_KEY_BLOCK // 60, BAD_KEY_MAX)
+
+
 def check_token(request: Request):
     """Sesión de un usuario aprobado, o la clave compartida API_TOKEN mientras no haya app."""
-    key = given_key(request)
+    key, ip = given_key(request), client_ip(request)
+    if key:
+        check_blocked(ip)
     if key and TOKEN and hmac.compare_digest(key.encode(), TOKEN.encode()):
         return None
     found = users.user_of(key) if key else None
     if not found:
         if request.url.path == "/app/version":
             log.info("versión de la app pedida sin sesión válida (%s)", "sin clave" if not key else "sesión caducada o no aprobada")
+        if key:
+            bad_key(ip, key)
         raise HTTPException(401, "no autorizado")
     return found
 
@@ -530,7 +575,11 @@ def stream_user(vid: str, request: Request):
         return check_token(request)
     sub, _, rest = t.partition(".")
     until, _, sig = rest.partition(".")
+    ip = client_ip(request)
+    check_blocked(ip)
     if not (until.isdigit() and int(until) > time.time() and hmac.compare_digest(sig, stream_sig(vid, sub, int(until)))):
+        if until.isdigit() and int(until) > time.time():   # caducado de verdad no cuenta: firma falsa sí
+            bad_key(ip, t)
         raise HTTPException(401, "enlace caducado")
     users.USERS.reload()
     u = users.USERS.data.get(sub)
@@ -564,7 +613,7 @@ async def security_headers(request: Request, call_next):
     """Cabeceras de seguridad en todas las respuestas (auditoría del 02-11-2026): siempre por https, no dejar que otra
     web nos meta en un marco, no adivinar tipos de archivo y no mandar nuestras direcciones a otras webs."""
     r = await call_next(request)
-    r.headers["Strict-Transport-Security"] = "max-age=31536000"
+    r.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["X-Content-Type-Options"] = "nosniff"
     r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -641,6 +690,19 @@ def logo(rest: str):
                         headers={"Cache-Control": "public, max-age=604800"})
 
 
+def apk_sha256():
+    """La huella del APK publicado, para que la app compruebe lo que baja antes de instalarlo."""
+    global _apk_sha
+    st = os.stat(APK)
+    if _apk_sha[0] != (st.st_size, st.st_mtime):
+        h = hashlib.sha256()
+        with open(APK, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        _apk_sha = ((st.st_size, st.st_mtime), h.hexdigest())
+    return _apk_sha[1]
+
+
 @app.post("/app/enlace")
 def apk_link(found=Depends(check_token)):
     """Enlace para bajar la app, solo para aprobados (lo usa /acceso). Sirve APK_LINK_TTL y no lleva la sesión
@@ -654,7 +716,7 @@ def apk_link(found=Depends(check_token)):
     _apk_links[link] = now + APK_LINK_TTL
     log.info("enlace de la app para %s", found[1]["email"] if found else "clave compartida")
     return {"url": f"/app/descargar/{link}", "minutes": APK_LINK_TTL // 60,
-            "size": os.path.getsize(APK), "date": int(os.path.getmtime(APK))}
+            "size": os.path.getsize(APK), "date": int(os.path.getmtime(APK)), "sha256": apk_sha256()}
 
 
 @app.get("/app/version")
@@ -669,6 +731,8 @@ def app_version(found=Depends(check_token)):
         log.info("versión de la app pedida por %s: sin versión publicada", who)
         raise HTTPException(404, "sin versión publicada")
     log.info("versión de la app pedida por %s: publicada %s (build %s)", who, v.get("version"), v.get("build"))
+    if os.path.isfile(APK):
+        v["sha256"] = apk_sha256()
     return v
 
 
