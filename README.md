@@ -402,7 +402,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   cuenta de antes (`/conectar/salir` con la llave vieja; sus dispositivos lo ven al momento), recarga los menús con lo
   de la nueva y avisa "Ahora la usa <nombre>". Ojo: "Dejar de enviar" del menú de Cast de Chrome cierra la TV para
   todos (es de Google).
-- **Menús en la TV** (con la llave): pestañas **Ahora · Inicio · Biblioteca · Buscar** arriba. Inicio: las filas de
+- **Menús en la TV** (con la llave): pestañas **Ahora · Inicio · Biblioteca · Buscar** arriba. Abre en Ahora (con lo que
+  suena); en Inicio solo si en la cuenta no suena nada. Inicio: las filas de
   `/home` (recientes, Para ti, Vuelve a escuchar, Tus artistas), Tus Me gusta y Tus playlists; Biblioteca: Me gusta,
   playlists y tus artistas; dentro, playlist, álbum o artista con ▶ Reproducir / 🔀 Aleatorio y sus canciones; Buscar:
   teclado en pantalla y resultados de lo guardado (`/search?yt=0`). Se recorre con las flechas (van al elemento más

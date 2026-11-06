@@ -448,7 +448,7 @@ async function siNadaSuena() { if ((actual && !espejo) || cx.propia || cx.ido) r
 async function tomaDeLaCuenta(por) {
   try {
     const r = await api(`/conectar?disp=${cx.disp}&nombre=${encodeURIComponent(cx.nombre)}&desde=-1`), s = r.sonando;
-    if (!s?.cancion) return log(por + ': en la cuenta no suena nada');
+    if (!s?.cancion) { if (vista === 'ahora' && !actual) irA('inicio'); return log(por + ': en la cuenta no suena nada'); }
     log(por + ': pongo lo que suena en la cuenta,', s.cancion.title || s.cancion.id);
     const todas = s.cola?.length ? s.cola : [s.cancion], j = Math.max(0, todas.findIndex(x => x.id === s.cancion.id));
     const desde = Math.max(0, j - 20);   // la TV pone 300 como mucho: alrededor de la que suena
@@ -626,7 +626,7 @@ if (window.cast && cast.framework && !demo) {
       llave = d.llave; log('llave recibida, caduca', new Date((d.caduca || 0) * 1000).toISOString().slice(0, 16));
       if (vieja && vieja !== llave) cambioDeCuenta(vieja, llave, Date.now());
       $('pestanas').hidden = false; document.body.classList.add('con-pestanas');
-      if (primera && !actual) irA('inicio');
+      if (primera) irA('ahora');   // abre en Ahora (con lo que suena); a Inicio solo si en la cuenta no suena nada
       if (primera) { cxBucle(); setTimeout(siNadaSuena, 5000); }
     } else if (d.tipo === 'toma' && llave) {   // la web al conectar: que suene aquí lo que suena en la cuenta
       tomaDeLaCuenta('la web me pide que lo ponga');
