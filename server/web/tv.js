@@ -366,6 +366,11 @@ async function cxBucle() {
     try {
       const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=${desde}`);
       desde = r.v;
+      if (r.desconectar) {   // la web o la app (cualquiera, no solo la que la conectó) pidió cerrar la pantalla
+        log('me piden cerrar desde otro dispositivo'); mandaAvisos(true);
+        try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) {}
+        return;
+      }
       if (r.activo === cx.disp) {
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
         for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo, o.tipo === 'pausa' ? (o.datos?.pausar ? 'pausar' : 'seguir') : ''); cxHaz(o); }

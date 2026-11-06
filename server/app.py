@@ -1583,7 +1583,8 @@ async def conectar_estado(disp: str = Body(embed=True, pattern=DISP), nombre: st
 async def conectar_orden(disp: str = Body(embed=True, pattern=DISP), tipo: str = Body(embed=True, max_length=20),
                          datos: dict = Body({}, embed=True), found=Depends(check_token)):
     """Una orden para el dispositivo que suena: pausa {pausar}, siguiente, anterior, ir {pos}, cola {cola, qi,
-    nueva?, radio?, repetir?, aleatorio?} (poner o cambiar la cola), transferir {a} (que suene en otro)."""
+    nueva?, radio?, repetir?, aleatorio?} (poner o cambiar la cola), transferir {a} (que suene en otro), desconectar {a} (cerrar
+    la pantalla de una TV, la conectara quien la conectara; lo que sonaba allí queda aquí en pausa)."""
     err = CONECTAR.orden(need_user(found), disp, tipo, datos)
     if err:
         raise HTTPException(409, err)

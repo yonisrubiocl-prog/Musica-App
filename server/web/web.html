@@ -335,6 +335,11 @@
   .np .disp.solo:hover { opacity: 1; }
   .bar .en { color: var(--acento); font-size: .74rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sheet .opt.dsp-on { color: var(--acento); }
+  .dsp-fila { display: flex; align-items: center; gap: 8px; }
+  .dsp-fila .opt { flex: 1; min-width: 0; }
+  .dsp-cerrar { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; font-size: 18px;
+                background: var(--cristal2); color: inherit; }
+  .dsp-cerrar:hover { background: rgba(220,60,70,.7); color: #fff; }
   .sheet .nota { color: var(--texto2); font-size: .85rem; line-height: 1.45; padding: 6px 14px 10px; }
   .np .titles div { flex: 1; min-width: 0; }
   .np h3 { font-size: 1.45rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1622,14 +1627,18 @@ $('npDisp').onclick = () => {
   const lista = [...(cx?.dispositivos || []).filter(d => d.vivo)];
   if (!lista.some(d => d.id === DISP)) lista.unshift({id: DISP, nombre: DISP_NOMBRE, vivo: true});
   const activo = cx?.activo_vivo ? cx.activo : DISP;
-  sheet('<h4>Dónde suena</h4>' + lista.map(d => `<button class="opt${d.id === activo ? ' dsp-on' : ''}" data-d="${esc(d.id)}"><i>${/Celular|iPhone|Tablet|iPad|App/.test(d.nombre) ? '📱' : '💻'}</i>
-      <span>${esc(d.id === DISP ? 'Este dispositivo' : d.nombre)}<small>${esc(d.id === activo ? (d.id === DISP ? DISP_NOMBRE + ' · suena aquí' : 'Suena aquí') : d.id === DISP ? DISP_NOMBRE : 'Abierto')}</small></span></button>`).join('')
+  // las TV (id "tv…") llevan ⏻ para cerrarlas, la conectara quien la conectara (orden "desconectar")
+  sheet('<h4>Dónde suena</h4>' + lista.map(d => `<div class="dsp-fila"><button class="opt${d.id === activo ? ' dsp-on' : ''}" data-d="${esc(d.id)}"><i>${d.id.startsWith('tv') ? '📺' : /Celular|iPhone|Tablet|iPad|App/.test(d.nombre) ? '📱' : '💻'}</i>
+      <span>${esc(d.id === DISP ? 'Este dispositivo' : d.nombre)}<small>${esc(d.id === activo ? (d.id === DISP ? DISP_NOMBRE + ' · suena aquí' : 'Suena aquí') : d.id === DISP ? DISP_NOMBRE : 'Abierto')}</small></span></button>${d.id.startsWith('tv') ? `<button class="dsp-cerrar" data-cerrar="${esc(d.id)}" aria-label="Desconectar la TV" title="Desconectar la TV">⏻</button>` : ''}</div>`).join('')
     + (lista.length < 2 ? '<p class="nota">Abre la web o la app en otro dispositivo con tu cuenta y saldrá aquí.</p>' : ''));
   $('sheet').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
     closeSheet();
     const a = b.dataset.d; if (a === activo) return;
     if (activo === DISP && cur && !remoto) await cxCuenta();   // que el otro siga justo en este segundo
     cxManda('transferir', {a});
+  });
+  $('sheet').querySelectorAll('[data-cerrar]').forEach(b => b.onclick = () => {
+    closeSheet(); cxManda('desconectar', {a: b.dataset.cerrar}); toast('Desconectando la TV');
   });
 };
 if (session && rend.conectar) cxBucle();

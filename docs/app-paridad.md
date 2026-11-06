@@ -220,3 +220,7 @@
       mismo segundo.
     - Lo que la TV hace sola (menús, Lista completa, botones del mando) llega por `/conectar` como cualquier
       dispositivo: nada más que hacer en la app.
+    - **Desconectar desde cualquiera** (06-11-2026): en "Dónde suena", cada TV (id `tv…`) con un botón ⏻
+      "Desconectar" → `POST /conectar/orden {disp, tipo: "desconectar", datos: {a: <id de la TV>}}`. Vale aunque la
+      TV no sea la que suena y la conectara otro. El servidor deja lo que sonaba allí en este dispositivo, en pausa en
+      su segundo; la TV se cierra (y si la conexión de Cast era de este celular, termina sola como al desconectar).

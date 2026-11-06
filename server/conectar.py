@@ -24,7 +24,7 @@ ESPERA = 25                             # la espera larga de GET /conectar
 VIVO = 45                               # un dispositivo que no pregunta en este rato ya no está
 GUARDA = 20                             # cada cuánto se guarda en FILE si cambió algo
 MAX_COLA = 1000                         # canciones de una cola como mucho
-TIPOS = {"pausa", "siguiente", "anterior", "ir", "cola", "transferir"}
+TIPOS = {"pausa", "siguiente", "anterior", "ir", "cola", "transferir", "desconectar"}
 
 
 class Conectar:
@@ -87,7 +87,14 @@ class Conectar:
                                  for d, x in sorted(c["disp"].items(), key=lambda i: -i[1]["visto"])
                                  if self._vivo(c, d) or d == activo],
                 "sonando": {**s, "pos": self._pos(s)} if s else None,
-                "ordenes": [o for o in c["ordenes"]] if disp == activo else []}
+                "ordenes": [o for o in c["ordenes"]] if disp == activo else [],
+                "desconectar": self._desconectar(c, disp)}
+
+    def _desconectar(self, c, disp):
+        """¿Le han pedido a esta TV que se cierre? (una vez: al decírselo se olvida; las que ya no están, también)"""
+        lista = [d for d in c.get("desconectar", []) if self._vivo(c, d)]
+        c["desconectar"] = [d for d in lista if d != disp]
+        return disp in lista
 
     async def esperar(self, sub, disp, nombre, desde):
         self._visto(sub, disp, nombre)
@@ -140,6 +147,19 @@ class Conectar:
                 c["sonando"] = {**s, "pos": self._pos(s), "at": time.time(), "pausa": False}
             log.info("conectar: %s pasa la música a %s", sub[:6], c["disp"][a]["nombre"])
             c["activo"], c["ordenes"] = a, []
+            self._cambio(sub)
+            return None
+        if tipo == "desconectar":   # cerrar la pantalla de una TV ({a}): desde la web o la app, la conectara quien la conectara
+            a = (datos or {}).get("a")
+            if not (isinstance(a, str) and a.startswith("tv") and a in c["disp"]):
+                return "esa TV no está"
+            c.setdefault("desconectar", [])
+            if a not in c["desconectar"]:
+                c["desconectar"].append(a)
+            if c["activo"] == a and c["sonando"]:   # lo que sonaba allí queda en el que la cierra, en pausa
+                c["sonando"] = {**c["sonando"], "pos": self._pos(c["sonando"]), "pausa": True, "at": time.time()}
+                c["activo"], c["ordenes"] = disp, []
+            log.info("conectar: %s desconecta la TV %s", sub[:6], a)
             self._cambio(sub)
             return None
         if not c["activo"] or not self._vivo(c, c["activo"]):
