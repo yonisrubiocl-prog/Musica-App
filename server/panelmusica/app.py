@@ -109,6 +109,10 @@ def t(texto, color="", bold=False, dim=False):
     return Text(str(texto), style=" ".join(x for x in (color, "bold" if bold else "", "dim" if dim else "") if x))
 
 
+def miles(n):
+    return f"{n:,}".replace(",", ".")
+
+
 def corta(texto, n):
     texto = texto or ""
     return texto if len(texto) <= n else texto[: n - 1] + "…"
@@ -356,7 +360,7 @@ class Panel(App):
     def leer_rapido(self):
         try:
             r = {"usuarios": d.usuarios(), "biblioteca": d.biblioteca(), "horas": d.por_hora(),
-                 "escuchan": d.escuchando(), "precarga": d.precarga(), "arts": d.artistas_precarga(),
+                 "escuchan": d.escuchando(), "precarga": d.precarga(), "arts": d.artistas_precarga(), "canvas": d.canvas(),
                  "youtube": d.youtube(), "opiniones": d.opiniones(), "salud": d.salud_api(), "sistema": d.sistema(),
                  "actividad": d.actividad(self.api_log)}
         except Exception as e:   # un archivo raro no tumba el panel: se avisa y se sigue
@@ -381,7 +385,7 @@ class Panel(App):
         self.pintar_usuarios()
         self.pintar_actividad(r["actividad"])
         self.pintar_biblioteca(r["biblioteca"])
-        self.pintar_precarga(r["precarga"])
+        self.pintar_precarga(r["precarga"], r["canvas"])
         self.pintar_sistema(r["sistema"], r["youtube"])
         self.pintar_servicios()
 
@@ -466,7 +470,8 @@ class Panel(App):
             self.query_one("#p-precarga", ProgressBar).update(total=max(1, c["artistas"]), progress=c["artistas_hechos"])
             self.query_one("#pre-sub", Static).update(
                 f"artistas {c['artistas_hechos']} de {c['artistas']} · {c['bajadas']} canciones bajadas · "
-                f"{c['cola']} en cola" + (f" · {c['fallidas']} fallidas" if c["fallidas"] else ""))
+                f"{c['cola']} en cola" + (f" · {c['fallidas']} fallidas" if c["fallidas"] else "")
+                + f"\nCanvas {miles(r['canvas']['listos'])} de {miles(r['canvas']['total'])}")
         self.query_one("#c-precarga").set_class(tipo == "parada", "mal")
 
         app, dc = r["horas"]
@@ -661,7 +666,7 @@ class Panel(App):
             (f"g{i}", [t(g, GRIS if g == "sin género" else ""), t(n), t("█" * max(1, round(12 * n / maximo)), VIOLETA)])
             for i, (g, n) in enumerate(b["generos"])])
 
-    def pintar_precarga(self, pre):
+    def pintar_precarga(self, pre, cv):
         texto, tipo, c = pre
         x = Text()
         x.append("Ahora: ", style=GRIS)
@@ -669,6 +674,21 @@ class Panel(App):
         if c:
             x.append(f"   ·   {c['bajadas']} bajadas · {c['cola']} en cola · artistas {c['artistas_hechos']}/{c['artistas']}",
                      style=GRIS)
+        # los Canvas (trozo del videoclip): los hace la API sola, primero lo que se pone y lo que baja la precarga
+        hechos = cv["listos"] + cv["sin"]
+        x.append("\nCanvas: ", style=GRIS)
+        x.append(f"{miles(cv['listos'])} listos", style=f"bold {VERDE}")
+        x.append(f" de {miles(cv['total'])} canciones ({100 * hechos // max(1, cv['total'])} % revisadas)", style=GRIS)
+        x.append(f" · {miles(cv['sin'])} sin videoclip", style=GRIS)
+        if cv["fallos"]:
+            x.append(f" · {cv['fallos']} por reintentar", style=AMARILLO)
+        x.append(f" · {d.tamano(cv['kb'] * 1024)}", style=GRIS)
+        if cv["parado"]:
+            x.append(f" · PARADO hasta {d.fecha(cv['parado'], '%H:%M')} (sin red con YouTube o aviso)", style=f"bold {ROJO}")
+        elif cv["frenado"]:
+            x.append(" · en espera: YouTube con mucho uso (solo hace las que se ponen)", style=AMARILLO)
+        elif cv["ultimo"]:
+            x.append(f" · último: {corta(cv['ultimo'][1], 34)} {d.hace(cv['ultimo'][0])}", style=GRIS)
         x.append("\nDe los 3 primeros pendientes se elige uno al azar. Clic en un artista y sus botones, o :A <n> / :X <n>.",
                  style=GRIS)
         self.query_one("#pre-resumen", Static).update(x)

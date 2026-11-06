@@ -413,7 +413,8 @@ def canvas_fetch(vid, start, secs, base):
 
 
 CANVAS = Canvas(LIB, ytm, canvas_fetch, lambda: _yt_blocked_until > time.time(),          # trozos de videoclip
-                lambda s: time.time() - _yt_last_user > s)                                # (canvas.py)
+                lambda s: time.time() - _yt_last_user > s,                                # (canvas.py)
+                lambda: sum(1 for t in _yt_recent if t > time.time() - 3600))
 
 
 def precarga_download(url):

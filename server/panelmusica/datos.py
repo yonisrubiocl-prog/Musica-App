@@ -20,6 +20,7 @@ USERS = os.path.join(DATA, "users.json")
 SESSIONS = os.path.join(DATA, "sessions.json")
 USERDATA = os.path.join(DATA, "userdata.json")
 PRECARGA = os.path.join(DATA, "precarga.json")
+CANVAS = os.path.join(DATA, "canvas.json")             # los Canvas (canvas.py): hechos, sin videoclip y fallos
 PRIMERO = os.path.join(DATA, "precarga-primero.txt")   # artistas que la precarga baja antes (:A)
 SALTAR = os.path.join(DATA, "precarga-saltar.txt")     # álbumes o artistas enteros ("X | *") que no baja (:X)
 YT_ESTADO = os.path.join(DATA, "youtube-estado.json")  # lo escribe la API cada 30 s y al bloquearnos
@@ -334,6 +335,21 @@ def precarga():
     sig = "ahora" if falta < 60 else f"en {int(falta // 60)} min"
     donde = f"{now.get('artist', '')} – {now.get('album', '')}" if now.get("artist") else "buscando álbumes"
     return f"{donde} · siguiente {sig}", "bajando", cuentas
+
+
+def canvas():
+    """Cómo van los Canvas: {listos, sin, fallos, total, kb, ultimo: (cuándo, título) o None, parado: hasta cuándo o 0}.
+    "sin" cuenta también las que fallaron 3 veces (ya no se reintentan)."""
+    st, idx = cargar(CANVAS) or {}, cargar(INDEX) or {}
+    ok, no, err = st.get("ok", {}), st.get("no", {}), st.get("err", {})
+    muertas = sum(1 for e in err.values() if e.get("n", 0) >= 3)
+    vid, ult = max(ok.items(), key=lambda x: x[1].get("t", 0), default=(None, None))
+    titulo = (idx.get("yt-" + vid) or {}).get("title") if vid else None
+    pausa = st.get("paused_until", 0)
+    return {"listos": len(ok), "sin": len(no) + muertas, "fallos": len(err) - muertas,
+            "total": sum(1 for k in idx if k.startswith("yt-")), "kb": sum(x.get("kb", 0) for x in ok.values()),
+            "ultimo": (ult["t"], titulo or vid) if ult else None, "parado": pausa if pausa > time.time() else 0,
+            "frenado": (cargar(YT_ESTADO) or {}).get("peticiones_hora", 0) > 150}   # BUSY de canvas.py
 
 
 def primeros():

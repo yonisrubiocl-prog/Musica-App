@@ -206,7 +206,12 @@ KB por canción en `/var/lib/musicapp/canvas/<id>.mp4`. La portada deja su sitio
   canción nueva de la precarga pide su Canvas); 3) todas las demás, las más puestas primero, de madrugada o de día si
   nadie usa YouTube, con 1,5–5 min al azar entre una y otra (~18 por hora). Todo por el ritmo general con YouTube;
   con aviso de bloqueo, 24 h quieto. Los de canciones que el tope de espacio borra se borran una vez al día.
-- **Estado** en `/data/canvas.json` (`ok`, `no` con el motivo, `err`); resumen en `GET /interno/canvas`.
+- **Freno:** cada Canvas cuesta ~4 peticiones a YouTube (hasta ~9 si su vídeo sale quieto y hay que buscar otro). El
+  06-11 llegó a 265 de 300 por hora. Con más de **150 en la última hora** (`BUSY`), solo se hacen las que alguien está
+  poniendo; las de fondo y las de la precarga esperan.
+- **Estado** en `/data/canvas.json` (`ok`, `no` con el motivo, `err`); resumen en `GET /interno/canvas`. En el panel
+  (`./panel.py`): pestaña **5 Precarga** (listos, sin videoclip, cuánto ocupan, el último y si está en espera) y una
+  línea en la tarjeta de la precarga del Resumen.
 - **Nodo de vídeo de respaldo** (`use_fallback` en `app.py`, para el Canvas y para todas las descargas): si el nodo
   que da YouTube no responde, se usa el de respaldo que trae el propio enlace (`mn=principal,respaldo`, `fvip`), como
   hace su reproductor. El 06-11-2026 de madrugada se cayó la caché de YouTube del proveedor de internet

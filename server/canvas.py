@@ -39,6 +39,8 @@ NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile, como la precarga
 GAP = (90, 300)                         # entre las de fondo (segundos, al azar): ~18 por hora, ~70 peticiones
 DAY_SLOWER = 1.5
 IDLE = 600                              # de día, las de fondo solo si nadie usó YouTube en estos segundos
+BUSY = 150                              # con más peticiones a YouTube en la última hora (tope 300), solo las que se
+                                        # están poniendo: las de fondo y las de la precarga esperan (cada una cuesta ~4-9)
 BLOCK_PAUSE = 24 * 3600
 RETRY, MAX_ERRORS = 6 * 3600, 3         # otros fallos: se reintenta pasado RETRY, como mucho MAX_ERRORS veces
 NET_PAUSE = 30 * 60                     # sin conexión con los servidores de vídeo: todo quieto este rato, sin contarlo
@@ -54,10 +56,11 @@ NOT_CLIP = re.compile(r"lyric|letra|karaoke|reacci[oó]n|reaction|cover|tutorial
 
 
 class Canvas:
-    def __init__(self, lib, ytm, fetch, blocked, user_idle):
-        """fetch(id, desde, segundos, base) -> ruta del trozo de vídeo bajado (pasa por el ritmo con YouTube)."""
+    def __init__(self, lib, ytm, fetch, blocked, user_idle, yt_load):
+        """fetch(id, desde, segundos, base) -> ruta del trozo de vídeo bajado (pasa por el ritmo con YouTube);
+        yt_load(): peticiones a YouTube en la última hora."""
         self.lib, self.ytm, self.fetch = lib, ytm, fetch
-        self.blocked, self.user_idle = blocked, user_idle
+        self.blocked, self.user_idle, self.yt_load = blocked, user_idle, yt_load
         self.lock = threading.Lock()
         try:
             with open(FILE) as f:
@@ -136,8 +139,9 @@ class Canvas:
         return vid not in self.state["ok"] and vid not in self.state["no"] and not self._dead(vid)
 
     def _next(self, background):
-        """(id, de dónde) de la siguiente, o (None, None)."""
+        """(id, de dónde) de la siguiente, o (None, None). Con YouTube muy usado (BUSY), solo las que se ponen."""
         now = time.time()
+        busy = self.yt_load() > BUSY
         for vid, asked in list(self.urgent.items()):
             if not self._todo(vid) or self._waiting(vid):   # falló hace poco: no se insiste aunque la sigan pidiendo
                 self.urgent.pop(vid)
@@ -145,6 +149,8 @@ class Canvas:
                 return vid, "urgent"
             elif now - asked > WAIT_SAVED:   # no se llegó a guardar: no se hace
                 self.urgent.pop(vid)
+        if busy:
+            return None, None
         for vid in list(self.soon):
             if not self._todo(vid) or not self.lib.peek("yt-" + vid):
                 self.soon.pop(vid)
