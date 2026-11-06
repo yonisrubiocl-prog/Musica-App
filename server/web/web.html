@@ -414,7 +414,7 @@
     .np .vacio b { color: var(--texto); font-size: 1.15rem; }
     body.locked { overflow: auto; }
   }
-  /* Pestaña Ahora (solo PC): como la pantalla Ahora de la TV; sin el panel de la derecha ni la cola de la izquierda */
+  /* Pestaña Ahora (solo PC): sin el panel de la derecha ni la cola de la izquierda (ver vistaAhora) */
   .solo-pc { display: none !important; }
   @media (min-width: 1100px) {
     #nav .solo-pc { display: flex !important; }
@@ -422,78 +422,105 @@
     body.en-ahora :is(.np, .qside) { display: none !important; }
     body.en-ahora .dock { left: 0 !important; right: 0 !important; }
     body.en-ahora .wrap { max-width: none; margin: 0; padding: 0; }
-    .ahv { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4vw; align-items: center;
-           min-height: 100vh; padding: 5vh 5vw 120px; }
-    .ahv:fullscreen { background: var(--fondo); padding-bottom: 5vh; }
-    .ahv-media { position: relative; height: min(74vh, 900px); aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; background: var(--elevado);
-                 box-shadow: 0 30px 80px rgb(0 0 0 / calc(.55 * var(--sombra))), 0 0 70px rgb(var(--acento-rgb) / .16); }
-    .ahv-media > * { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-    #ahvFondo { filter: blur(24px) saturate(140%); transform: scale(1.25); opacity: .75; }
+    .ahv { display: grid; grid-template-columns: minmax(0, 60fr) minmax(0, 38fr); gap: 2.5vw; height: 100vh; padding: 3vh 2.5vw 116px; }
+    .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; }
+    .ahv-izq { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
+    .ahv-der { min-height: 0; }
+    /* el Canvas: alto del todo, a lo ancho de su columna, esquinas redondeadas */
+    .ahv-media { position: relative; height: 100%; border-radius: 26px; overflow: hidden; background: var(--elevado);
+                 box-shadow: 0 30px 80px rgb(0 0 0 / calc(.55 * var(--sombra))), 0 0 70px rgb(var(--acento-rgb) / .14); }
+    .ahv-media > :is(img, video) { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    #ahvFondo { filter: blur(28px) saturate(140%); transform: scale(1.25); opacity: .75; }
     #ahvImg { top: 50%; height: auto; aspect-ratio: 1; transform: translateY(-50%); box-shadow: 0 20px 50px rgb(0 0 0 / .45); }
     #ahvV { opacity: 0; transition: opacity 700ms var(--ease); }
     .ahv.con-canvas #ahvV { opacity: 1; } .ahv.con-canvas :is(#ahvImg, #ahvFondo) { opacity: 0; }
-    .ahv-info { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-    .ahv-donde { display: flex; align-items: center; gap: 10px; color: var(--texto2); font-weight: 600; font-size: .95rem; }
-    .ahv-donde .eq { height: 16px; }
+    .ahv-pantalla { position: absolute; top: 14px; right: 14px; z-index: 2; background: rgb(0 0 0 / .35) !important; color: #fff !important; }
+    .ahv-ico { width: 44px; height: 44px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+               background: var(--cristal2); color: var(--texto); }
+    .ahv-ico svg { width: 22px; height: 22px; }
+    .ahv-ico:hover { background: rgb(var(--acento-rgb) / .25); }
+    /* cabecera: Ahora · dónde suena */
+    .ahv-cab { display: flex; align-items: center; gap: 14px; }
+    .ahv-tit { color: var(--acento); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; font-size: .9rem; }
+    .ahv-donde { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--linea);
+                 background: var(--cristal); color: var(--texto2); font: 600 .9rem/1 inherit; font-family: inherit; cursor: pointer; }
+    .ahv-donde.fuera { color: var(--acento); border-color: rgb(var(--acento-rgb) / .45); }
+    .ahv-donde .eq { height: 14px; }
     body.sonando .ahv-donde .eq b { animation-play-state: running; }
-    .ahv h1 { font-size: clamp(2.2rem, 4.2vw, 4.4rem); line-height: 1.05; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical;
+    /* la canción */
+    .ahv-cancion { display: flex; align-items: center; gap: 18px; }
+    #ahvMini { width: clamp(84px, 9vw, 128px); aspect-ratio: 1; border-radius: 14px; object-fit: cover; background: var(--elevado); flex: none;
+               box-shadow: 0 12px 30px rgb(0 0 0 / .35); }
+    .ahv-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .ahv h1 { font-size: clamp(1.8rem, 3.2vw, 3.4rem); line-height: 1.05; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical;
               -webkit-line-clamp: 2; overflow: hidden; }
-    .ahv-art { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--texto2); font-family: inherit; font-weight: 600; font-size: clamp(1.2rem, 2vw, 1.9rem); cursor: pointer; }
-    .ahv-art:hover { color: var(--texto); text-decoration: underline; }
-    .ahv-alb { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--texto2); font-family: inherit; font-size: 1rem; cursor: pointer; }
-    .ahv-alb:hover { color: var(--texto); text-decoration: underline; }
-    /* la letra: altura fija (la actual hasta en 2 renglones y la siguiente en 1): si no, todo se movía */
-    .ahv-letra { height: 150px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; margin-top: 6px;
-                 padding: 14px 22px; border-radius: 18px; background: var(--cristal); border: 1px solid var(--linea); }
-    .ahv-letra:empty { visibility: hidden; }
-    .ahv-letra p { font-size: clamp(1.3rem, 2vw, 1.9rem); font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical;
-                   -webkit-line-clamp: 2; overflow: hidden; }
-    .ahv-letra p + p { font-size: clamp(1rem, 1.4vw, 1.3rem); font-weight: 600; color: var(--texto2); margin-top: 6px; -webkit-line-clamp: 1; }
-    .ahv-barra { height: 8px; border-radius: 8px; background: rgb(var(--fg) / .16); overflow: hidden; cursor: pointer; margin-top: 10px; }
+    .ahv-art, .ahv-alb { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--texto2); font-family: inherit; cursor: pointer;
+                         max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+    .ahv-art { font-weight: 600; font-size: clamp(1.1rem, 1.6vw, 1.5rem); } .ahv-alb { font-size: .9rem; }
+    .ahv-art:hover, .ahv-alb:hover { color: var(--texto); text-decoration: underline; }
+    .ahv-cancion .heart { width: 46px; height: 46px; background: var(--cristal2); } .ahv-cancion .heart svg { width: 24px; height: 24px; }
+    .ahv-cancion .kebab { width: 46px; height: 46px; background: var(--cristal2); }
+    /* Letra · Cola */
+    .ahv-panel { display: flex; flex-direction: column; min-height: 0; border-radius: 20px; background: var(--cristal); border: 1px solid var(--linea); }
+    .ahv-tabs { display: flex; gap: 6px; padding: 8px 12px 0; border-bottom: 1px solid var(--linea); }
+    .ahv-tabs button { padding: 10px 16px 12px; border: 0; background: none; color: var(--texto2); font-family: inherit; font-weight: 700; font-size: .95rem;
+                       cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+    .ahv-tabs button.on { color: var(--texto); border-bottom-color: var(--acento); }
+    .ahv-tabs button span { color: var(--texto2); font-weight: 600; }
+    .ahv-letra { height: clamp(120px, 17vh, 170px); overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 10px 24px; }
+    .ahv-letra p { line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+    .ahv-letra .antes, .ahv-letra .luego { color: var(--texto2); font-size: clamp(.95rem, 1.2vw, 1.15rem); font-weight: 600; }
+    .ahv-letra .ahora { font-size: clamp(1.3rem, 1.9vw, 1.8rem); font-weight: 800; margin: 6px 0; -webkit-line-clamp: 2; }
+    .ahv-letra .nada { color: var(--texto2); }
+    .ahv-cola { display: none; min-height: 0; flex: 1; }
+    .ahv.con-cola .ahv-letra { display: none; }
+    .ahv.con-cola .ahv-cola { display: flex; }
+    .ahv.con-cola .ahv-panel { flex: 1; }
+    .ahv.con-cola .ahv-sig { display: none; }
+    .ahv .qlist { flex: 1; overflow-y: auto; padding: 6px 10px 12px; position: relative; }
+    .ahv .qlist .radio { display: flex; align-items: center; gap: 12px; padding: 8px 10px 12px; }
+    .ahv .qlist .radio div { flex: 1; } .ahv .qlist .radio small { display: block; color: var(--texto2); font-size: .8rem; margin-top: 2px; }
+    /* barra y botones */
+    .ahv-prog { display: flex; align-items: center; gap: 14px; color: var(--texto2); font-size: .9rem; font-variant-numeric: tabular-nums; }
+    .ahv-barra { flex: 1; height: 7px; border-radius: 7px; background: rgb(var(--fg) / .16); overflow: hidden; cursor: pointer; }
     .ahv-barra i { display: block; height: 100%; width: 0; background: var(--acento); border-radius: inherit; }
-    .ahv-tiempos { display: flex; justify-content: space-between; color: var(--texto2); font-size: .9rem; font-variant-numeric: tabular-nums; }
-    .ahv-ctl { display: flex; align-items: center; gap: 16px; margin-top: 6px; }
-    .ahv-ctl button { width: 56px; height: 56px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
-                      background: var(--cristal2); color: var(--texto); font-family: inherit; font-weight: 700; font-size: 1rem; transition: transform 150ms var(--ease), background 150ms; }
-    .ahv-ctl button:hover { transform: scale(1.08); }
-    .ahv-ctl button svg { width: 26px; height: 26px; fill: currentColor; }
-    .ahv-ctl .grande { width: 76px; height: 76px; background: var(--acento); color: var(--sobre-acento); }
-    .ahv-ctl .grande svg { width: 34px; height: 34px; }
+    .ahv-ctl { display: flex; align-items: center; gap: 14px; }
     .ahv-ctl .hueco, .ahv-extra .hueco { flex: 1; }
-    .ahv-ctl .ctl.toggle { width: 44px; height: 44px; background: none; } .ahv-ctl .ctl.toggle svg { width: 24px; height: 24px; }
-    .ahv-extra { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
-    .ahv-extra .heart { width: 44px; height: 44px; } .ahv-extra .heart svg { width: 26px; height: 26px; }
-    .ahv-extra .vol input { width: 140px; }
+    .ahv-ctl > button { width: 54px; height: 54px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+                        background: var(--cristal2); color: var(--texto); font-family: inherit; font-weight: 700; font-size: 1rem; transition: transform 150ms var(--ease); }
+    .ahv-ctl > button:hover { transform: scale(1.08); }
+    .ahv-ctl > button svg { width: 24px; height: 24px; fill: currentColor; }
+    .ahv-ctl .grande { width: 74px; height: 74px; background: var(--acento); color: var(--sobre-acento); box-shadow: 0 10px 30px rgb(var(--acento-rgb) / .35); }
+    .ahv-ctl .grande svg { width: 34px; height: 34px; }
+    .ahv-ctl .ctl.toggle { width: 48px; height: 48px; border-radius: 14px; background: var(--cristal); } .ahv-ctl .ctl.toggle svg { width: 24px; height: 24px; }
+    .ahv-extra { display: flex; align-items: center; gap: 14px; }
+    .ahv-extra .sep { width: 1px; height: 28px; background: var(--linea); }
+    .ahv-extra .vol input { width: clamp(100px, 12vw, 200px); }
     .ahv-extra .disps { margin-top: 0; }
-    /* A continuación: tercera columna (lista con desplazamiento) en pantallas anchas; debajo, en las más estrechas */
-    .ahv { grid-template-columns: auto minmax(0, 1fr) minmax(300px, 380px); }
-    .ahv-sig { align-self: stretch; display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 5vh - 120px);
-               border-radius: 22px; background: var(--cristal); border: 1px solid var(--linea); overflow: hidden; }
-    .ahv-sig-head { padding: 18px 20px 10px; font-weight: 700; font-size: 1.05rem; }
-    .ahv-sig-head small { color: var(--texto2); font-weight: 600; font-size: .85rem; margin-left: 6px; }
-    .ahv-lista { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
-    .ahv-c { display: flex; align-items: center; gap: 12px; width: 100%; padding: 7px 10px; border: 0; border-radius: 12px; background: none;
+    /* A continuación, compacta (4) */
+    .ahv-sig { border-top: 1px solid var(--linea); padding-top: 1.4vh; }
+    .ahv-sig-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .ahv-sig-cab button { border: 0; background: none; color: var(--acento); font-family: inherit; font-weight: 700; cursor: pointer; }
+    .ahv-fila { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .ahv-c { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px; border: 0; border-radius: 12px; background: none;
              color: var(--texto); text-align: left; cursor: pointer; font: inherit; }
     .ahv-c:hover { background: var(--cristal2); }
-    .ahv-c .n { width: 22px; text-align: right; color: var(--texto2); font-size: .85rem; flex: none; font-variant-numeric: tabular-nums; }
-    .ahv-c img, .ahv-c .ph { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--elevado); flex: none; display: grid; place-items: center; }
-    .ahv-c div { flex: 1; min-width: 0; }
-    .ahv-c b { display: block; font-size: .92rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ahv-c img, .ahv-c .ph { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--elevado); flex: none; display: grid; place-items: center; }
+    .ahv-c span { min-width: 0; }
+    .ahv-c b { display: block; font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ahv-c small { display: block; color: var(--texto2); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ahv-c .d { color: var(--texto2); font-size: .8rem; font-variant-numeric: tabular-nums; flex: none; }
-    .ahv-nada { color: var(--texto2); padding: 10px 20px; }
+    .ahv-nada { color: var(--texto2); grid-column: 1 / -1; }
     .ahv-vacio { display: none; }
     .ahv.sin > :not(.ahv-vacio) { display: none; }
-    .ahv.sin { grid-template-columns: 1fr; }
+    .ahv.sin { grid-template-columns: 1fr; place-items: center; }
     .ahv.sin .ahv-vacio { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--texto2); text-align: center; }
     .ahv-vacio img { width: 130px; height: 130px; border-radius: 50%; } .ahv-vacio b { color: var(--texto); font-size: 1.2rem; }
   }
-  @media (min-width: 1100px) and (max-width: 1399px) {   /* más estrecho: las tres columnas, con portada y lista menores */
-    .ahv { grid-template-columns: auto minmax(0, 1fr) minmax(250px, 300px); gap: 3vw; padding-left: 3.5vw; padding-right: 3.5vw; }
-    .ahv-media { height: min(62vh, 640px); }
-    .ahv h1 { font-size: clamp(1.9rem, 3.4vw, 3rem); }
-    .ahv-ctl { gap: 8px; } .ahv-ctl button { width: 44px; height: 44px; } .ahv-ctl .grande { width: 62px; height: 62px; }
-    .ahv-ctl .ctl.toggle { width: 36px; height: 36px; } .ahv-extra .vol input { width: 100px; }
+  /* poco alto (portátiles): A continuación en 2 columnas y algo más apretado */
+  @media (min-width: 1100px) and (max-height: 820px) {
+    .ahv { padding-top: 2vh; } .ahv-izq { gap: 1.1vh; }
+    .ahv-fila { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ahv-fila .ahv-c:nth-child(n+3) { display: none; }
+    .ahv-ctl > button { width: 46px; height: 46px; } .ahv-ctl .grande { width: 62px; height: 62px; }
   }
   /* Pantallas muy anchas: tres tarjetas iguales y simétricas: la cola a la izquierda, el contenido en medio y el
      reproductor a la derecha (que entonces solo tiene la pestaña Letra). */
@@ -1286,6 +1313,7 @@ wrap.addEventListener('contextmenu', e => {   // clic derecho o pulsación larga
   if (s) { e.preventDefault(); songMenu(s); }
 });
 wrap.addEventListener('click', e => {
+  if (e.target.closest('#qList')) return;   // la cola prestada a Ahora tiene su propio manejador (npPanelClick)
   const at = el => lists[el.dataset.l]?.songs[+el.dataset.i];
   const h = e.target.closest('.heart[data-id]'); if (h) return toggleFav(at(h));
   const m = e.target.closest('[data-menu]');
@@ -1861,54 +1889,77 @@ function pintaTv() {
 }
 $('npTv').onclick = () => { if (tvListo) cast.framework.CastContext.getInstance().requestSession().catch(() => {}); };
 
-// ---------- pestaña Ahora (PC): como la pantalla Ahora de la TV ----------
-// Solo lo que suena, en grande y sin el ruido de las tarjetas: Canvas o portada a la izquierda; título, artista, la
-// letra en un cuadro de altura fija, la barra, los botones y "A continuación" a la derecha. En esta pestaña no están
-// el panel de la derecha ni la cola de la izquierda (ya está todo aquí); en las demás, el reproductor sigue a un lado.
-// En el móvil no sale: el reproductor grande ya es su "Ahora".
-let ahvLetra = {id: null, lineas: []}, ahvLinea = -2;
+// ---------- pestaña Ahora (PC) ----------
+// Solo lo que suena, sin el ruido de las tarjetas (idea de la pantalla Ahora de la TV; distribución de
+// docs/afina-ahora-propuesta-20261106, con los colores del tema). Izquierda: dónde suena; portada, título, artista,
+// ♡ y ⋮; un panel con "Letra" o "Cola · N" (la cola de la página, con arrastrar para mover); la barra y los botones;
+// volumen, Dónde suena / TV y pantalla completa; "A continuación" compacta (no sale con la Cola abierta: repetiría).
+// Derecha: el Canvas (o la portada) grande. El panel y la cola de los lados se esconden aquí; en las demás pestañas,
+// el reproductor sigue a un lado. En el móvil no sale: el reproductor grande ya es su "Ahora".
+let ahvLetra = {id: null, lineas: []}, ahvLinea = -2, ahvVista = 'letra';
 function vistaAhora() {
   if (!panelFijo.matches) return go('inicio');
   wrap.innerHTML = `<section class="ahv fade" id="ahv">
-    <div class="ahv-media"><img id="ahvFondo" alt=""><img id="ahvImg" alt=""><video id="ahvV" muted loop playsinline></video></div>
-    <div class="ahv-info">
-      <div class="ahv-donde"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i><span id="ahvDonde"></span></div>
-      <h1 id="ahvT"></h1><button class="ahv-art" id="ahvA"></button><button class="ahv-alb" id="ahvAl"></button>
-      <div class="ahv-letra" id="ahvL"></div>
-      <div class="ahv-barra" id="ahvBar"><i id="ahvP"></i></div><div class="ahv-tiempos"><span id="ahvCur">0:00</span><span id="ahvDur">0:00</span></div>
+    <div class="ahv-izq">
+      <div class="ahv-cab"><span class="ahv-tit">Ahora</span><button class="ahv-donde" id="ahvDondeB"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i><span id="ahvDonde"></span></button></div>
+      <div class="ahv-cancion">
+        <img id="ahvMini" alt="">
+        <div class="ahv-txt"><h1 id="ahvT"></h1><button class="ahv-art" id="ahvA"></button><button class="ahv-alb" id="ahvAl"></button></div>
+        <span data-pon="npFav"></span><span data-pon="npMore"></span>
+      </div>
+      <div class="ahv-panel">
+        <div class="ahv-tabs"><button data-vista="letra">Letra</button><button data-vista="cola">Cola <span id="ahvColaN"></span></button></div>
+        <div class="ahv-letra" id="ahvL"></div>
+        <div class="ahv-cola"><span data-pon="qList"></span></div>
+      </div>
+      <div class="ahv-prog"><span id="ahvCur">0:00</span><div class="ahv-barra" id="ahvBar"><i id="ahvP"></i></div><span id="ahvDur">0:00</span></div>
       <div class="ahv-ctl">
         <span data-pon="npShuffle"></span>
+        <span class="hueco"></span>
         <button data-ahv="menos10" aria-label="Atrás 10 segundos">−10</button>
         <button data-ahv="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button data-ahv="play" class="grande" id="ahvPlay" aria-label="Reproducir"></button>
         <button data-ahv="next" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         <button data-ahv="mas10" aria-label="Adelante 10 segundos">+10</button>
-        <span data-pon="npRepeat"></span>
         <span class="hueco"></span>
-        <button data-ahv="pantalla" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        <span data-pon="npRepeat"></span>
       </div>
-      <div class="ahv-extra"><span data-pon="npFav"></span><span data-pon="npVol"></span><span class="hueco"></span><span data-pon="npDisps"></span><span data-pon="npMore"></span></div>
+      <div class="ahv-extra"><span data-pon="npVol"></span><span class="sep"></span><span data-pon="npDisps"></span><span class="sep"></span>
+        <button class="ahv-ico" data-vista="cola" aria-label="Ver la cola" title="Ver la cola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button></div>
+      <div class="ahv-sig"><div class="ahv-sig-cab"><b>A continuación</b><button data-vista="cola">Ver cola ›</button></div><div class="ahv-fila" id="ahvSig"></div></div>
     </div>
-    <div class="ahv-sig"><div class="ahv-sig-head">A continuación <small id="ahvSigN"></small></div><div class="ahv-lista" id="ahvSig"></div></div>
+    <div class="ahv-der">
+      <div class="ahv-media"><img id="ahvFondo" alt=""><img id="ahvImg" alt=""><video id="ahvV" muted loop playsinline></video>
+        <button class="ahv-ico ahv-pantalla" data-ahv="pantalla" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+    </div>
     <div class="ahv-vacio"><img src="/logo-480.webp" alt=""><b>Aquí sonará tu música</b><span>Elige algo en Inicio, Buscar o Biblioteca.</span></div>
   </section>`;
   $('ahv').onclick = e => {
-    const b = e.target.closest('[data-ahv]'), sig = e.target.closest('[data-sig]');
-    if (sig) return saltaEnCola(+sig.dataset.sig);
+    const v = e.target.closest('[data-vista]'); if (v) return vistaPanel(v.dataset.vista);
+    const sig = e.target.closest('[data-sig]'); if (sig) return saltaEnCola(+sig.dataset.sig);
+    if (e.target.closest('#ahvDondeB')) return $('npDisp').click();
     if (e.target.closest('#ahvA') && cur?.artist) return showArtist(cur.artist);
     if (e.target.closest('#ahvAl') && cur?.album && cur.where !== 'youtube') return showAlbum(cur.artist || '', cur.album);
     if (e.target.closest('#ahvBar')) { const d = duracion(), r = $('ahvBar').getBoundingClientRect(); if (d) irA(d * (e.clientX - r.left) / r.width); return; }
-    if (!b) return;
+    const b = e.target.closest('[data-ahv]'); if (!b) return;
     const a = b.dataset.ahv;
     if (a === 'play') playPausa(); else if (a === 'next') next(); else if (a === 'prev') prev();
     else if (a === 'mas10' || a === 'menos10') irA(Math.max(0, tiempo() + (a === 'mas10' ? 10 : -10)));
     else if (a === 'pantalla') document.fullscreenElement ? document.exitFullscreen() : $('ahv').requestFullscreen?.().catch(() => {});
   };
   prestaAhora();
+  vistaPanel(ahvVista);
   ahvLinea = -2; pintaAhora(); pintaAhoraSig(); pintaAhoraCanvas(); ico(!sonandoAhora()); pintaTiempo();
 }
-// Los controles de la página (Me gusta, aleatorio, repetir, volumen, Dónde suena, 📺 TV, ⋮) no se copian: los mismos
-// del panel se mueven a Ahora mientras está abierta y vuelven a su sitio al salir. Así funcionan igual y con su estado.
+// Letra o Cola (una u otra); con la Cola, fuera "A continuación" (repetiría) y la lista crece hacia abajo
+function vistaPanel(v) {
+  ahvVista = v; if (!$('ahv')) return;
+  $('ahv').classList.toggle('con-cola', v === 'cola');
+  $('ahv').querySelectorAll('.ahv-tabs [data-vista]').forEach(b => b.classList.toggle('on', b.dataset.vista === v));
+  if (v === 'cola') { qPainted = null; paintQueue(); }
+}
+// Los controles de la página (Me gusta, ⋮, aleatorio, repetir, volumen, Dónde suena / TV) y la lista de la cola no
+// se copian: los mismos se mueven a Ahora mientras está abierta y vuelven a su sitio al salir. Así funcionan igual.
 let prestados = [];
 function prestaAhora() {
   for (const hueco of document.querySelectorAll('#ahv [data-pon]')) {
@@ -1918,47 +1969,52 @@ function prestaAhora() {
 }
 function devuelveAhora() {
   for (const {el, padre, sig} of prestados.reverse()) padre.insertBefore(el, sig && sig.parentNode === padre ? sig : null);
-  prestados = [];
+  prestados = []; qPainted = null; paintQueue();
+  // el Canvas del panel mide la "escena" del panel: escondido en Ahora salía con alto 0 y al volver quedaba oscuro
+  requestAnimationFrame(() => { ajustaEscena(); pintaCanvas(); if (sonandoAhora() && $('np').classList.contains('con-canvas')) $('npCanvasV').play().catch(() => {}); });
 }
-// al salir de Ahora por donde sea (otra pestaña, ir al artista o al álbum…): devolver los controles y quitar el modo
+// al salir de Ahora por donde sea (otra pestaña, ir al artista o al álbum…): devolver lo prestado y quitar el modo
 new MutationObserver(() => { if (!$('ahv')) { if (prestados.length) devuelveAhora(); document.body.classList.remove('en-ahora'); } })
   .observe(wrap, {childList: true});
 function pintaAhora() {
   if (!$('ahv')) return;
   $('ahv').classList.toggle('sin', !cur);
   if (!cur) return;
-  $('ahvDonde').textContent = remoto ? 'Sonando en ' + cxNombre(cx.activo) : enTv() ? 'Sonando en ' + tv.nombre : 'Sonando aquí';
+  const donde = remoto ? cxNombre(cx.activo) : enTv() ? tv.nombre : '';
+  $('ahvDonde').textContent = donde ? 'Sonando en ' + donde : 'Sonando aquí';
+  $('ahvDondeB').classList.toggle('fuera', !!donde);
   $('ahvT').textContent = cur.title || ''; $('ahvA').textContent = cur.artist || ''; $('ahvAl').textContent = cur.album || '';
-  for (const id of ['ahvImg', 'ahvFondo']) { if (cur.thumb) $(id).src = cur.thumb; else $(id).removeAttribute('src'); }
+  for (const id of ['ahvImg', 'ahvFondo', 'ahvMini']) { if (cur.thumb) $(id).src = cur.thumb; else $(id).removeAttribute('src'); }
   if (ahvLetra.id !== cur.id) ponLetraAhora(cur);
   pintaAhoraSig(); pintaAhoraCanvas();
 }
 async function ponLetraAhora(s) {
   ahvLetra = {id: s.id, lineas: []}; ahvLinea = -2; if ($('ahvL')) $('ahvL').innerHTML = '';
   const l = await fetchLyrics(s);
-  if (ahvLetra.id !== s.id || !l?.synced) return;
+  if (ahvLetra.id !== s.id) return;
+  if (!l?.synced) { if ($('ahvL')) $('ahvL').innerHTML = `<p class="nada">${l?.plain ? 'Esta canción tiene letra, pero sin tiempos' : 'Sin letra'}</p>`; return; }
   const lineas = [];
   for (const raw of l.synced.split('\n')) { const tags = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)], text = raw.replace(/\[[^\]]*\]/g, '').trim();
     if (text) for (const t of tags) lineas.push({at: +t[1] * 60 + +t[2], text}); }
   ahvLetra.lineas = lineas.sort((a, b) => a.at - b.at); ahvLinea = -2;
-  pintaAhoraTiempo(tiempo(), duracion());   // ya, aunque esté en pausa (si no, solo salía al avanzar)
+  pintaAhoraTiempo(tiempo(), duracion());   // ya, aunque esté en pausa
 }
 function pintaAhoraTiempo(t, d) {
   if (!$('ahv') || !cur) return;
   $('ahvP').style.width = d ? Math.min(100, 100 * t / d) + '%' : 0;
   $('ahvCur').textContent = dur(t) || '0:00'; $('ahvDur').textContent = dur(d) || '0:00';
-  const L = ahvLetra.lineas; let i = -1; for (let k = 0; k < L.length && L[k].at <= t + .3; k++) i = k;
+  const L = ahvLetra.lineas; if (!L.length) return;
+  let i = -1; for (let k = 0; k < L.length && L[k].at <= t + .3; k++) i = k;
   if (i === ahvLinea) return; ahvLinea = i;
-  $('ahvL').innerHTML = [L[i], L[i + 1]].filter(Boolean).map(x => `<p>${esc(x.text)}</p>`).join('');
+  // la anterior (gris), la que suena (grande) y la siguiente (gris)
+  $('ahvL').innerHTML = [[L[i - 1], 'antes'], [L[i], 'ahora'], [L[i + 1], 'luego']].filter(([x]) => x).map(([x, c]) => `<p class="${c}">${esc(x.text)}</p>`).join('');
 }
-// "A continuación": lista (mejor para el ratón que la fila de portadas de la TV) con todo lo que falta; clic salta a esa
 function pintaAhoraSig() {
   if (!$('ahv')) return;
-  const sig = queue.slice(qi + 1, qi + 1 + 300);
-  $('ahvSigN').textContent = sig.length ? sig.length : '';
-  $('ahvSig').innerHTML = sig.length ? sig.map((s, k) => `<button class="ahv-c" data-sig="${qi + 1 + k}"><span class="n">${k + 1}</span>
-      ${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : '<span class="ph">♪</span>'}<div><b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small></div>
-      <span class="d">${dur(s.duration) || ''}</span></button>`).join('') : '<p class="ahv-nada">No hay nada más en la cola.</p>';
+  const sig = queue.slice(qi + 1, qi + 5), resto = Math.max(0, queue.length - qi - 1);
+  $('ahvColaN').textContent = resto ? '· ' + resto : '';
+  $('ahvSig').innerHTML = sig.length ? sig.map((s, k) => `<button class="ahv-c" data-sig="${qi + 1 + k}">${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : '<span class="ph">♪</span>'}
+      <span><b>${esc(s.title || '')}</b><small>${esc(s.artist || '')}</small></span></button>`).join('') : '<p class="ahv-nada">No hay nada más en la cola.</p>';
 }
 function pintaAhoraCanvas() {
   if (!$('ahv')) return;
@@ -2143,7 +2199,8 @@ const scrollBox = el => { for (let p = el.parentElement; p; p = p.parentElement)
   const o = getComputedStyle(p).overflowY; if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p; } return null; };
 function paintQueue() {
   pintaAhoraSig();
-  const enBarra = tresColumnas.matches;   // ≥1500 px: la cola vive en su barra de la izquierda, siempre a la vista
+  // ≥1500 px: la cola vive en su barra de la izquierda, siempre a la vista; con Ahora abierta, en su panel Cola
+  const enBarra = tresColumnas.matches || ($('ahv') && ahvVista === 'cola');
   if (!enBarra && (!npVisible() || npTab !== 'cola')) { qPainted = null; return; }
   const dest = enBarra ? $('qList') : $('npPanel');
   if (enBarra && !cur) { dest.innerHTML = '<div class="empty">Cuando suene algo, aquí verás lo que viene después.</div>'; qPainted = null; return; }

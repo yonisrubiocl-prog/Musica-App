@@ -321,17 +321,20 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 
 ### Pestaña Ahora de la web (PC)
 
-Desde el 06-11-2026, solo en pantallas de 1100 px o más (en el móvil el reproductor grande ya hace de "Ahora"): una
-cuarta pestaña, **Ahora**, con la idea de la pantalla Ahora de la TV (solo lo que suena, sin el ruido de las tarjetas)
-pero con todo lo de la página. Tres columnas: Canvas o portada en grande; "Sonando aquí / en <dispositivo>", título,
-artista y álbum (llevan a su página), la letra en un cuadro de **altura fija**, la barra (clic para ir a un segundo),
-aleatorio · −10 · ⏮ · ⏯ · ⏭ · +10 · repetir, pantalla completa, y debajo ♡ Me gusta, volumen, 🔊 Dónde suena / 📺 TV
-y ⋮ (el menú de la canción); y **"A continuación" como lista** (portada, título, artista, duración; toda la cola que
-falta, con desplazamiento; clic salta a esa). Los controles de la página **no se copian**: los mismos del panel se
-mueven a Ahora mientras está abierta (`prestaAhora`) y vuelven al salir por donde sea (`devuelveAhora`, con un
-`MutationObserver` sobre el contenido), así funcionan igual y con su estado. En esta pestaña se esconden el panel de
-la derecha y la cola de la izquierda; en las demás, el reproductor sigue a un lado. Usa lo mismo que el resto
-(`pintaCancion`, `pintaTiempo`, `paintQueue`, `pintaCanvas`, `ico`): igual sonando aquí, en otro dispositivo o en la TV.
+Desde el 06-11-2026, solo en pantallas de 1100 px o más (en el móvil el reproductor grande ya hace de "Ahora"). Idea
+de la pantalla Ahora de la TV (solo lo que suena, sin el ruido de las tarjetas) con la distribución de
+`docs/afina-ahora-propuesta-20261106/` y **los colores del tema** (no los de la propuesta). Dos columnas:
+- **Derecha (~38 %):** el Canvas (o la portada sobre ella misma difuminada) de arriba abajo, con pantalla completa.
+- **Izquierda:** "AHORA" y dónde suena (abre Dónde suena); portada pequeña, título, artista y álbum (llevan a su
+  página), ♡ y ⋮; un panel **Letra | Cola · N**: la letra con la línea anterior, la actual y la siguiente (altura
+  fija) o **la cola de la página** (la misma lista, con arrastrar para mover); la barra con los tiempos; aleatorio ·
+  −10 · ⏮ · ⏯ · ⏭ · +10 · repetir; volumen, 🔊 Dónde suena / 📺 TV y "ver cola"; y **A continuación** compacta (4,
+  "Ver cola ›"), que no sale con la Cola abierta (la lista crece hacia abajo).
+- Los controles de la página y la lista de la cola **no se copian**: los mismos se mueven a Ahora mientras está
+  abierta (`prestaAhora`) y vuelven al salir por donde sea (`devuelveAhora`, con un `MutationObserver` sobre el
+  contenido), así funcionan igual y con su estado; al volver se mide otra vez el Canvas del panel (si no, quedaba
+  oscuro). En esta pestaña se esconden el panel de la derecha y la cola de la izquierda. Usa lo mismo que el resto
+  (`pintaCancion`, `pintaTiempo`, `paintQueue`, `pintaCanvas`, `ico`): igual sonando aquí, en otro dispositivo o en la TV.
 
 ### Escuchar en varios dispositivos (como Spotify Connect)
 
