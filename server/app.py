@@ -580,6 +580,7 @@ def stream_user(vid: str, request: Request):
     if not (until.isdigit() and int(until) > time.time() and hmac.compare_digest(sig, stream_sig(vid, sub, int(until)))):
         if until.isdigit() and int(until) > time.time():   # caducado de verdad no cuenta: firma falsa sí
             bad_key(ip, t)
+        log.info("audio de %s rechazado (%s): enlace caducado o mal firmado", vid, ip)
         raise HTTPException(401, "enlace caducado")
     users.USERS.reload()
     u = users.USERS.data.get(sub)
@@ -1156,6 +1157,16 @@ def stream_link(vid: str, found=Depends(check_token)):
     sub = need_user(found)
     until = int(time.time()) + STREAM_LINK_TTL
     return {"url": f"/stream/{vid}?t={sub}.{until}.{stream_sig(vid, sub, until)}"}
+
+
+@app.post("/web/fallo")
+def web_fallo(found=Depends(check_token), donde: str = Body("", embed=True, max_length=20), id: str = Body("", embed=True, max_length=20),
+              error: str = Body("", embed=True, max_length=300), media: str = Body("", embed=True, max_length=300),
+              navegador: str = Body("", embed=True, max_length=300)):
+    """La web avisa de que una canción no sonó y por qué (el error del navegador): solo queda en el registro."""
+    log.warning("la web no pudo reproducir %s para %s (%s): %s | %s | %s", id, found[1]["email"] if found else "clave compartida",
+                donde, error, media, navegador)
+    return {"ok": True}
 
 
 @app.get("/stream/{vid}")

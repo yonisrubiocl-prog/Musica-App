@@ -1229,7 +1229,14 @@ async function playAudio(s) {
   catch (e) { if (cur === s) toast('No se pudo reproducir'); return; }
   if (cur !== s) return;   // cambió de canción mientras pedía el enlace
   audio.src = url;
-  audio.play().catch(() => toast('No se pudo reproducir (¿el navegador no admite este audio?)'));
+  audio.play().catch(e => { if (e.name === 'AbortError') return;   // cambió de canción antes de empezar
+    toast('No se pudo reproducir (' + e.name + ')'); informaFallo('play', s, e); });
+}
+// Cuenta al servidor por qué no sonó (sale en su registro): sin esto, desde fuera solo se ve "no suena".
+function informaFallo(donde, s, e) {
+  const m = audio.error;
+  api('/web/fallo', {method: 'POST', body: JSON.stringify({donde, id: s?.id || '', error: e ? e.name + ': ' + e.message : '',
+    media: m ? m.code + ' ' + (m.message || '') : '', navegador: navigator.userAgent})}).catch(() => {});
 }
 function start() {
   cierraLaQueSonaba();
@@ -1286,7 +1293,7 @@ addEventListener('keydown', e => {   // flechas arriba/abajo (fuera de un campo 
   if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) || !(e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
   e.preventDefault(); ponVolumen(vol + (e.key === 'ArrowUp' ? 5 : -5)); if (vol) volAntes = vol;
 });
-audio.onerror = () => { if (playing) playing.error = true; if (cur) toast('No se pudo reproducir «' + cur.title + '»'); };
+audio.onerror = () => { if (playing) playing.error = true; if (cur) { toast('No se pudo reproducir «' + cur.title + '»'); informaFallo('audio', cur); } };
 const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause;
   $('np').classList.toggle('sonando', !p); document.body.classList.toggle('sonando', !p); };   // la portada viva solo se mueve mientras suena
 audio.onplay = () => ico(false); audio.onpause = () => ico(true);
