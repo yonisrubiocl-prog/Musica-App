@@ -9,6 +9,10 @@ const $ = id => document.getElementById(id);
 const dur = s => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 let soloAudio = false, actual = null, cvTimer = null, lineas = [], lineaAhora = -2;
 let leer = () => ({t: 0, d: 0, pausa: true});   // lo pone el reproductor de Cast (o la demo)
+// La llave de la TV: la manda el celular o la web al conectar (canal propio de Cast). Solo vale para mirar y escuchar
+// (el servidor no deja cambiar nada con ella) y no se guarda: al cerrar la pantalla se pierde.
+const CANAL = 'urn:x-cast:com.yoneapolis.musica';
+let llave = null;
 
 const ID = /^[\w-]{11}$/;
 function deAqui(u) {   // audio: solo /stream/<id> de este dominio
@@ -235,7 +239,14 @@ if (window.cast && cast.framework && !demo) {
       return '⏮';
     },
   };
+  ctx.addCustomMessageListener(CANAL, e => {
+    const d = e.data || {};
+    if (d.tipo === 'llave' && typeof d.llave === 'string' && /^tv\.[\w-]{20,80}$/.test(d.llave)) {
+      llave = d.llave; log('llave recibida, caduca', new Date((d.caduca || 0) * 1000).toISOString().slice(0, 16));
+    }
+  });
   const op = new cast.framework.CastReceiverOptions();
+  op.customNamespaces = {[CANAL]: cast.framework.system.MessageType.JSON};
   op.maxInactivity = 3600;   // que no se corte la conexión con la app en las pausas largas
   ctx.start(op);
   enfoca(foco);

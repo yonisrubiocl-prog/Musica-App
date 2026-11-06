@@ -378,6 +378,12 @@ pantalla) solo suena: no pide Canvas ni letra.
   la canción y las 2 siguientes y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
   volumen manejan la TV; "varios dispositivos" cuenta lo de allí como "PC · Chrome → <TV>". Al desconectar, sigue en
   la página en pausa.
+- **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web (y la app, pendiente) le
+  pide una y se la manda a la TV por un canal propio de Cast (`urn:x-cast:com.yoneapolis.musica`, `{tipo: "llave",
+  llave, caduca}`); al desconectar la anula (`DELETE /tv/llave`). Empieza por `tv.`, dura 24 h, no cuenta como
+  dispositivo y **solo vale para mirar y escuchar** (`TV_ALLOWED` en `app.py`: Inicio, biblioteca, playlists, artistas,
+  buscar, el enlace del audio, Canvas, letra, varios dispositivos, eventos); en lo demás (Me gusta, playlists, cuenta,
+  Discord…) 403 "la TV solo puede mirar y escuchar". Huellas en `/data/tv-llaves.json`. Es la base de los menús en la TV.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
   canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra

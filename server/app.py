@@ -624,14 +624,62 @@ def bad_key(ip, key):
             log.warning("bloqueada %s %d min: %d sesiones no válidas seguidas", ip, BAD_KEY_BLOCK // 60, BAD_KEY_MAX)
 
 
+# ---------- la llave de la TV ----------
+# Al mandar la música a la TV (Cast), el celular o la web le pasan una llave propia: con ella la TV es independiente
+# (Inicio, biblioteca, playlists, buscar, sonar, Canvas, letra, varios dispositivos) pero no puede cambiar nada (ni
+# playlists, ni Me gusta, ni la cuenta). Empieza por "tv.", dura TV_KEY_HOURS, no cuenta como dispositivo y solo vale
+# en las rutas de TV_ALLOWED; en las demás, 403. Se guarda su huella (como las sesiones) en TV_KEYS_FILE.
+TV_KEYS_FILE = "/data/tv-llaves.json"
+TV_KEY_HOURS = 24
+TV_ALLOWED = {
+    "GET": re.compile(r"^/(me|home|library|genres|artists|artist|album|favorites|playlists|history|radio|search|suggest"
+                      r"|search/albums|search/album/[\w-]+|canvas/[\w-]{11}(/estado)?|lyrics/[\w-]{11}|stream/[\w-]{11}"
+                      r"|conectar|recomendaciones/preguntar)$"),
+    "POST": re.compile(r"^/(stream/[\w-]{11}/enlace|eventos|conectar/estado|conectar/orden|tv/registro|web/fallo)$"),
+}
+_tv_keys_lock = threading.Lock()
+try:
+    with open(TV_KEYS_FILE) as f:
+        _tv_keys = json.load(f)
+except (OSError, ValueError):
+    _tv_keys = {}
+
+
+def _tv_hash(key):
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def _tv_keys_save():
+    tmp = TV_KEYS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(_tv_keys, f)
+    os.replace(tmp, TV_KEYS_FILE)
+
+
+def tv_key_user(key, request):
+    """(sub, usuario) de una llave de la TV, si vale y la ruta está permitida."""
+    with _tv_keys_lock:
+        k = _tv_keys.get(_tv_hash(key))
+    if not k or k["until"] < time.time():
+        return None
+    users.USERS.reload()
+    u = users.USERS.data.get(k["sub"])
+    if not u or u["status"] != "aprobado":
+        return None
+    allowed = TV_ALLOWED.get(request.method)
+    if not allowed or not allowed.fullmatch(request.url.path):
+        raise HTTPException(403, "la TV solo puede mirar y escuchar")
+    return k["sub"], u
+
+
 def check_token(request: Request):
-    """Sesión de un usuario aprobado, o la clave compartida API_TOKEN mientras no haya app."""
+    """Sesión de un usuario aprobado, la llave de la TV (solo en sus rutas) o la clave compartida API_TOKEN."""
     key, ip = given_key(request), client_ip(request)
     if key:
         check_blocked(ip)
     if key and TOKEN and hmac.compare_digest(key.encode(), TOKEN.encode()):
         return None
-    found = users.user_of(key) if key else None
+    found = (tv_key_user(key, request) if key.startswith("tv.") else users.user_of(key)) if key else None
     if not found:
         if request.url.path == "/app/version":
             log.info("versión de la app pedida sin sesión válida (%s)", "sin clave" if not key else "sesión caducada o no aprobada")
@@ -833,6 +881,35 @@ def tv():
     siguiente. En un parlante Cast (sin pantalla) solo suena."""
     with open(os.path.join(WEB, "tv.html")) as f:
         return HTMLResponse(f.read(), headers={**TV_HEADERS, "Content-Security-Policy": CSP_TV})
+
+
+@app.post("/tv/llave")
+def tv_llave(request: Request, found=Depends(check_token)):
+    """Una llave para la TV (al mandarle la música por Cast): {llave, caduca}. Solo con una sesión de verdad (no con
+    otra llave de la TV ni con la clave compartida). La TV la recibe por un mensaje de Cast y no la guarda."""
+    sub = need_user(found)
+    if given_key(request).startswith("tv."):
+        raise HTTPException(403, "la TV solo puede mirar y escuchar")
+    key, now = "tv." + secrets.token_urlsafe(32), time.time()
+    with _tv_keys_lock:
+        for h in [h for h, k in _tv_keys.items() if k["until"] < now]:   # de paso, fuera las caducadas
+            del _tv_keys[h]
+        _tv_keys[_tv_hash(key)] = {"sub": sub, "until": int(now + TV_KEY_HOURS * 3600), "since": int(now)}
+        _tv_keys_save()
+    log.info("llave de la TV para %s (%d h)", found[1].get("email", sub[:6]), TV_KEY_HOURS)
+    return {"llave": key, "caduca": int(now + TV_KEY_HOURS * 3600)}
+
+
+@app.delete("/tv/llave")
+def tv_llave_fuera(llave: str = Body(embed=True, max_length=100), found=Depends(check_token)):
+    """Anular una llave de la TV (al desconectarla). Solo el dueño de la llave."""
+    sub = need_user(found)
+    with _tv_keys_lock:
+        k = _tv_keys.get(_tv_hash(llave))
+        if k and k["sub"] == sub:
+            del _tv_keys[_tv_hash(llave)]
+            _tv_keys_save()
+    return {"ok": True}
 
 
 @app.post("/tv/registro")

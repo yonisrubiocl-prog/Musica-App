@@ -1637,7 +1637,17 @@ pintaDisp();
 // TV en el mismo segundo: se le carga la canción y las 2 siguientes (enlaces firmados de /stream/<id>/enlace) y se le
 // van añadiendo más cuando pasa de canción. Los botones de siempre (play, siguiente, anterior, barra, volumen) manejan
 // la TV, y "varios dispositivos" cuenta lo que suena allí ("PC · Chrome → <TV>"). Al desconectar, sigue aquí en pausa.
-const TV_APP = '25E4DFA9';
+const TV_APP = '25E4DFA9', TV_CANAL = 'urn:x-cast:com.yoneapolis.musica';
+// La llave de la TV (POST /tv/llave): con ella la TV es independiente (menús, sonar) pero no puede cambiar nada
+async function tvLlave() {
+  if (!tv) return;
+  try {
+    const {llave, caduca} = await api('/tv/llave', {method: 'POST'});
+    if (!tv) return;
+    tv.llave = llave;
+    await tv.sesion.sendMessage(TV_CANAL, {tipo: 'llave', llave, caduca});
+  } catch (e) { console.warn('llave de la TV', e); }
+}
 window.__onGCastApiAvailable = ok => {
   if (!ok || !window.cast?.framework) return;
   const c = cast.framework.CastContext.getInstance(), S = cast.framework.SessionState;
@@ -1660,11 +1670,13 @@ function tvEmpieza(sesion, cargar) {
   remoto = false;   // si esto era un mando, al mandar a la TV la música pasa a ser de aquí (el otro se pausa solo)
   audio.pause();
   if (cargar && cur) tvCarga(qi, pos);
+  tvLlave();
   toast('Suena en ' + tv.nombre); pintaDisp(); cxCuenta();
 }
 function tvTermina() {
   if (!tv) return;
-  const pos = tv.pos; tv = null;
+  const pos = tv.pos, llave = tv.llave; tv = null;
+  if (llave) api('/tv/llave', {method: 'DELETE', body: JSON.stringify({llave})}).catch(() => {});
   toast('Se desconectó la TV');
   if (cur) start(pos, false);   // aquí, en pausa, en el segundo de la TV
   pintaDisp();
