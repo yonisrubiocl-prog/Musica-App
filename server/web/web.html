@@ -1705,8 +1705,10 @@ function tvEmpieza(sesion, cargar) {
   // lo que suena (aquí o, si esto era un mando, en otro dispositivo) pasa a la TV; al recargar, la TV sigue con lo suyo.
   // Si la TV ya suena con esta cuenta (la conectó la app), solo la llave: sin cola, para no cortarla (antes se paraba
   // un segundo al volver a ponerla); esto sigue de mando y maneja también su volumen.
-  const yaSuena = !!tvDeLaCuenta();
+  // (sonando de verdad: si está en pausa o era una TV de antes, conectar es "suena allí": se le pasa la cola)
+  const yaSuena = !!tvDeLaCuenta() && !cx?.sonando?.pausa;
   const pon = cargar && cur && !yaSuena ? {i: qi, pos} : null;
+  tvLog('al conectar:', pon ? 'le paso lo que suena' : yaSuena ? 'la TV ya suena con la cuenta: solo la llave' : 'retoma, sin cola');
   if (pon) { remoto = false; audio.pause(); }
   tvLlave(pon);
   toast('Suena en ' + tv.nombre); pintaDisp();

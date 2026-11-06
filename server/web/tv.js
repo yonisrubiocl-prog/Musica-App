@@ -178,7 +178,8 @@ new MutationObserver(escondeIntrusos).observe(document.body, {childList: true});
 escondeIntrusos();
 // Si algo de fuera (la interfaz de Cast) se queda el control un rato, al volver se elige otra vez lo de antes
 let ultimoFoco = null;
-addEventListener('focusin', e => { if (e.target?.classList?.contains('f')) ultimoFoco = e.target; });
+addEventListener('focusin', e => { if (e.target?.classList?.contains('f')) ultimoFoco = e.target;
+  document.body.classList.toggle('panel-elegido', e.target?.id === 'panelIr'); });
 const recuperaFoco = () => { if (document.activeElement && document.activeElement !== document.body) return;
   const vis = visibles(); enfoca(vis.includes(ultimoFoco) ? ultimoFoco : vis[0]); };
 addEventListener('focus', () => { log('la página recupera el control'); setTimeout(recuperaFoco, 50); });
