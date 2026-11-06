@@ -284,15 +284,20 @@
   @media (prefers-reduced-motion: reduce) { .np .cover img, .np .tint { animation: none; } }
   /* Canvas: 7 s del videoclip de fondo, en bucle y sin sonido, como en Spotify; la portada deja su sitio al vídeo.
      Sin Canvas (o con "reducir movimiento"), la portada viva de arriba. */
-  .np .canvas { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 700ms var(--ease); }
+  /* El vídeo va detrás de la "escena" (portada, títulos, controles y la barra de pestañas), no de la letra ni la cola:
+     --escena la pone ajustaEscena(). Con Canvas la portada crece para que no quede hueco vacío debajo. */
+  .np .canvas { position: absolute; top: 0; left: 0; right: 0; height: var(--escena, 100%); z-index: -1;
+                pointer-events: none; opacity: 0; transition: opacity 700ms var(--ease); }
   .np .canvas video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .np .canvas::after { content: ""; position: absolute; inset: 0;
-                       background: linear-gradient(rgb(var(--fondo-rgb) / .5), transparent 16%, transparent 34%,
-                                                   rgb(var(--fondo-rgb) / .62) 52%, rgb(var(--fondo-rgb) / .9) 70%,
-                                                   rgb(var(--fondo-rgb) / .97)); }
+                       background: linear-gradient(color-mix(in srgb, var(--np-bg) 50%, transparent), transparent 16%,
+                                                   transparent 40%, color-mix(in srgb, var(--np-bg) 60%, transparent) 62%,
+                                                   color-mix(in srgb, var(--np-bg) 88%, transparent) 82%, var(--np-bg)); }
   .np.con-canvas .canvas { opacity: 1; }
   .np .cover { transition: opacity 700ms var(--ease); }
   .np.con-canvas .cover { opacity: 0; }
+  .np.con-canvas .tabs { background: color-mix(in srgb, var(--np-bg) 82%, transparent);   /* de cristal sobre el vídeo */
+                         backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
   .np .in { z-index: 1; }
   @media (prefers-reduced-motion: reduce) { .np .canvas { display: none; } }
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
@@ -348,7 +353,6 @@
     .np::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
                  background: radial-gradient(120% 60% at 50% 0%, rgb(var(--acento-rgb) / .16), transparent 60%); }
     .np .tint { position: absolute; inset: -25%; opacity: .55; }
-    .np .canvas { position: absolute; }
     .np .in { position: relative; z-index: 1; height: 100%; overflow-y: auto; padding: 20px 26px 28px; --np-pad: 20px; --np-x: 26px; --np-bg: var(--hoja); }
     .np .top .back { visibility: hidden; }
     .np .cover { width: 100%; margin-top: 14px; border-radius: 22px;
@@ -492,8 +496,8 @@ aplicarTema();
 </aside>
 <div class="np sin" id="np" aria-hidden="true">
   <div class="tint" id="npTint"></div>
-  <div class="canvas" aria-hidden="true"><video id="npCanvasV" muted loop playsinline preload="auto"></video></div>
   <div class="in">
+    <div class="canvas" aria-hidden="true"><video id="npCanvasV" muted loop playsinline preload="auto"></video></div>
     <div class="vacio"><img src="/logo-480.webp" alt=""><b>Aquí sonará tu música</b><span>Elige una canción, un álbum o pon una radio.<br>
       Mientras suena verás aquí la portada, la cola y la letra.</span></div>
     <div class="top"><button class="back" id="npClose" aria-label="Cerrar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -1454,7 +1458,7 @@ async function canvasEstado(s, intento = 0) {
 async function pintaCanvas() {
   const v = $('npCanvasV'), s = cur;
   if (!s || canvasEst.get(s.id) !== 'listo' || sinMovimiento.matches || !(panelFijo.matches || $('np').classList.contains('on'))) {
-    $('np').classList.remove('con-canvas'); v.pause(); return;
+    $('np').classList.remove('con-canvas'); v.pause(); return ajustaEscena();
   }
   let url = canvasUrl.get(s.id);
   if (!url) {
@@ -1468,10 +1472,32 @@ async function pintaCanvas() {
     if (cur !== s) return;   // cambió de canción mientras bajaba
   }
   if (v.dataset.id !== s.id) { v.src = url; v.dataset.id = s.id; }
-  $('np').classList.add('con-canvas');
+  $('np').classList.add('con-canvas'); ajustaEscena();
   if (!audio.paused) v.play().catch(() => {});
 }
 panelFijo.addEventListener('change', () => pintaCanvas());
+// Con Canvas, la escena (vídeo, títulos y controles) llena el alto: en el móvil la pantalla entera (la cola y la letra,
+// al bajar); en el PC, solo el hueco que quede (con la letra oculta o sin letra no queda espacio vacío debajo).
+let escenaRaf = 0;
+function ajustaEscena() {
+  cancelAnimationFrame(escenaRaf);
+  escenaRaf = requestAnimationFrame(() => {
+    const np = $('np'), inn = np.querySelector('.in'), cover = np.querySelector('.cover'), tabs = $('npTabs');
+    cover.style.height = '';
+    if (!np.classList.contains('con-canvas')) return np.style.removeProperty('--escena');
+    const pad = parseFloat(getComputedStyle(inn).paddingBottom), panel = $('npPanel');
+    const falta = panelFijo.matches ? inn.clientHeight - (panel.offsetTop + panel.offsetHeight + pad)
+      : np.clientHeight - (tabs.offsetTop + tabs.offsetHeight + pad);
+    if (falta > 0) {
+      cover.style.height = cover.offsetHeight + falta + 'px';
+      const sobra = panelFijo.matches ? inn.scrollHeight - inn.clientHeight : 0;   // márgenes que no se ven en la cuenta
+      if (sobra > 0) cover.style.height = cover.offsetHeight - sobra + 'px';
+    }
+    np.style.setProperty('--escena', tabs.offsetTop + tabs.offsetHeight + 'px');
+  });
+}
+new MutationObserver(ajustaEscena).observe($('npPanel'), {childList: true, subtree: true});
+addEventListener('resize', ajustaEscena);
 
 function paintNp() {
   $('np').classList.toggle('sin', !cur);   // sin canción: el panel de la derecha enseña un mensaje en vez de quedar vacío
@@ -1524,6 +1550,8 @@ function markQueue(dest, fresh) {
     r.classList.toggle('playing', i === qi); r.classList.toggle('past', i < qi); });
   const row = dest.querySelector(`[data-qrow="${qi}"]`), box = row && scrollBox(row);
   if (!box) return;
+  // la cola del reproductor grande va debajo de la portada (o del Canvas): no bajar si se está mirando la portada
+  if ($('np').contains(box) && box.scrollTop < $('npTabs').offsetTop - 40) return;
   const b = box.getBoundingClientRect(), rr = row.getBoundingClientRect();
   if (fresh) {   // recién pintada: hasta 2 anteriores encima de la que suena
     const first = dest.querySelector(`[data-qrow="${Math.max(0, qi - 2)}"]`);
