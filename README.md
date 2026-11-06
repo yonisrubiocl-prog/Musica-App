@@ -413,6 +413,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
   web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
+- **Cambiar la cola desde otro dispositivo** (añadir, quitar, mover) con la misma canción sonando: la TV cambia lo de
+  alrededor (`removeItems`/`insertItems` de la cola de Cast) sin recargar la que suena; antes se cortaba unos
+  segundos. Si eso falla, vuelve a poner la cola entera en el mismo segundo ("no pude cambiar la cola sin cortar").
 - **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
   final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,
   en un cuadrito de cristal de **altura fija** (la línea actual hasta en 2 renglones y la siguiente en 1; lo que sobre,

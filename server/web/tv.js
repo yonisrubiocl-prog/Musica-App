@@ -374,6 +374,7 @@ document.getElementById('menu').addEventListener('click', e => {
 // Cerrar sola tras 30 min sin sonar nada ni tocar el control (Cast ya no la cierra a los 5 min: ver disableIdleTimeout)
 setInterval(() => { if (leer().pausa && Date.now() - tocado > 30 * 60 * 1000) { log('30 min sin usar: cierro'); try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) {} } }, 60000);
 let tocar = async () => {};   // la pone Cast: poner una lista en la TV, que suena sola
+let cambiaAlrededor = async () => false;   // también: cambiar la cola sin cortar la que suena
 let cxCuenta = async () => {}, cxHaz = () => {};   // también (ver abajo, "varios dispositivos")
 const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if (!d) localStorage.setItem('dispositivo', d = 'tv' + Math.random().toString(36).slice(2, 12)); return d; }
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
@@ -636,6 +637,33 @@ if (window.cast && cast.framework && !demo) {
     }
   });
   // ---- la TV pone su propia cola (elegida en sus menús) y suena sola, sin depender del celular ----
+  const itemDe = (s, url) => {   // una canción como elemento de la cola de Cast
+    const mi = new M.MediaInformation();
+    mi.contentId = mi.contentUrl = location.origin + url; mi.contentType = 'video/webm'; mi.streamType = M.StreamType.BUFFERED;
+    const md = new M.MusicTrackMediaMetadata(); md.title = s.title || ''; md.artist = s.artist || ''; md.albumName = s.album || '';
+    md.images = imagenOk(s.thumb) ? [new cast.framework.messages.Image(s.thumb)] : [];
+    mi.metadata = md; mi.customData = {id: s.id}; if (s.duration) mi.duration = s.duration;
+    const it = new M.QueueItem(); it.media = mi; return it;
+  };
+  // Cambió la cola pero sigue la misma canción (alguien añadió, quitó o movió canciones desde el celular o la web):
+  // se cambia lo de alrededor sin tocar la que suena. Antes se volvía a cargar todo y se cortaba unos segundos.
+  cambiaAlrededor = async (canciones, i, radio = false) => {
+    const q = pm.getQueueManager(), ya = q.getCurrentItem();
+    let l = canciones.filter(s => s && ID.test(s.id));
+    if (!ya || idDe(ya.media) !== l[i]?.id) return false;
+    const desde = Math.max(0, i - 20); l = l.slice(desde, desde + 300); i -= desde;
+    const {enlaces} = await api('/stream/enlaces', {method: 'POST', body: JSON.stringify({ids: l.filter((_, k) => k !== i).map(s => s.id)})});
+    const antes = l.slice(0, i).filter(s => enlaces[s.id]), despues = l.slice(i + 1).filter(s => enlaces[s.id]);
+    const otros = (q.getItems() || []).filter(it => it.itemId !== ya.itemId).map(it => it.itemId);
+    if (otros.length) q.removeItems(otros);
+    if (despues.length) q.insertItems(despues.map(s => itemDe(s, enlaces[s.id])));
+    if (antes.length) q.insertItems(antes.map(s => itemDe(s, enlaces[s.id])), ya.itemId);
+    quitaEspejo();
+    cx.propia = true; cx.cola = [...antes, l[i], ...despues]; cx.radio = radio; cx.colaV++; cx.tomada = Date.now();
+    log('cambio la cola sin cortar:', cx.cola.length, 'canciones, va en la', antes.length + 1);
+    colaFirma = ''; ahora(); marcaSonando(); cxCuenta(true);
+    return true;
+  };
   tocar = async (canciones, i = 0, mezclar = false, desde = 0, radio = false) => {
     let l = canciones.filter(s => s && ID.test(s.id)).slice(0, 300);
     if (!l.length) return;
@@ -643,14 +671,7 @@ if (window.cast && cast.framework && !demo) {
     try {
       const {enlaces} = await api('/stream/enlaces', {method: 'POST', body: JSON.stringify({ids: l.map(s => s.id)})});
       l = l.filter(s => enlaces[s.id]);
-      const items = l.map(s => {
-        const mi = new M.MediaInformation();
-        mi.contentId = mi.contentUrl = location.origin + enlaces[s.id]; mi.contentType = 'video/webm'; mi.streamType = M.StreamType.BUFFERED;
-        const md = new M.MusicTrackMediaMetadata(); md.title = s.title || ''; md.artist = s.artist || ''; md.albumName = s.album || '';
-        md.images = imagenOk(s.thumb) ? [new cast.framework.messages.Image(s.thumb)] : [];
-        mi.metadata = md; mi.customData = {id: s.id}; if (s.duration) mi.duration = s.duration;
-        const it = new M.QueueItem(); it.media = mi; return it;
-      });
+      const items = l.map(s => itemDe(s, enlaces[s.id]));
       const req = new M.LoadRequestData();
       req.queueData = new M.QueueData(); req.queueData.items = items; req.queueData.startIndex = Math.min(i, items.length - 1);
       req.media = items[req.queueData.startIndex].media; req.autoplay = true; if (desde) req.currentTime = desde;
@@ -686,7 +707,9 @@ if (window.cast && cast.framework && !demo) {
     else if (o.tipo === 'cola' && d.cola?.length) {   // si sigue la misma canción (solo cambió lo que viene), en el mismo segundo
       const m = pm.getMediaInformation(), id = m ? new URL(m.contentUrl || m.contentId, location.href).pathname.split('/')[2] : null;
       const misma = !d.nueva && id && d.cola[d.qi || 0]?.id === id;
-      tocar(d.cola, d.qi || 0, false, misma ? pm.getCurrentTimeSec() || 0 : 0, !!d.radio);
+      (misma ? cambiaAlrededor(d.cola, d.qi || 0, !!d.radio).catch(e => { log('no pude cambiar la cola sin cortar:', String(e?.message || e)); return false; })
+             : Promise.resolve(false))
+        .then(hecho => hecho || tocar(d.cola, d.qi || 0, false, misma ? pm.getCurrentTimeSec() || 0 : 0, !!d.radio));
     }
   };
   pm.addEventListener([E.PAUSE, E.PLAYING, E.PLAYER_LOAD_COMPLETE, E.SEEKED].filter(Boolean), () => cxCuenta());
