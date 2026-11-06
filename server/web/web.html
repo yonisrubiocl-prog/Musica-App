@@ -188,6 +188,57 @@
   .chip.on { background: var(--acento); color: var(--sobre-acento); font-weight: 600; border-color: transparent; }
 
   .list { display: flex; flex-direction: column; gap: 2px; }
+  /* columna de álbum en las listas anchas (.cols), entre la canción y la duración */
+  .row .alb { display: none; }
+  @media (min-width: 1100px) {
+    .list.cols .row .alb { display: block; flex: 0 0 28%; min-width: 0; color: var(--texto2); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list.cols .row .meta { flex: 1 1 0; }
+    .list.cols .row .alb-in { display: none; }   /* el álbum ya va en su columna */
+    .list.cols .row .d { width: 3.4em; text-align: right; }
+
+  }
+  /* Inicio: paneles de listas (lado a lado en pantallas anchas), "Retoma tu música" y franjas pequeñas */
+  .duo { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 18px; }
+  @media (min-width: 900px) { .duo { grid-template-columns: 1fr 1fr; } }
+  .lpanel { border-radius: 22px; padding: 14px 10px 10px; min-width: 0; }
+  .lp-cab { display: flex; align-items: center; gap: 10px; padding: 2px 10px 8px; }
+  .lp-cab h3 { flex: 1; font-size: 1.1rem; font-weight: 800; } .lp-cab h3 small { color: var(--texto2); font-weight: 600; font-size: .8rem; }
+  .lp-ico { width: 22px; height: 22px; color: var(--acento); display: grid; place-items: center; } .lp-ico svg { width: 22px; height: 22px; }
+  .lp-ver { color: var(--acento); font-weight: 700; font-size: .9rem; }
+  .lpanel .row { padding: 6px 8px; } .lpanel .row + .row { box-shadow: inset 0 1px 0 var(--linea); }
+  .lpanel .row img, .lpanel .row .ph { width: 42px; height: 42px; }
+  .lpanel .row .t { -webkit-line-clamp: 1; }
+  .lpanel .row.playing { background: rgb(var(--acento-rgb) / .12); }
+  .retoma { display: flex; align-items: center; gap: 18px; margin-top: 8px; flex-wrap: wrap; }
+  .retoma h2 { margin: 0; flex: none; }
+  .retoma-f { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .retoma-c { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 16px; text-align: left; min-width: 0; }
+  .retoma-c img, .retoma-c .ph { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: var(--elevado); flex: none; }
+  .retoma-c span { min-width: 0; } .retoma-c b { display: block; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .retoma-c small { display: block; color: var(--texto2); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .retoma-c:hover { background: var(--cristal2); }
+  @media (max-width: 899px) {   /* estrecho: el título arriba y las tres en una fila que se desliza */
+    .retoma { flex-direction: column; align-items: stretch; gap: 10px; }
+    .retoma-f { display: flex; overflow-x: auto; scrollbar-width: none; } .retoma-f::-webkit-scrollbar { display: none; }
+    .retoma-c { flex: none; width: 230px; }
+  }
+  /* franjas pequeñas (álbumes, artistas): tarjetas horizontales, no portadas grandes */
+  .rail.mini > * { width: 230px; flex-direction: row; align-items: center; }
+  .rail.mini .card img { width: 64px; height: 64px; aspect-ratio: auto; flex: none; border-radius: 12px; margin: 8px 0 8px 8px; }
+  .rail.mini .card.round img { border-radius: 50%; width: 56px; height: 56px; margin: 8px 0 8px 10px; }
+  .rail.mini .card div { padding: 8px 12px; min-width: 0; } .rail.mini .card b { -webkit-line-clamp: 1; }
+  .chips.una { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .chips.una::-webkit-scrollbar { display: none; }
+  .chips.una .chip { flex: none; }
+  .chips.orden { align-items: center; } .chips-et { color: var(--texto2); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-right: 4px; }
+  /* Biblioteca: playlists y artistas en filas compactas (dos columnas en pantallas anchas) */
+  .grid.filas { grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 900px) { .grid.filas { grid-template-columns: 1fr 1fr; } }
+  .grid.filas .card { flex-direction: row; align-items: center; }
+  .grid.filas .card img, .grid.filas .card .ph { width: 64px; height: 64px; aspect-ratio: auto; flex: none; border-radius: 12px; margin: 8px 0 8px 8px; font-size: 1.4rem; }
+  .grid.filas .card.round img { border-radius: 50%; width: 56px; height: 56px; margin: 8px 0 8px 10px; }
+  .grid.filas .card div { padding: 8px 14px; min-width: 0; } .grid.filas .card b { -webkit-line-clamp: 1; }
+  .title-big .pill { font-size: .9rem; } .title-big .pill.imp { margin-left: auto; }
+  .hero .kebab.glass { width: 42px; height: 42px; }
   .row { display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 12px; width: 100%; transition: background 200ms; }
   .row:hover { background: rgb(var(--fg) / .045); }
   .row.playing .t { color: var(--acento); }
@@ -386,7 +437,7 @@
      ordenador. La barra pequeña de abajo sobra (el panel tiene los controles). En el móvil, todo como siempre. */
   .np .vacio { display: none; }
   @media (min-width: 1100px) {
-    :root { --panel: 420px; --pgap: 18px; }
+    :root { --panel: clamp(420px, 30vw, 560px); --pgap: 18px; }
     body { padding-right: calc(var(--panel) + var(--pgap) * 2); }
     .wrap { max-width: 900px; }
     .dock { right: calc(var(--panel) + var(--pgap) * 2); }
@@ -530,11 +581,11 @@
   /* Pantallas muy anchas: tres tarjetas iguales y simétricas: la cola a la izquierda, el contenido en medio y el
      reproductor a la derecha (que entonces solo tiene la pestaña Letra). */
   .qside { display: none; }
-  @media (min-width: 1100px) and (max-width: 1499px) {
+  @media (min-width: 1100px) {
     .wrap { max-width: none; margin: 0; padding-left: calc(var(--pgap) + 8px); padding-right: var(--pgap); }
     .dock { left: calc(var(--pgap) - 12px); }
   }
-  @media (min-width: 1500px) {
+  @media (min-width: 100000px) {   /* la barra fija de la cola, retirada (ver tresColumnas) */
     :root { --qside: 360px; }
     body { padding-left: calc(var(--qside) + var(--pgap) * 2); }
     .wrap { max-width: 1040px; }
@@ -911,8 +962,8 @@ function rows(key) {
   return songs.map((s, i) => `<div class="row${cur && cur.id === s.id ? ' playing' : ''}" data-row="${esc(s.id)}">
     <button class="hit" data-l="${key}" data-i="${i}">
       ${s.thumb ? `<img src="${esc(s.thumb)}" loading="lazy" alt="">` : '<span class="ph"></span>'}
-      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${s.where === 'youtube' ? '<span class="tag">Internet</span>' : key === 'net' ? '<span class="tag">Guardada</span>' : ''}${esc(s.artist || '')}${s.album && s.where !== 'youtube' ? (s.artist ? ' · ' : '') + esc(s.album) : ''}</div></span>
-      <span class="d">${dur(s.duration)}</span></button>
+      <span class="meta"><div class="t">${esc(s.title)}</div><div class="a">${s.where === 'youtube' ? '<span class="tag">Internet</span>' : key === 'net' ? '<span class="tag">Guardada</span>' : ''}${esc(s.artist || '')}${s.album && s.where !== 'youtube' ? `<span class="alb-in">${s.artist ? ' · ' : ''}${esc(s.album)}</span>` : ''}</div></span>
+      <span class="alb">${s.album && s.where !== 'youtube' ? esc(s.album) : ''}</span><span class="d">${dur(s.duration)}</span></button>
     <button class="heart${favs.has(s.id) ? ' on' : ''}" data-id="${esc(s.id)}" data-l="${key}" data-i="${i}" aria-label="Me gusta">${HEART(favs.has(s.id))}</button>
     <button class="kebab" data-menu data-l="${key}" data-i="${i}" aria-label="Más">${KEBAB}</button></div>`).join('');
 }
@@ -995,6 +1046,12 @@ const backBtn = (attrs = 'data-back') => `<button class="back glass" ${attrs} ar
   stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>`;
 
 // ---------- Inicio ----------
+// Listas, no cuadrículas de portadas (07-11-2026, docs/afina-inicio-propuesta-20261106): saludo, "Retoma tu música"
+// (3 pequeñas), dos paneles de filas lado a lado (Escuchadas recientemente · Para ti), una franja de álbumes, otros
+// dos paneles (Tus favoritas · Lo más puesto), géneros en una fila y tus artistas. En el móvil, los paneles apilados.
+const PANEL_N = 6;
+const panel = (key, titulo, ico, ver) => `<section class="lpanel glass"><div class="lp-cab"><span class="lp-ico">${ico}</span><h3>${titulo}</h3>
+  ${ver ? `<button class="lp-ver" data-ver="${ver}">Ver todo ›</button>` : ''}</div><div class="list">${rows(key)}</div></section>`;
 async function inicio() {
   lists = {};
   wrap.innerHTML = header() + '<div id="home" class="fade"><div class="empty">Cargando…</div></div>'; wireHeader();
@@ -1002,25 +1059,41 @@ async function inicio() {
     api('/library?sort=populares&limit=10'), api('/genres').catch(() => ({genres: []}))]);
   historyCache = hist.songs; artistsCache = arts.artists; genresCache = gens.genres;
   const recs = await api('/home').catch(() => ({secciones: []}));
-  const recHtml = recs.secciones.filter(s => s.id === 'para_ti' || s.id === 'vuelve').map(s => {
-    setList(s.id, s.items.map(x => ({...x, _rec: true})), 'lista');
-    return `<h2>${esc(s.titulo)}</h2><div class="rail">${songCards(s.id)}</div>`; }).join('');
-  setList('hist', hist.songs.slice(0, 20), 'lista', hist.songs);
-  setList('favs', [...favs.values()].slice(0, 20), 'lista', [...favs.values()]);
-  setList('pop', pop.songs, 'radio');
+  const paraTi = recs.secciones.find(s => s.id === 'para_ti'), vuelve = recs.secciones.find(s => s.id === 'vuelve');
+  const todasFavs = [...favs.values()];
+  setList('hist', hist.songs.slice(0, PANEL_N), 'lista', hist.songs);
+  setList('favs', todasFavs.slice(0, PANEL_N), 'lista', todasFavs);
+  setList('pop', pop.songs.slice(0, PANEL_N), 'radio');
+  if (paraTi) setList('para_ti', paraTi.items.slice(0, PANEL_N).map(x => ({...x, _rec: true})), 'lista', paraTi.items.map(x => ({...x, _rec: true})));
+  if (vuelve) setList('vuelve', vuelve.items.slice(0, PANEL_N).map(x => ({...x, _rec: true})), 'lista', vuelve.items.map(x => ({...x, _rec: true})));
+  // Retoma tu música: las 3 últimas distintas (de álbumes distintos), pequeñas
+  const vistos = new Set(), retoma = hist.songs.filter(x => { const k = norm(x.album || x.id); if (vistos.has(k)) return false; vistos.add(k); return true; }).slice(0, 3);
+  setList('retoma', retoma, 'lista', hist.songs);
   let h = '';
-  if (lists.hist.songs.length) h += `<h2>Escuchado recientemente</h2><div class="rail">${songCards('hist')}</div>`;
-  h += recHtml;
+  if (retoma.length) h += `<div class="retoma"><h2>Retoma tu música</h2><div class="retoma-f">${retoma.map((x, k) => `<button class="retoma-c glass" data-l="retoma" data-i="${k}" data-card>
+      ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : '<span class="ph"></span>'}<span><b>${esc(x.title)}</b><small>${esc(x.artist || '')}</small></span></button>`).join('')}</div></div>`;
+  const reloj = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  const chispas = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19 9.5l-5.2 1.9L12 17l-1.8-5.6L5 9.5l5.2-1.9zM19 15l.9 2.6 2.1.9-2.1.8L19 22l-.9-2.7-2.1-.8 2.1-.9z"/></svg>';
+  const duo = [lists.hist.songs.length && panel('hist', 'Escuchadas recientemente', reloj, 'hist'),
+               (lists.para_ti || lists.vuelve) && panel(lists.para_ti ? 'para_ti' : 'vuelve', esc((paraTi || vuelve).titulo), chispas, lists.para_ti ? 'para_ti' : 'vuelve')].filter(Boolean);
+  if (duo.length) h += `<div class="duo">${duo.join('')}</div>`;
   const albs = albumsOf(hist.songs);
-  if (albs.length) h += `<h2>Álbumes recientes</h2><div class="rail">${albumCards(albs)}</div>`;
-  if (lists.favs.songs.length) h += `<h2>Tus favoritas <small>${favs.size}</small></h2><div class="rail">${songCards('favs')}</div>`;
-  if (genresCache.length) h += `<h2>Explora por género</h2><div class="chips wrapped">${genresCache.slice(0, 16)
+  if (albs.length) h += `<h2>Álbumes recientes</h2><div class="rail mini">${albumCards(albs)}</div>`;
+  const duo2 = [lists.favs.songs.length && panel('favs', `Tus favoritas <small>${favs.size}</small>`, '♥', 'favs'),
+                lists.pop.songs.length && panel('pop', 'Lo más puesto', '📈', '')].filter(Boolean);
+  if (duo2.length) h += `<div class="duo">${duo2.join('')}</div>`;
+  if (genresCache.length) h += `<h2>Explora por género</h2><div class="chips una">${genresCache.slice(0, 24)
     .map(g => `<button class="chip glass" data-genre="${esc(g.name)}">${esc(g.name)}</button>`).join('')}</div>`;
   const mios = recs.secciones.find(s => s.id === 'artistas')?.items;   // los que más escuchas, como en Spotify
-  h += `<h2>${mios ? 'Tus artistas' : 'Artistas'}</h2><div class="rail">${artistCards((mios || arts.artists).slice(0, 20))}</div>`;
-  h += `<h2>Lo más puesto</h2><div class="list">${rows('pop')}</div>`;
+  h += `<h2>${mios ? 'Tus artistas' : 'Artistas'}</h2><div class="rail mini">${artistCards((mios || arts.artists).slice(0, 20))}</div>`;
   if (!lists.hist.songs.length && !lists.favs.songs.length) h = `<div class="empty">Pon algo y toca ♡ en lo que te guste: aquí saldrá lo tuyo,<br>igual que en la app.</div>` + h;
   $('home').innerHTML = h;
+  // "Ver todo": el historial y las favoritas en Biblioteca; las recomendaciones, enteras en su panel
+  $('home').querySelectorAll('[data-ver]').forEach(b => b.onclick = () => {
+    const k = b.dataset.ver;
+    if (k === 'hist' || k === 'favs') { libTab = k === 'hist' ? 'historial' : 'favoritas'; return go('biblioteca'); }
+    const l = lists[k]; l.songs = l.full || l.songs; b.closest('.lpanel').querySelector('.list').innerHTML = rows(k); b.remove();
+  });
 }
 
 // ---------- Buscar ----------
@@ -1032,9 +1105,9 @@ async function buscar() {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:var(--texto2)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Canciones, artistas o álbumes…" autocomplete="off"></label>
     <div class="sugg" id="sugg" hidden></div>
-    <div id="filters">${genresCache.length ? `<div class="chips" id="genres">${genresCache.map(g =>
+    <div id="filters">${genresCache.length ? `<div class="chips una" id="genres">${genresCache.map(g =>
         `<button class="chip glass genre" data-g="${esc(g.name)}">${esc(g.name)}</button>`).join('')}</div>` : ''}
-    <div class="chips" id="chips"><button class="chip glass" data-v="recientes">Recientes</button><button class="chip glass" data-v="populares">Populares</button>
+    <div class="chips orden" id="chips"><span class="chips-et">Ordenar</span><button class="chip glass" data-v="recientes">Recientes</button><button class="chip glass" data-v="populares">Populares</button>
       <button class="chip glass" data-v="nombre">A–Z</button><button class="chip glass" data-v="artista">Por artista</button></div></div></div>
     <div id="res" class="fade"></div>`;
   // Escribir solo abre el cuadro de sugerencias; los resultados salen con Enter o al elegir "Buscar «…»".
@@ -1203,11 +1276,11 @@ async function showArtist(name) {
   wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img, round: true, title: a.name,
       sub: `${nSongs(a.songs)}${a.albums.length ? ` · ${a.albums.length} ${a.albums.length === 1 ? 'álbum' : 'álbumes'}` : ''}`,
       acts: todas.length ? '<button class="pill main" data-playall>▶ Reproducir</button>' : ''})}
-    ${tuyas.length ? `<h2>Tus canciones <small>${tuyas.length}</small></h2><div class="list">${rows('tuyas')}</div>` : ''}
+    ${tuyas.length ? `<h2>Tus canciones <small>${tuyas.length}</small></h2><div class="list cols">${rows('tuyas')}</div>` : ''}
     ${populares.length ? `<h2>${tuyas.length ? 'Populares' : 'Canciones'} <small>${populares.length}</small></h2>
-      <div class="list" id="popArt">${rows('view')}</div>
+      <div class="list cols" id="popArt">${rows('view')}</div>
       ${populares.length > 10 ? `<div class="more"><button class="pill glass" id="popMas">Ver todas (${populares.length})</button></div>` : ''}` : ''}
-    ${a.albums.length ? '<h2>Álbumes</h2><div class="rail">' + albumCards(a.albums.map(al => ({...al, artist: a.name,
+    ${a.albums.length ? `<h2>Álbumes <small>${a.albums.length}</small></h2><div class="rail mini">` + albumCards(a.albums.map(al => ({...al, artist: a.name,
         sub: [al.year, nSongs(al.songs)].filter(Boolean).join(' · ')}))) + '</div>' : ''}</div>`;
   if ($('popMas')) $('popMas').onclick = () => { lists.view.songs = populares; $('popArt').innerHTML = rows('view'); $('popMas').parentNode.remove(); };
   scrollTo({top: 0});
@@ -1219,7 +1292,7 @@ async function showAlbum(artist, name) {
   lists = {}; setList('view', a.songs, 'lista');
   wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img: a.thumb || a.songs.find(x => x.thumb)?.thumb, title: a.name,
       sub: `<a data-artist="${esc(a.artist)}">${esc(a.artist)}</a>${a.year ? ' · ' + esc(a.year) : ''}`, songs: a.songs})}
-    <div class="list">${rows('view')}</div></div>`;
+    <div class="list cols">${rows('view')}</div></div>`;
   scrollTo({top: 0});
 }
 async function showGenre(name) {
@@ -1230,14 +1303,20 @@ let openPl = null;
 async function showPlaylist(p) {
   openPl = p; lists = {}; setList('view', p.songs, 'lista');
   wrap.innerHTML = `<div class="fade"><h2>${backBtn()}</h2>${hero({img: plCover(p), title: p.name, sub: 'Playlist', songs: p.songs,
-      acts: '<button class="pill glass" id="plRen">Cambiar nombre</button><button class="pill glass" id="plDel">Borrar</button>'})}
-    ${p.songs.length ? `<div class="list">${rows('view')}</div>` : '<div class="empty">Añade canciones desde su menú ⋮ → «Añadir a playlist».</div>'}</div>`;
-  $('plRen').onclick = async () => {
+      acts: `<button class="kebab glass" id="plMas" aria-label="Más opciones de la playlist">${KEBAB}</button>`})}
+    ${p.songs.length ? `<div class="list cols">${rows('view')}</div>` : '<div class="empty">Añade canciones desde su menú ⋮ → «Añadir a playlist».</div>'}</div>`;
+  // Cambiar nombre y Borrar, en el menú ⋮ de la playlist (con la confirmación de siempre al borrar)
+  $('plMas').onclick = () => {
+    sheet(`<h4>${esc(p.name)}</h4><button class="opt" id="plRen"><i>✏️</i><span>Cambiar nombre</span></button>
+      <button class="opt" id="plDel"><i>🗑️</i><span>Borrar la playlist<small>Las canciones no se borran</small></span></button>`);
+    $('plRen').onclick = () => { closeSheet(); renombra(); }; $('plDel').onclick = () => { closeSheet(); borra(); };
+  };
+  const renombra = async () => {
     const name = await askName('Cambiar nombre', p.name); if (!name) return;
     const old = p.name; p.name = name;
     try { await savePl(p); showPlaylist(p); } catch (e) { p.name = old; toast('No se pudo guardar'); }
   };
-  $('plDel').onclick = async () => {
+  const borra = async () => {
     if (!await confirmSheet(`¿Borrar «${p.name}»?`, 'Las canciones no se borran, solo la lista.', 'Borrar')) return;
     try { await api('/playlists/' + encodeURIComponent(p.id), {method: 'DELETE'}); pls = pls.filter(x => x !== p); libTab = 'playlists'; go('biblioteca'); }
     catch (e) { toast('No se pudo borrar'); }
@@ -1249,7 +1328,7 @@ async function showPlaylist(p) {
 let libTab = 'playlists';
 async function biblioteca() {
   lists = {};
-  wrap.innerHTML = `<div class="title-big">Tu biblioteca<button class="add glass imp" id="plImp" aria-label="Importar playlist de YouTube" title="Importar playlist de YouTube">🔗</button><button class="add glass" id="plAdd" aria-label="Nueva playlist">＋</button></div>
+  wrap.innerHTML = `<div class="title-big">Tu biblioteca<button class="pill glass imp" id="plImp" title="Importar playlist de YouTube">🔗 Importar</button><button class="pill main" id="plAdd">＋ Nueva playlist</button></div>
     <div class="chips" id="libChips"><button class="chip glass" data-v="playlists">Playlists</button><button class="chip glass" data-v="favoritas">Me gusta</button>
       <button class="chip glass" data-v="historial">Historial</button><button class="chip glass" data-v="artistas">Artistas</button></div><div id="lib" class="fade"></div>`;
   $('libChips').onclick = e => { const c = e.target.closest('.chip'); if (c) { libTab = c.dataset.v; showLib(); } };
@@ -1265,23 +1344,23 @@ async function showLib() {
   const box = $('lib'); box.innerHTML = '<div class="empty">Cargando…</div>';
   if (libTab === 'playlists') {
     await loadPls();
-    box.innerHTML = pls.length ? `<h2>Playlists <small>${pls.length}</small></h2><div class="grid">${pls.map((p, i) => `<button class="card glass" data-pl="${i}">
+    box.innerHTML = pls.length ? `<h2>Playlists <small>${pls.length}</small></h2><div class="grid filas">${pls.map((p, i) => `<button class="card glass" data-pl="${i}">
         ${plCover(p) ? `<img src="${esc(plCover(p))}" loading="lazy" alt="">` : '<span class="ph">🎵</span>'}<div><b>${esc(p.name)}</b><small>${nSongs(p.songs.length)}</small></div></button>`).join('')}</div>`
       : '<div class="empty">Todavía no tienes playlists.<br>Crea una con ＋ o desde el menú ⋮ de cualquier canción.<br>Son las mismas que en la app.</div>';
   } else if (libTab === 'favoritas') {
     await loadFavs(); setList('lib', [...favs.values()], 'lista');
-    box.innerHTML = favs.size ? `<h2>Me gusta <small>${favs.size}</small></h2><div class="acts">${PLAY_BTNS('lib', favs.size)}</div><div class="list">${rows('lib')}</div>`
+    box.innerHTML = favs.size ? `<h2>Me gusta <small>${favs.size}</small></h2><div class="acts">${PLAY_BTNS('lib', favs.size)}</div><div class="list cols">${rows('lib')}</div>`
       : '<div class="empty">Toca ♡ en una canción para guardarla aquí.<br>Se ve igual en la app y en la web.</div>';
   } else if (libTab === 'historial') {
     setList('lib', (await api('/history?limit=100').catch(() => ({songs: []}))).songs, 'lista');
-    box.innerHTML = lists.lib.songs.length ? `<h2>Lo último que pusiste</h2><div class="list">${rows('lib')}</div>` : '<div class="empty">Todavía no has puesto nada.</div>';
+    box.innerHTML = lists.lib.songs.length ? `<h2>Lo último que pusiste <small>${lists.lib.songs.length}</small></h2><div class="list cols">${rows('lib')}</div>` : '<div class="empty">Todavía no has puesto nada.</div>';
   } else {
     // Como en Spotify: solo los tuyos (los que escuchas o tienes en Me gusta / playlists), los que más primero
     const j = await api('/artists?orden=tuyos'); artistsCache = j.artists;
     const mios = j.artists.filter(x => x.tuyo);
-    const todos = () => { box.innerHTML = `<h2>Todos los artistas <small>${j.artists.length}</small></h2><div class="grid">${artistCards(j.artists.slice(0, 400))}</div>`; };
+    const todos = () => { box.innerHTML = `<h2>Todos los artistas <small>${j.artists.length}</small></h2><div class="grid filas">${artistCards(j.artists.slice(0, 400))}</div>`; };
     if (!mios.length) return todos();
-    box.innerHTML = `<h2>Tus artistas <small>${mios.length}</small></h2><div class="grid">${artistCards(mios)}</div>
+    box.innerHTML = `<h2>Tus artistas <small>${mios.length}</small></h2><div class="grid filas">${artistCards(mios)}</div>
       <div class="more"><button class="pill glass" id="artTodos">Ver todos los artistas (${j.artists.length})</button></div>`;
     $('artTodos').onclick = () => { todos(); scrollTo({top: 0}); };
   }
@@ -2037,7 +2116,9 @@ function saltaEnCola(i) { if (!queue[i] || i === qi) return; qi = i; start(); }
 let npTab = 'cola';
 const panelFijo = matchMedia('(min-width: 1100px)');   // en el PC el reproductor grande ya está a la derecha
 panelFijo.addEventListener('change', () => { if (!panelFijo.matches && tab === 'ahora') go('inicio'); });   // Ahora es solo del PC
-const tresColumnas = matchMedia('(min-width: 1500px)');   // la cola, en su barra de la izquierda
+// La cola ya no tiene columna fija a la izquierda (más sitio para el contenido): vive en el panel del reproductor,
+// pestaña Cola, bajo demanda (07-11-2026). La media query no se cumple nunca; el código de la barra queda por si vuelve.
+const tresColumnas = matchMedia('(min-width: 100000px)');
 tresColumnas.addEventListener('change', () => { if (!tresColumnas.matches && npTab === 'letra' && !cur) npTab = 'cola'; paintNp(); });
 setTimeout(paintNp, 0);   // al abrir la página: los mensajes de "sin música" del panel y de la cola
 function npVisible() { return panelFijo.matches || $('np').classList.contains('on'); }

@@ -180,9 +180,19 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
   - **≥1100 px:** contenido a la izquierda y el **reproductor grande fijo a la derecha** (portada viva, controles,
     volumen, cola y letra) en una tarjeta flotante con un ecualizador animado mientras suena; sin canción, "Aquí
     sonará tu música". La barra pequeña de abajo se oculta.
-  - **≥1500 px:** tres tarjetas iguales: **la cola ("Siguiente") a la izquierda**, siempre a la vista, el contenido
-    en medio y a la derecha solo la letra, con "Letra · ocultar" / "Mostrar letra" (se recuerda) y su barra pegada
-    arriba al bajar.
+  - El reproductor de la derecha es más ancho (`--panel`: 420–560 px, 30 % del ancho) para que luzca el Canvas.
+    **Desde el 07-11-2026 no hay columna fija de la cola** a la izquierda (más sitio para el contenido): la cola y la
+    letra están en las pestañas **Siguiente | Letra** del reproductor, bajo demanda (`tresColumnas` ya no se cumple
+    nunca; el código de la barra se queda por si vuelve).
+  - **Vistas en listas, no en cuadrículas de portadas** (07-11-2026; `docs/afina-inicio-propuesta-20261106`):
+    **Inicio**: saludo, "Retoma tu música" (3 pequeñas), dos paneles de filas lado a lado (Escuchadas recientemente ·
+    Para ti, 6 cada uno, "Ver todo": el historial a Biblioteca, Para ti se despliega), una franja de álbumes
+    recientes (tarjetas horizontales pequeñas), otros dos paneles (Tus favoritas · Lo más puesto), géneros en una fila
+    y tus artistas en una franja pequeña. **Buscar**: géneros en una fila deslizable, "Ordenar" agrupado.
+    **Biblioteca**: "＋ Nueva playlist" (principal) e "🔗 Importar"; playlists y artistas en filas compactas a dos
+    columnas. **Listas anchas** (Me gusta, historial, playlist, álbum, artista): columna de álbum entre la canción y
+    la duración. **Playlist**: ▶ Reproducir y 🔀 Aleatorio; "Cambiar nombre" y "Borrar" en su ⋮. En pantallas
+    estrechas, todo apilado.
 - **Lo demás:** cristal (fondo translúcido con desenfoque) en tarjetas, reproductor y barras; el fondo toma los
   colores de la portada. Barras de scroll finas, sin scroll horizontal. Minirreproductor con anterior/siguiente y
   **volumen** (flechas arriba/abajo; se recuerda; en el móvil manda el del teléfono). Controles en la pantalla de
