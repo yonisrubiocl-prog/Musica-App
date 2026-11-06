@@ -321,7 +321,7 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 
 ### Escuchar en varios dispositivos (como Spotify Connect)
 
-Desde el 06-11-2026 (`server/conectar.py`; en la web; la app, pendiente). Cada cuenta tiene **una reproducción**: la
+Desde el 06-11-2026 (`server/conectar.py`; en la web y la app). Cada cuenta tiene **una reproducción**: la
 que suena en un dispositivo (la web del PC, la app del celular…), y los demás de la misma cuenta **la ven y la
 manejan**. No toca YouTube.
 - **Cada dispositivo** se da un id (la web lo guarda en el navegador) y un nombre ("PC · Chrome", "Celular · Chrome").
@@ -340,9 +340,9 @@ manejan**. No toca YouTube.
 - Si el que sonaba se cierra, lo de allí queda en los demás **en pausa, en su segundo**, para seguir donde se dejó.
 - El que suena cuenta play, pausa, fin de canción y cada orden **al momento** (no espera al intervalo: con la pestaña
   en segundo plano Chrome lo frena a una vez por minuto; lo avisó la sesión de la app el 06-11-2026).
-- **Google Cast (app, próxima versión):** el celular manda a la TV los enlaces de `POST /stream/<id>/enlace` (la TV
-  pide `/stream/<id>?t=…` con Range; firmados, sin sesión en la cabecera, 6 h); en `/conectar` sigue de activo el
-  celular, con el nombre "Celular · App → <TV>". La API no necesitó nada nuevo (comprobado: 206 con Range por el túnel).
+- **La TV** (Google Cast, ver "Pantalla de la TV") es un dispositivo más: id que empieza por `tv`, con el nombre de
+  Cast ("TV YONIS"). Se puede desconectar desde cualquiera (⏻ en "Dónde suena", orden `desconectar`) y al cerrarse se
+  despide (`POST /conectar/salir`).
 - Se guarda en `/data/conectar.json` cada 20 s. Prueba con dos navegadores sin tocar cuentas reales:
   `tools/probar-conectar.sh` (servidor de mentira con la lógica real y audio de mentira).
 
@@ -350,14 +350,15 @@ manejan**. No toca YouTube.
 
 Desde el 06-11-2026: `server/web/tv.html` + `tv.js`, en `https://musica.yoneapolis.com/tv/`, registrada en la consola
 de Cast como receptor propio (App ID `25E4DFA9`, inédito: solo en la TV registrada del dueño; modo invitado apagado).
-La app (sender) manda la cola por Cast (la que suena y las siguientes, mejor 6 para llenar "A continuación": `contentUrl` = enlace firmado de
-`POST /stream/<id>/enlace`, `audio/webm`, metadata de música con portada, `customData.id`) y maneja pausa, siguiente,
-etc. La página suena en su `<audio>` con el reproductor de CAF y enseña, para mirarla de lejos en 16:9: el **Canvas**
+**La TV es independiente**, como la app: con su llave (ver abajo) pide ella lo que necesita a la API, pone su cola y
+suena sola, y en "varios dispositivos" es uno más. La web o el celular solo la encienden (llave + "coge lo que
+suena") y luego son su mando. Enseña, para mirarla de lejos en 16:9: el **Canvas**
 (vertical) o la portada que se mueve, el fondo difuminado que respira, título y artista grandes, la **letra** (línea
 actual y siguiente), la barra y **"A continuación"**. El vídeo se para con la música. En un parlante Cast (sin
 pantalla) solo suena: no pide Canvas ni letra.
-- **El reproductor es el `<audio>`**, el único elemento de medios al arrancar; el `<video>` del Canvas lo crea `tv.js`
-  después, cuando hace falta (con `disableRemotePlayback`). En la primera prueba (06-11-2026, Google TV iFFalcon, app
+- **El reproductor es un `<video id="audio">` invisible** (contenido `video/webm` aunque solo sea audio; antes
+  `<audio>`, cambiado por la barra de Cast de la Chromecast con Google TV, ver abajo, sin efecto), el único elemento de
+  medios al arrancar; el `<video>` del Canvas lo crea `tv.js` después, cuando hace falta (con `disableRemotePlayback`). En la primera prueba (06-11-2026, Google TV iFFalcon, app
   1.0.46) el vídeo estaba en el HTML antes que el audio y Cast lo cogió a él: no sonaba, se pausaba y cada canción
   duraba 7 s. En `chrome://inspect` salen avisos `[tv] …` (qué se cargó, cuánto dura según Cast, si el audio tiene el
   `/stream` y cuántos vídeos hay).
@@ -389,9 +390,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   cuenta conectada por otro (la app); conectar entonces desde la web solo le da la llave (sin cola: no la corta). La
   llave lleva el nombre de la TV (`nombre`, el de Cast) y así sale en "Dónde suena". Mientras suena en
   otro, la TV hace de **espejo**: enseña esa canción, su barra y "Sonando en PC · Chrome", y sus botones la manejan
-  a distancia (órdenes de `/conectar`). (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
-  sonar a la vez.) La app aún manda por Cast la cola a trozos: debería hacer lo mismo que la web.
-- **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web (y la app, pendiente) le
+  a distancia (órdenes de `/conectar`). (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se
+  descuadraban: dos maneras de sonar a la vez.) La app lo iguala con `docs/app-paridad.md`, punto 14.
+- **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web o la app le
   pide una y se la manda a la TV por un canal propio de Cast (`urn:x-cast:com.yoneapolis.musica`, `{tipo: "llave",
   llave, caduca}`); al desconectar la anula (`DELETE /tv/llave`). Empieza por `tv.`, dura 24 h, no cuenta como
   dispositivo y **solo vale para mirar y escuchar** (`TV_ALLOWED` en `app.py`: Inicio, biblioteca, playlists, artistas,
@@ -414,14 +415,27 @@ pantalla) solo suena: no pide Canvas ni letra.
 - **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
   final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,
   en un cuadrito de cristal. En los
-  menús, lo que suena queda **a la izquierda** en un panel solo de información (portada o Canvas, título, artista,
-  barra), como el panel del reproductor de la web en el PC; llegando a él con ← y OK se va a Ahora, donde están los
+  menús, lo que suena queda **a la izquierda** en un panel solo de información, como el reproductor de la web: el
+  Canvas (o la portada) de fondo en todo el panel y encima el título, el artista y la barra. El vídeo con medidas
+  **fijas** (las del panel): con ancho/alto automáticos esa TV (Chrome 92) lo pintaba en blanco. El borde de elegido
+  va por fuera del panel (el vídeo se pinta encima de lo que tenga dentro); llegando a él con ← y OK se va a Ahora, donde están los
   botones. Inicio empieza con un saludo ("Buenas tardes, Yoni") y accesos rápidos (Me gusta y 5 playlists); las filas
   van de borde a borde, alineadas con los títulos. En las listas, cada canción con su número y la que suena marcada.
   Las flechas: de lado gana lo que está a la misma altura; arriba/abajo, lo de la misma columna.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
   canción que suena, o con la llave si aún no suena nada) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
   Lo que hace la web con la TV (cuántas le manda, a qué canción pasó) va a `POST /web/registro`: `grep "Web de"`.
+- **La TV del usuario** es Chrome 92 a 960×540 (dpr 2): las capturas de prueba, a ese tamaño. Tras publicar, la TV
+  coge `tv.js` nuevo al reconectar (va con `?v=<fecha>`: Cloudflare guardaba los `.js` 4 h); la web, recargando la
+  pestaña (y cerrando las viejas: todas se unen al Cast). El Chromium de las pruebas no reproduce los Canvas (H.264).
+- **Pendiente: la barra de Cast en la Chromecast con Google TV** (la de Juancho, Android 14): al pausar, Cast pone su
+  interfaz encima (título, barra blanca, iconos en cuadraditos) y se queda el control hasta dar play desde fuera
+  (`hasMediaControlsOverlay()` = true; en la TV del usuario, false). Probado sin efecto: `touchScreenOptimizedApp`,
+  `<video>` + `video/webm`. Puesto y sin probar allí: esconder lo que Cast meta en la página (`escondeIntrusos`, lo
+  apunta en el registro) y recuperar el foco solo. Google no documenta cómo quitarla; según GPT se esconde sola a los
+  5 s en pausa. Siguiente si no: pausar sin la pausa de Cast (volumen a 0).
+- **Pendiente: saludo "lista" (HELLO → READY)**: que la TV avise por el canal al cargar y la web, si no llega en ~20 s,
+  diga "la TV no respondió" y cierre limpio (a veces la pantalla no llega a abrirse).
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra
   necesitan un `t` válido). En la TV registrada se depura desde `chrome://inspect` del PC.
 

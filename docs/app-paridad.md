@@ -203,32 +203,30 @@
     "🔋 Modo ahorro: apagar todo" (y "Encender todo" si ya están apagados).
 14. **Enviar a la TV (Google Cast, receptor propio `25E4DFA9` en `/tv/`)** (06-11-2026; así lo hace la web): la TV es
     **independiente**, como un dispositivo más, y el celular solo la enciende y luego es su mando.
-    - **Cambio (06-11-2026, noche):** mejor que mandar la cola por el canal (un mensaje de Cast tiene tope de tamaño
-      y con 300 canciones a veces no llega): contar antes el estado con la cola entera (`POST /conectar/estado` con
-      `tomar: true`) y mandar a la TV `{tipo: "toma"}` tras la llave; la TV coge lo que suena de `/conectar`.
-    - Al conectar: `POST /tv/llave` → `{llave, caduca}` y por el canal propio `urn:x-cast:com.yoneapolis.musica`
-      mandar `{tipo: "llave", llave, caduca}` y **después** `{tipo: "cola", cola, qi, pos, radio}`: la cola entera
-      (fichas `id, title, artist, album, duration, thumb, where`; hasta 300: desde 20 antes de la que suena), `qi` la
-      que suena dentro de esa lista, `pos` el segundo. La TV pide ella los enlaces (`POST /stream/enlaces`), la pone y
-      suena; en `/conectar` aparece como dispositivo `TV` (id que empieza por `tv`) y se queda la música.
+    - **Al conectar (sesión nueva):** `POST /tv/llave` → `{llave, caduca}`. Si la música no está ya sonando en esa TV:
+      1. `POST /conectar/estado` con la cola entera de aquí (`datos`: `cancion, pos, pausa: false, qi, cola, radio,
+         repetir, aleatorio, duracion`) y `tomar: true` (aunque estuviera de mando de otro: lo de allí pasa a la TV);
+      2. por el canal propio `urn:x-cast:com.yoneapolis.musica`: `{tipo: "llave", llave, caduca, nombre}` y después
+         `{tipo: "toma"}`. La TV coge de `/conectar` lo que suena (300 alrededor de la que suena), pide los enlaces
+         (`POST /stream/enlaces`) y suena; en `/conectar` es un dispositivo `tv…` con `nombre` y se queda la música.
+      `nombre` = el nombre de Cast de la TV (`CastDevice.friendlyName`; sale en "Dónde suena").
+      **No** mandar la cola en el mensaje: un mensaje de Cast tiene tope de tamaño y con 300 canciones no llegaba
+      (`{tipo: "cola", cola, qi, pos, radio}` sigue valiendo, ≤100 canciones, solo sin "varios dispositivos").
+      Si a los 5 s de la llave nadie le pasó nada, la TV coge lo que suena en la cuenta ella sola.
+    - **Si la TV ya suena con la cuenta** (la conectó otro dispositivo): solo la llave, sin `toma` (si no, se corta
+      un segundo). El botón de Cast dice "En <TV>" también en ese caso (activo `tv…` vivo en `/conectar`).
+    - **Sesión retomada** (volver a la app con Cast conectado): solo una llave nueva; la TV sigue con lo suyo.
     - **No** usar `queueLoad`/`queueInsertItems` con enlaces de `/stream/<id>/enlace` (la manera vieja: se
       descuadraban las listas y la TV dejaba de contar lo que suena).
-    - Mientras está conectada, el celular es **mando** de la TV (como con otro dispositivo en "varios dispositivos"):
-      play, siguiente, anterior, ir a un segundo y cualquier cambio de cola van como `POST /conectar/orden`; el celular
-      no cuenta su estado (`/conectar/estado`) ni suena. El volumen sí por Cast (el de la TV). Si es radio y quedan 2
-      o menos, el mando busca más (una vez cada 30 s como mucho) y las manda en la cola nueva.
-    - Al recargar/volver a la app con la TV ya conectada (sesión retomada): solo una llave nueva, sin cola (la TV
-      sigue con lo suyo).
-    - Al desconectar: `DELETE /tv/llave {llave}` y lo que sonaba en la TV queda en el celular, en pausa, en el
-      mismo segundo.
-    - Lo que la TV hace sola (menús, Lista completa, botones del mando) llega por `/conectar` como cualquier
-      dispositivo: nada más que hacer en la app.
-    - Al desconectar Cast, si en `/conectar` el activo es una TV (`tv…`) aún viva, mandar también la orden
-      `desconectar {a}`: por si la TV se apagó sin despedirse (si no, se la ve "sonando" hasta 45 s más).
-    - El estado del botón de Cast: "En <TV>" también si en `/conectar` el activo es una TV (`tv…`) viva, aunque la
-      conectara otro dispositivo. Conectar en ese caso: solo `{tipo:"llave", llave, caduca, nombre}` (sin cola: no la
-      corta) y la app sigue de mando. `nombre` = el nombre de Cast de la TV (sale en "Dónde suena").
-    - **Desconectar desde cualquiera** (06-11-2026): en "Dónde suena", cada TV (id `tv…`) con un botón ⏻
-      "Desconectar" → `POST /conectar/orden {disp, tipo: "desconectar", datos: {a: <id de la TV>}}`. Vale aunque la
-      TV no sea la que suena y la conectara otro. El servidor deja lo que sonaba allí en este dispositivo, en pausa en
-      su segundo; la TV se cierra (y si la conexión de Cast era de este celular, termina sola como al desconectar).
+    - **Con Cast conectado, quién suena lo dice `/conectar`**, no la sesión de Cast: si el activo es la TV, el celular
+      es su mando (play, siguiente, anterior, ir, cambios de cola → `POST /conectar/orden`; no cuenta su estado ni
+      suena; el volumen, por Cast); si el activo es este celular ("Dónde suena" → este dispositivo), suena aquí y la TV
+      queda abierta en pausa (elegirla otra vez la retoma). Si es radio y quedan 2 o menos, el mando busca más (como
+      mucho cada 30 s) y manda la cola nueva.
+    - **Al desconectar Cast:** `DELETE /tv/llave {llave}`; si el activo es esa TV aún viva, también la orden
+      `desconectar {a}` (por si se apagó sin despedirse). Lo de la TV queda en el celular en pausa en su segundo; si
+      sonaba en el celular, sigue sin cortarse.
+    - **Desconectar desde cualquiera:** en "Dónde suena", cada TV (id `tv…`, 📺) con ⏻ → `POST /conectar/orden {disp,
+      tipo: "desconectar", datos: {a}}`. Vale aunque no sea la que suena y la conectara otro.
+    - Lo que la TV hace sola (menús, Lista completa, sus botones, el espejo de lo que suena en otro, despedirse con
+      `POST /conectar/salir`, cambiar de cuenta si otra persona la conecta) no necesita nada en la app.
