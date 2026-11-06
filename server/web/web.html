@@ -314,7 +314,7 @@
                          box-shadow: 0 10px 34px rgb(0 0 0 / calc(.35 * var(--sombra))); }
   .np.con-canvas .tabs::after { display: none; }
   .np.con-canvas .tabs button.on::after { bottom: 6px; left: 42%; right: 42%; }
-  .np.con-canvas :is(.top, .titles, .seek, .times, .ctls, .vol, .disp) { --texto: #fff; --texto2: rgb(255 255 255 / .78); color: var(--texto); }
+  .np.con-canvas :is(.top, .titles, .seek, .times, .ctls, .vol, .disps) { --texto: #fff; --texto2: rgb(255 255 255 / .78); color: var(--texto); }
   .np.con-canvas h3 { color: #fff; }
   .np.con-canvas .disp.fuera { color: var(--acento); }
   .np.con-canvas :is(.titles, .times, .top) { text-shadow: 0 1px 10px rgb(0 0 0 / .55); }
@@ -324,7 +324,8 @@
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   /* Dónde suena (escuchar en varios dispositivos): botón con un altavoz debajo de los controles; en color de acento si
      suena en otro dispositivo (lo de aquí es un mando) */
-  .np .disp { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px auto 0; padding: 7px 14px;
+  .np .disps { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+  .np .disp { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 14px;
               border-radius: 999px; color: var(--texto2); font-size: .86rem; font-weight: 600; }
   .np .disp[hidden] { display: none; }
   .np .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
@@ -555,7 +556,8 @@ aplicarTema();
       <button class="ctl toggle" id="npRepeat" aria-label="Repetir"></button>
     </div>
     <div class="vol"><button data-mute aria-label="Silenciar"></button><input type="range" min="0" max="100" data-vol aria-label="Volumen"></div>
-    <button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
+    <div class="disps"><button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
+      <button class="disp" id="npTv" hidden aria-label="Enviar a la TV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span id="npTvT"></span></button></div>
     <div class="tabs" id="npTabs"><button data-np="cola" class="on">Siguiente</button><button data-np="letra">Letra</button></div>
     <div id="npPanel"></div>
   </div>
@@ -1214,6 +1216,7 @@ wrap.addEventListener('click', e => {
 // o una lista (playlist, álbum, Me gusta…: con aleatorio, y al acabar sigue con parecidas si está activado).
 const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
+let tv = null, tvListo = false, tvMasCorre = false;   // suena en la TV (Google Cast): {sesion, player, ctrl, nombre, base, hasta, pos}; ver "enviar a la TV"
 // Dos aleatorios independientes: el general (Inicio, Biblioteca, playlists, álbumes) y el de la página de un
 // artista (empieza apagado). El botón cambia el de lo que está sonando.
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
@@ -1335,6 +1338,7 @@ function informaFallo(donde, s, e) {
 // Si suena en otro dispositivo (remoto), no suena aquí: se le manda la cola nueva con la canción que toca.
 function start(desde = 0, sonar = true) {
   if (remoto && !cxAplicando) { cur = queue[qi]; if (!cur) return; cxManda('cola', {...cxCola(), nueva: true}); return pintaCancion(); }
+  if (tv) { cur = queue[qi]; if (!cur) return; tvCarga(qi, desde); pintaCancion(); if (isRadio && queue.length - 1 - qi <= 2) fillRadio(); return; }
   cierraLaQueSonaba();
   cur = queue[qi]; if (!cur) return;
   playing = {s: cur, ctx: cur._rec ? (['para_ti', 'vuelve'].includes(listCtx) ? listCtx : 'radio') : listCtx};
@@ -1359,20 +1363,22 @@ function pintaCancion() {
 }
 async function next() {
   if (remoto) return cxManda('siguiente');
+  if (tv && qi < queue.length - 1 && tv.hasta > qi) return tv.sesion.getMediaSession()?.queueNext(() => {}, () => { qi++; start(); });
   if (qi < queue.length - 1) { qi++; return start(); }
   if (repeat === 'all' && queue.length) { qi = 0; return start(); }
   if (isRadio || follow) { const n = await fillRadio(); if (n) { qi++; return start(); } }
   audio.pause(); audio.currentTime = 0;
 }
-function prev() { if (remoto) return cxManda('anterior'); if (audio.currentTime > 3 || qi === 0) audio.currentTime = 0; else { qi--; start(); } }
+function prev() { if (remoto) return cxManda('anterior'); if (tiempo() > 3 || qi === 0) irA(0); else { qi--; start(); } }
 // play/pausa: aquí, o en el dispositivo donde suena. Lo que vino de otro (aún sin enlace) empieza en su segundo.
 function playPausa() {
   if (remoto) return cxManda('pausa', {pausar: !cx.sonando?.pausa});
+  if (tv) return tv.ctrl.playOrPause();
   if (!cur) return;
   if (!audio.src) return start(cxPos || 0);
   audio.paused ? audio.play() : audio.pause();
 }
-const irA = t => { if (remoto) cxManda('ir', {pos: t}); else audio.currentTime = t; };
+const irA = t => { if (remoto) cxManda('ir', {pos: t}); else if (tv) { tv.player.currentTime = t; tv.ctrl.seek(); } else audio.currentTime = t; };
 $('next').onclick = e => { e.stopPropagation(); next(); };
 $('prev').onclick = e => { e.stopPropagation(); prev(); };
 $('play').onclick = e => { e.stopPropagation(); playPausa(); };
@@ -1388,6 +1394,7 @@ let vol = store.get('volumen', 100), volAntes = vol || 100;
 function ponVolumen(v, guardar = true) {
   vol = Math.max(0, Math.min(100, Math.round(v)));
   audio.volume = (vol / 100) ** 2;   // curva: así el tramo bajo se puede afinar (el oído no es lineal)
+  if (tv && guardar) { tv.player.volumeLevel = vol / 100; tv.ctrl.setVolumeLevel(); }   // en la TV, el de la TV
   document.querySelectorAll('[data-vol]').forEach(i => { i.value = vol; i.style.setProperty('--v', vol + '%'); });
   document.querySelectorAll('[data-mute]').forEach(b => { b.innerHTML = VOL_ICO(vol); b.setAttribute('aria-label', vol ? 'Silenciar' : 'Activar sonido'); });
   if (guardar) store.set('volumen', vol);
@@ -1413,9 +1420,9 @@ audio.onplay = () => { ico(false); cxYa(); }; audio.onpause = () => { ico(true);
 audio.addEventListener('ended', () => cxYa());
 let seeking = false;
 // el segundo y la duración de lo que suena: aquí, o lo que dice el dispositivo donde suena (contando lo que pasó desde)
-const tiempo = () => remoto ? cxPosAhora() : audio.currentTime;
-const duracion = () => (remoto ? cx?.sonando?.duracion : audio.duration) || cur?.duration || 0;
-const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : !audio.paused;
+const tiempo = () => remoto ? cxPosAhora() : tv ? tv.player.currentTime || 0 : audio.currentTime;
+const duracion = () => (remoto ? cx?.sonando?.duracion : tv ? tv.player.duration : audio.duration) || cur?.duration || 0;
+const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : tv ? !tv.player.isPaused : !audio.paused;
 function pintaTiempo() {
   const t = tiempo(), d = duracion();
   $('progI').style.width = d ? (100 * Math.min(t, d) / d) + '%' : 0;
@@ -1504,23 +1511,24 @@ async function cxManda(tipo, datos = {}) {
 }
 async function cxCuenta() {   // el que suena cuenta lo que pasa (y se queda la música si suena aquí)
   if (!cur || remoto) return;
-  const cargada = audioDe === cur.id;   // si no, aún suena (o está parado) el audio de la anterior: va por el 0
-  const datos = {cancion: fichaQ(cur), pos: cargada ? Math.round((audio.currentTime || 0) * 10) / 10 : 0, pausa: cargada && audio.paused, qi, radio: isRadio,
-                 repetir: repeat, aleatorio: shuffleNow(), duracion: audio.duration || cur.duration || 0};
+  const cargada = tv || audioDe === cur.id;   // si no, aún suena (o está parado) el audio de la anterior: va por el 0
+  const datos = {cancion: fichaQ(cur), pos: cargada ? Math.round(tiempo() * 10) / 10 : 0, pausa: cargada && !sonandoAhora(), qi, radio: isRadio,
+                 repetir: repeat, aleatorio: shuffleNow(), duracion: duracion()};
   const v = qVer; if (v !== cxColaContada) datos.cola = queue.map(fichaQ);
-  cxFirma = [cur.id, qi, qVer, repeat, audio.paused].join('|'); cxUltima = Date.now();
+  cxFirma = [cur.id, qi, qVer, repeat, !sonandoAhora()].join('|'); cxUltima = Date.now();
   try {
-    await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: DISP, nombre: DISP_NOMBRE, datos,
-      tomar: !audio.paused && cx?.activo !== DISP, hecho: cxOrden})});
+    await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: DISP, nombre: tv ? `${DISP_NOMBRE} → ${tv.nombre}` : DISP_NOMBRE,
+      datos, tomar: sonandoAhora() && cx?.activo !== DISP, hecho: cxOrden})});
     cxColaContada = v;
   } catch (e) {}
 }
 function cxHaz(o) {   // una orden de otro dispositivo para este, que es el que suena
   const d = o.datos || {};
-  if (o.tipo === 'pausa') { if (d.pausar) audio.pause(); else if (!audio.src) start(cxPos); else audio.play().catch(() => {}); }
+  if (o.tipo === 'pausa' && tv) { if (!!d.pausar !== !sonandoAhora()) tv.ctrl.playOrPause(); }
+  else if (o.tipo === 'pausa') { if (d.pausar) audio.pause(); else if (!audio.src) start(cxPos); else audio.play().catch(() => {}); }
   else if (o.tipo === 'siguiente') next();
   else if (o.tipo === 'anterior') prev();
-  else if (o.tipo === 'ir') audio.currentTime = d.pos || 0;
+  else if (o.tipo === 'ir') irA(d.pos || 0);
   else if (o.tipo === 'cola' && d.cola?.length) {
     const antes = cur?.id;
     queue = d.cola.slice(); qi = Math.max(0, Math.min(d.qi || 0, queue.length - 1)); queueSig = ''; qVer++;
@@ -1560,6 +1568,7 @@ function cxRecibe(r) {
     for (const o of nuevas) { cxOrden = o.n; cxHaz(o); }
     if (nuevas.length) cxCuenta();   // sin setTimeout: en segundo plano lo frenaría el navegador
   } else if (otro && s?.cancion) {
+    if (!remoto && tv && sonandoAhora()) tv.ctrl.playOrPause();   // otro dispositivo se quedó la música: la TV se pausa
     if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
     cxEspejo(s);
   } else if (remoto || (!cur && s?.cancion)) {   // el que sonaba se cerró: lo de allí queda aquí, en pausa
@@ -1589,20 +1598,21 @@ setInterval(() => {   // cada segundo: el mando pinta el segundo y manda los cam
     if (!cxAplicando && (qVer !== cxQVer || repeat !== cxRep)) cxManda('cola', cxCola());
     return;
   }
-  if (!cur || (cx?.activo !== DISP && audio.paused)) return;
-  if ([cur.id, qi, qVer, repeat, audio.paused].join('|') !== cxFirma || (!audio.paused && Date.now() - cxUltima > 15000)) cxCuenta();
+  if (!cur || (cx?.activo !== DISP && !sonandoAhora())) return;
+  if ([cur.id, qi, qVer, repeat, !sonandoAhora()].join('|') !== cxFirma || (sonandoAhora() && Date.now() - cxUltima > 15000)) cxCuenta();
 }, 1000);
 audio.addEventListener('seeked', () => { if (!remoto && rend.conectar) cxCuenta(); });
 function pintaDisp() {
   $('npDisp').hidden = !rend.conectar;
   const fuera = remoto ? cxNombre(cx.activo) : '';
   $('npDisp').classList.toggle('fuera', !!fuera);
+  pintaTv();
   // solo con este dispositivo, el iconito y nada más; con otro abierto, "Este dispositivo" (se le puede pasar)
   const otros = (cx?.dispositivos || []).some(d => d.vivo && d.id !== DISP);
   $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : otros ? 'Este dispositivo' : '';
   $('npDispT').hidden = !fuera && !otros;
   $('npDisp').classList.toggle('solo', !fuera && !otros);
-  $('pEn').hidden = !fuera; $('pEn').textContent = fuera ? '🔊 En ' + fuera : '';
+  $('pEn').hidden = !fuera && !tv; $('pEn').textContent = fuera ? '🔊 En ' + fuera : tv ? '📺 En ' + tv.nombre : '';
   document.querySelector('.np .vol').style.visibility = fuera ? 'hidden' : '';   // el volumen es el de allí
 }
 $('npDisp').onclick = () => {
@@ -1621,6 +1631,99 @@ $('npDisp').onclick = () => {
 };
 if (session && rend.conectar) cxBucle();
 pintaDisp();
+
+// ---------- enviar a la TV (Google Cast; el receptor es /tv/, App ID 25E4DFA9) ----------
+// Chrome (PC o Android) con el SDK de Cast: 📺 abre la lista de TV de la red. Al conectar, lo que suena aquí sigue en la
+// TV en el mismo segundo: se le carga la canción y las 2 siguientes (enlaces firmados de /stream/<id>/enlace) y se le
+// van añadiendo más cuando pasa de canción. Los botones de siempre (play, siguiente, anterior, barra, volumen) manejan
+// la TV, y "varios dispositivos" cuenta lo que suena allí ("PC · Chrome → <TV>"). Al desconectar, sigue aquí en pausa.
+const TV_APP = '25E4DFA9';
+window.__onGCastApiAvailable = ok => {
+  if (!ok || !window.cast?.framework) return;
+  const c = cast.framework.CastContext.getInstance(), S = cast.framework.SessionState;
+  c.setOptions({receiverApplicationId: TV_APP, autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED});
+  tvListo = true;
+  c.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, pintaTv);
+  c.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, e => {
+    if (e.sessionState === S.SESSION_STARTED) tvEmpieza(c.getCurrentSession(), true);
+    else if (e.sessionState === S.SESSION_RESUMED) tvEmpieza(c.getCurrentSession(), false);   // recargó la página
+    else if (e.sessionState === S.SESSION_ENDED) tvTermina();
+  });
+  pintaTv();
+};
+function tvEmpieza(sesion, cargar) {
+  if (!sesion) return;
+  const player = new cast.framework.RemotePlayer(), ctrl = new cast.framework.RemotePlayerController(player);
+  tv = {sesion, player, ctrl, nombre: sesion.getCastDevice()?.friendlyName || 'la TV', base: qi, hasta: qi - 1, pos: 0};
+  ctrl.addEventListener(cast.framework.RemotePlayerEventType.ANY_CHANGE, tvCambio);
+  const pos = remoto ? cxPosAhora() : audio.src ? audio.currentTime : cxPos || 0;
+  remoto = false;   // si esto era un mando, al mandar a la TV la música pasa a ser de aquí (el otro se pausa solo)
+  audio.pause();
+  if (cargar && cur) tvCarga(qi, pos);
+  toast('Suena en ' + tv.nombre); pintaDisp(); cxCuenta();
+}
+function tvTermina() {
+  if (!tv) return;
+  const pos = tv.pos; tv = null;
+  toast('Se desconectó la TV');
+  if (cur) start(pos, false);   // aquí, en pausa, en el segundo de la TV
+  pintaDisp();
+}
+async function tvItem(s) {
+  const {url} = await api(`/stream/${encodeURIComponent(s.id)}/enlace`, {method: 'POST'});
+  const mi = new chrome.cast.media.MediaInfo(location.origin + url, 'audio/webm');
+  const m = new chrome.cast.media.MusicTrackMediaMetadata();
+  m.title = s.title || ''; m.artist = s.artist || ''; m.albumName = s.album || '';
+  if (s.thumb) m.images = [new chrome.cast.Image(s.thumb)];
+  mi.metadata = m; mi.customData = {id: s.id}; mi.streamType = chrome.cast.media.StreamType.BUFFERED;
+  if (s.duration) mi.duration = s.duration;
+  const it = new chrome.cast.media.QueueItem(mi); it.autoplay = true; it.preloadTime = 10;
+  return it;
+}
+async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: esa y las 2 siguientes
+  if (!tv) return;
+  try {
+    const items = await Promise.all(queue.slice(i, i + 3).map(tvItem));
+    if (!items.length || !tv) return;
+    const req = new chrome.cast.media.QueueLoadRequest(items);
+    req.startIndex = 0; req.currentTime = pos || 0; req.repeatMode = chrome.cast.media.RepeatMode.OFF;
+    tv.base = i; tv.hasta = i + items.length - 1;
+    await new Promise((ok, mal) => tv.sesion.getSessionObj().queueLoad(req, ok, mal));
+  } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
+}
+async function tvMas() {   // que la TV tenga siempre las 2 siguientes
+  if (!tv || tvMasCorre) return;
+  tvMasCorre = true;
+  try {
+    const media = tv.sesion.getMediaSession();
+    while (media && tv && tv.hasta < Math.min(queue.length - 1, qi + 2)) {
+      const it = await tvItem(queue[tv.hasta + 1]);
+      await new Promise((ok, mal) => media.queueAppendItem(it, ok, mal));
+      tv.hasta++;
+    }
+  } catch (e) { console.warn('Cast', e); } finally { tvMasCorre = false; }
+  if (isRadio && queue.length - 1 - qi <= 2) fillRadio();
+}
+function tvCambio(e) {
+  if (!tv) return;
+  const p = tv.player;
+  if (e.field === 'currentTime') { tv.pos = p.currentTime || 0; pintaTiempo(); }
+  else if (e.field === 'isPaused' || e.field === 'playerState') { ico(p.isPaused); cxCuenta(); }
+  else if (e.field === 'mediaInfo' && p.mediaInfo) {   // la TV pasó de canción
+    const id = new URL(p.mediaInfo.contentId || p.mediaInfo.contentUrl || '/', location.href).pathname.split('/')[2];
+    const j = queue.findIndex((x, k) => k >= tv.base && x.id === id);
+    if (j >= 0 && j !== qi) { qi = j; cur = queue[qi]; pintaCancion(); cxCuenta(); }
+    tvMas();
+  }
+}
+function pintaTv() {
+  const b = $('npTv'); if (!b) return;
+  const hay = tvListo && cast.framework.CastContext.getInstance().getCastState() !== cast.framework.CastState.NO_DEVICES_AVAILABLE;
+  b.hidden = !hay && !tv;
+  b.classList.toggle('fuera', !!tv); b.classList.toggle('solo', !tv);
+  $('npTvT').textContent = tv ? 'En ' + tv.nombre : ''; $('npTvT').hidden = !tv;
+}
+$('npTv').onclick = () => { if (tvListo) cast.framework.CastContext.getInstance().requestSession().catch(() => {}); };
 
 // ---------- reproductor grande ----------
 let npTab = 'cola';
@@ -1944,5 +2047,6 @@ function followLyrics() {
   go('inicio');
 })();
 </script>
+<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 </body>
 </html>

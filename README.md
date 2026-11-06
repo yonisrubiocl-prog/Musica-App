@@ -366,6 +366,13 @@ pantalla) solo suena: no pide Canvas ni letra.
   `*.googleusercontent.com` (portadas de YouTube Music); lo demás lo ignora (también al cargar o añadir a la cola).
   CSP: `script-src 'self' https://www.gstatic.com` (el código va en `tv.js`), media y connect solo de aquí (+ gstatic),
   sin fuentes de fuera; `X-Robots-Tag: noindex`.
+- **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
+  (sale si hay una TV con Cast en la red). Al conectar, lo que suena sigue en la TV en el mismo segundo: se le carga
+  la canción y las 2 siguientes y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
+  volumen manejan la TV; "varios dispositivos" cuenta lo de allí como "PC · Chrome → <TV>". Al desconectar, sigue en
+  la página en pausa.
+- **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
+  canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra
   necesitan un `t` válido). En la TV registrada se depura desde `chrome://inspect` del PC.
 

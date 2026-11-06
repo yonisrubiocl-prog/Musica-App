@@ -665,6 +665,11 @@ def stream_user(vid: str, request: Request):
     t = request.query_params.get("t")
     if t is None:
         return check_token(request)
+    return signed_user(vid, t, request)
+
+
+def signed_user(vid, t, request):
+    """(sub, usuario) de un enlace firmado de /stream/{id}/enlace para esa canción; 401 si está caducado o mal firmado."""
     sub, _, rest = t.partition(".")
     until, _, sig = rest.partition(".")
     ip = client_ip(request)
@@ -683,7 +688,7 @@ def stream_user(vid: str, request: Request):
 
 # Lo que se le pide al navegador en cada página (CSP en page()). Google: el botón de entrar (accounts.google.com/gsi) y
 # la letra Inter; lrclib.net: letras de canciones; las portadas vienen de varios sitios (YouTube, Google…): https.
-CSP = ("default-src 'self'; script-src 'nonce-{nonce}' https://accounts.google.com/gsi/client; "
+CSP = ("default-src 'self'; script-src 'nonce-{nonce}' https://accounts.google.com/gsi/client https://www.gstatic.com; "
        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; "
        "font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; media-src 'self' blob:; "
        "connect-src 'self' https://lrclib.net https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; "
@@ -828,6 +833,18 @@ def tv():
     siguiente. En un parlante Cast (sin pantalla) solo suena."""
     with open(os.path.join(WEB, "tv.html")) as f:
         return HTMLResponse(f.read(), headers={**TV_HEADERS, "Content-Security-Policy": CSP_TV})
+
+
+@app.post("/tv/registro")
+def tv_registro(request: Request, id: str = Body(embed=True, max_length=11), t: str = Body(embed=True, max_length=200),
+                lineas: list[str] = Body(embed=True, max_length=30)):
+    """Lo que cuenta la pantalla de la TV (sus avisos [tv] y errores) sale en el registro de la API: para depurarla sin
+    chrome://inspect. Sin sesión, pero solo con el ?t= válido de la canción que suena (como /stream): nadie de fuera
+    puede llenar el registro."""
+    sub, u = signed_user(valid_vid(id), t, request)
+    for x in lineas[:30]:
+        log.info("TV de %s: %s", u.get("email", sub[:6]), str(x)[:300])
+    return {"ok": True}
 
 
 @app.get("/tv/tv.js")

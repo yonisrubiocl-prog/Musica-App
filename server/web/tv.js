@@ -27,7 +27,20 @@ function limpia(media) {
   return media;
 }
 const imagenDe = media => media?.metadata?.images?.[0]?.url || '';
-const log = (...a) => console.log('[tv]', ...a);   // se ve en chrome://inspect (PC en la misma wifi)
+// Avisos: en la consola (chrome://inspect desde el PC) y en el registro de la API (POST /tv/registro, con la firma de
+// la canción que suena: sin ella el servidor no los acepta). Para depurar la TV sin tenerla delante.
+const pendientes = [];
+const log = (...a) => {
+  const txt = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
+  console.log('[tv]', txt); pendientes.push(txt); if (pendientes.length > 200) pendientes.shift();
+};
+setInterval(() => {
+  if (!pendientes.length || !actual?.t) return;
+  fetch('/tv/registro', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: actual.id, t: actual.t, lineas: pendientes.splice(0, 30)})}).catch(() => {});
+}, 3000);
+addEventListener('error', e => log('error JS:', e.message, `${e.filename}:${e.lineno}`));
+addEventListener('unhandledrejection', e => log('promesa rechazada:', String(e.reason)));
 // El vídeo del Canvas se crea aquí, cuando hace falta (no en el HTML): así Cast nunca lo toma por el reproductor
 const video = () => document.getElementById('canvas');
 function videoNuevo() {
@@ -117,6 +130,10 @@ if (window.cast && cast.framework && !demo) {
   const E = cast.framework.events.EventType, M = cast.framework.messages;
   const audio = $('audio');
   pm.setMediaElement(audio);
+  audio.addEventListener('error', () => log('error del <audio>:', audio.error?.code, audio.error?.message || ''));
+  audio.addEventListener('durationchange', () => log('el <audio> dura', Math.round(audio.duration), 's'));
+  audio.addEventListener('ended', () => log('el <audio> terminó en el', Math.round(audio.currentTime), 's'));
+  setInterval(() => { if (actual) { const r = leer(); log('estado:', Math.round(r.t), '/', Math.round(r.d), r.pausa ? 'pausa' : 'sonando', '· audio', audio.paused ? 'parado' : 'suena', Math.round(audio.currentTime)); } }, 30000);
   // Lo que no sea nuestro no entra: ni al cargar la cola ni al añadirle canciones
   const rechazo = () => new M.ErrorData(M.ErrorType.LOAD_FAILED);
   pm.setMessageInterceptor(M.MessageType.LOAD, req => {
