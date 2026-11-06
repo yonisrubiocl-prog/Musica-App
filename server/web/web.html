@@ -1656,7 +1656,6 @@ pintaDisp();
 // dispositivo): lo que se toque aquí le llega como orden. Igual que cuando se elige algo en los menús de la TV (antes
 // la web le iba pasando 2 o 6 canciones por Cast y se descuadraban). Al desconectar, sigue aquí en pausa.
 const TV_APP = '25E4DFA9', TV_CANAL = 'urn:x-cast:com.yoneapolis.musica';
-const TV_COLA = 300;   // las que se le pasan a la TV como mucho (las que pone ella de una vez)
 // Lo que pasa con la TV, al registro de la API (POST /web/registro: "Web de …"), para depurar sin tener el PC delante
 const tvAvisos = [];
 const tvLog = (...a) => { const t = a.join(' '); console.log('[tv]', t); tvAvisos.push(t); };
@@ -1673,14 +1672,26 @@ async function tvLlave(pon) {
     if (pon) tvPon(pon.i, pon.pos);
   } catch (e) { console.warn('llave de la TV', e); toast('No pude darle la llave a la TV'); }
 }
-// La cola de aquí, a la TV: desde la canción i (en el segundo pos); la TV la pone y suena ella
+// La cola de aquí, a la TV: desde la canción i (en el segundo pos); la TV la pone y suena ella. Primero se le cuenta al
+// servidor (cola entera y segundo, quedándose la música) y a la TV solo se le dice "coge lo que suena en la cuenta"
+// ({tipo:"toma"}): un mensaje de Cast tiene tope de tamaño y con 300 canciones a veces no llegaba (la TV no sonaba).
+// Sin "varios dispositivos" (Ajustes → Rendimiento), la cola va en el mensaje, recortada a TV_COLA_MSG.
+const TV_COLA_MSG = 100;
 async function tvPon(i, pos = 0) {
   if (!tv || !queue[i]) return;
-  const desde = Math.max(0, i - 20), cola = queue.slice(desde, desde + TV_COLA).map(fichaQ);
   try {
+    if (session && rend.conectar) {
+      const datos = {cancion: fichaQ(queue[i]), pos: pos || 0, pausa: false, qi: i, radio: isRadio, repetir: repeat,
+                     aleatorio: shuffleNow(), duracion: queue[i].duration || 0, cola: queue.map(fichaQ)};
+      await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: DISP, nombre: DISP_NOMBRE, datos, tomar: true, hecho: cxOrden})});
+      cxColaContada = qVer;
+      await tv.sesion.sendMessage(TV_CANAL, {tipo: 'toma'});
+      return tvLog('le pido que coja lo que suena en la cuenta:', queue.length, 'canciones, va en la', i + 1);
+    }
+    const desde = Math.max(0, i - 20), cola = queue.slice(desde, desde + TV_COLA_MSG).map(fichaQ);
     await tv.sesion.sendMessage(TV_CANAL, {tipo: 'cola', cola, qi: i - desde, pos: pos || 0, radio: isRadio});
     tvLog('le paso la cola:', cola.length, 'canciones, va en la', i - desde + 1, '· aquí había', queue.length);
-  } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
+  } catch (e) { toast('No pude mandarla a la TV'); tvLog('no pude mandarla a la TV:', String(e?.message || e?.code || e)); }
 }
 window.__onGCastApiAvailable = ok => {
   if (!ok || !window.cast?.framework) return;

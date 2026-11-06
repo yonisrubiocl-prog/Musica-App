@@ -101,12 +101,10 @@
   body.con-menu .escena { position: fixed; left: 4vw; top: 12vh; bottom: 4vh; width: 24vw; height: auto; z-index: 2; display: flex;
                           flex-direction: column; align-items: stretch; gap: 1.6vh; padding: 2.4vh; border-radius: 2.4vh;
                           background: rgb(28 25 48 / .72); box-shadow: 0 2vh 6vh rgb(0 0 0 / .45); }
-  /* el Canvas (o la portada) ocupa el panel de arriba abajo y a lo ancho; título, artista y barra DEBAJO, sin nada
-     encima del vídeo: en la TV (Chrome 92) el vídeo con cosas encima salía en blanco y tapaba el borde de elegido */
-  body.con-menu .escena { overflow: hidden; gap: 0; }
-  body.con-menu .media { flex: 1; min-height: 0; width: 100%; height: auto; aspect-ratio: auto; align-self: stretch;
-                         border-radius: 2.4vh 2.4vh 0 0; box-shadow: none; }
-  body.con-menu .info { gap: .8vh; padding: 1.8vh 2.4vh 2.2vh; }
+  /* el Canvas en un marco de tamaño fijo (9:16), como en Ahora, pero grande. Estirado a todo el panel (ancho y alto
+     automáticos) la TV (Chrome 92) lo pintaba en blanco, 06-11-2026: no volver a hacerlo */
+  body.con-menu .media { height: 64vh; align-self: center; }
+  body.con-menu .info { gap: .8vh; }
   body.con-menu .ahora, body.con-menu .album, body.con-menu .letra, body.con-menu .cola { display: none; }
   body.con-menu h1 { font-size: 3.2vh; }
   body.con-menu .artista { font-size: 2.2vh; }
@@ -119,7 +117,7 @@
   /* el borde de elegido, en el panel (por fuera): el vídeo de la TV se pinta por encima de lo que vaya sobre él */
   body.con-menu.panel-elegido .escena { box-shadow: 0 0 0 .5vh #fff, 0 0 6vh rgb(var(--acento-rgb) / .45); }
   body.con-menu:not(.con-cancion) .escena { display: none; }
-  body.con-menu.con-pestanas .escena { padding: 0; }
+  body.con-menu.con-pestanas .escena { padding: 2.4vh; }
   body.con-menu.con-cancion .menu { left: 30vw; }
   body.con-pestanas .escena { padding-top: 12vh; }
   .menu { position: fixed; top: 0; right: 0; bottom: 0; left: 0; padding: 12vh 0 0; overflow: hidden; z-index: 1; }

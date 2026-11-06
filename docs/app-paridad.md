@@ -203,6 +203,9 @@
     "🔋 Modo ahorro: apagar todo" (y "Encender todo" si ya están apagados).
 14. **Enviar a la TV (Google Cast, receptor propio `25E4DFA9` en `/tv/`)** (06-11-2026; así lo hace la web): la TV es
     **independiente**, como un dispositivo más, y el celular solo la enciende y luego es su mando.
+    - **Cambio (06-11-2026, noche):** mejor que mandar la cola por el canal (un mensaje de Cast tiene tope de tamaño
+      y con 300 canciones a veces no llega): contar antes el estado con la cola entera (`POST /conectar/estado` con
+      `tomar: true`) y mandar a la TV `{tipo: "toma"}` tras la llave; la TV coge lo que suena de `/conectar`.
     - Al conectar: `POST /tv/llave` → `{llave, caduca}` y por el canal propio `urn:x-cast:com.yoneapolis.musica`
       mandar `{tipo: "llave", llave, caduca}` y **después** `{tipo: "cola", cola, qi, pos, radio}`: la cola entera
       (fichas `id, title, artist, album, duration, thumb, where`; hasta 300: desde 20 antes de la que suena), `qi` la

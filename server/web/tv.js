@@ -441,14 +441,18 @@ function sigoAqui(s, cola) {
 }
 // Si a los 5 s de tener la llave nadie le ha pasado una cola (el mensaje de la web o la app se perdió o tardó: la
 // pantalla puede tardar ~20 s en cargar), la TV pregunta a la API qué suena en la cuenta y lo pone ella.
-async function siNadaSuena() {
-  if (actual || cx.propia || cx.ido) return;
+// (con espejo, "actual" es lo de otro dispositivo, no algo puesto aquí: antes eso lo cortaba)
+async function siNadaSuena() { if ((actual && !espejo) || cx.propia || cx.ido) return; return tomaDeLaCuenta('nadie me pasó la cola'); }
+// "Coge lo que suena en la cuenta": lo pide la web al conectar (mensaje {tipo:"toma"}) en vez de mandar la cola por
+// Cast (un mensaje de Cast tiene tope de tamaño: con 300 canciones a veces no llegaba y la TV no sonaba)
+async function tomaDeLaCuenta(por) {
   try {
     const r = await api(`/conectar?disp=${cx.disp}&nombre=${encodeURIComponent(cx.nombre)}&desde=-1`), s = r.sonando;
-    if (actual || cx.propia || !s?.cancion) return log('nadie me pasó la cola y en la cuenta no suena nada');
-    log('nadie me pasó la cola: pongo lo que suena en la cuenta,', s.cancion.title || s.cancion.id);
-    const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
-    tocar(cola, i, false, s.pos || 0, !!s.radio);
+    if (!s?.cancion) return log(por + ': en la cuenta no suena nada');
+    log(por + ': pongo lo que suena en la cuenta,', s.cancion.title || s.cancion.id);
+    const todas = s.cola?.length ? s.cola : [s.cancion], j = Math.max(0, todas.findIndex(x => x.id === s.cancion.id));
+    const desde = Math.max(0, j - 20);   // la TV pone 300 como mucho: alrededor de la que suena
+    tocar(todas.slice(desde, desde + 300), j - desde, false, s.pos || 0, !!s.radio);
   } catch (e) { log('no pude preguntar qué suena:', e.message); }
 }
 // Al cerrarse, la TV se despide (POST /conectar/salir): si no, los demás la veían "sonando" hasta 45 s más (VIVO del
@@ -479,8 +483,9 @@ async function cxBucle() {
         const s = r.sonando;
         if (!cx.propia && !eraActiva && s?.cancion && Date.now() - cx.tomada > 5000) {
           log('me pasan la música:', s.cancion.title || s.cancion.id);
-          const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
-          if (!sigoAqui(s, cola)) tocar(cola, i, false, s.pos || 0, !!s.radio);
+          const todas = s.cola?.length ? s.cola : [s.cancion], j = Math.max(0, todas.findIndex(x => x.id === s.cancion.id));
+          const desde = Math.max(0, j - 20), cola = todas.slice(desde, desde + 300);
+          if (!sigoAqui(s, cola)) tocar(cola, j - desde, false, s.pos || 0, !!s.radio);
         }
         eraActiva = true;
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
@@ -623,6 +628,8 @@ if (window.cast && cast.framework && !demo) {
       $('pestanas').hidden = false; document.body.classList.add('con-pestanas');
       if (primera && !actual) irA('inicio');
       if (primera) { cxBucle(); setTimeout(siNadaSuena, 5000); }
+    } else if (d.tipo === 'toma' && llave) {   // la web al conectar: que suene aquí lo que suena en la cuenta
+      tomaDeLaCuenta('la web me pide que lo ponga');
     } else if (d.tipo === 'cola' && llave && Array.isArray(d.cola)) {   // la web le pasa su cola al conectar: suena aquí
       log('la web me pasa', d.cola.length, 'canciones desde la', (d.qi || 0) + 1);
       tocar(d.cola, d.qi || 0, false, +d.pos || 0, !!d.radio);

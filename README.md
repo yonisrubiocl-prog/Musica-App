@@ -375,8 +375,10 @@ pantalla) solo suena: no pide Canvas ni letra.
   la canción salta con una flecha, queda en el registro ("saltó sola con la flecha"). El marco del Canvas es siempre
   vertical (9:16): sin Canvas, la portada cuadrada en medio sobre ella misma difuminada, para que no cambie de tamaño.
 - **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
-  (sale si hay una TV con Cast en la red). Al conectar, la web le da a la TV su llave y **la cola entera** (hasta 300,
-  `TV_COLA`; por el canal propio, `{tipo: "cola", cola, qi, pos, radio}`) y la TV la pone y suena ella, igual que al
+  (sale si hay una TV con Cast en la red). Al conectar, la web le cuenta al servidor la cola entera y el segundo (`/conectar/estado`, quedándose
+  la música) y a la TV le da su llave y `{tipo: "toma"}`: la TV coge de `/conectar` lo que suena en la cuenta (300
+  alrededor de la que suena) y suena ella (un mensaje de Cast tiene tope de tamaño: con la cola dentro, 300 canciones
+  a veces no llegaban; `{tipo: "cola"}` sigue valiendo, recortado, sin "varios dispositivos"), igual que al
   elegir algo en sus menús: cuenta lo que suena en "varios dispositivos" y la web pasa a ser **un mando** de la TV
   (play, siguiente, la barra, cambiar la cola… van como órdenes; el volumen, por Cast). Si es radio, el mando le busca
   más cuando quedan 2. Si a los 5 s de tener la llave nadie le ha pasado la cola (la pantalla puede tardar ~20 s en cargar y el
