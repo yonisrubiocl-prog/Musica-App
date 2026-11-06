@@ -72,6 +72,9 @@
    - **Si ya suena esa misma lista** (compara los ids de la lista con los de la que armó la cola), no rehacer la
      cola: la tocada se saca de donde esté y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya
      sonaron; si toca la que suena, nada). "▶ Reproducir" o una canción de otra lista sí empiezan de cero.
+   - **"🔀 Aleatorio"** al lado de "▶ Reproducir" (arriba de Me gusta, y en playlists, álbumes y géneros; solo si
+     hay 2 o más): enciende el aleatorio general (se queda encendido) y empieza de cero con una cualquiera de la
+     lista y el resto mezclado. En la página de un artista no hace falta (tiene su propio aleatorio).
      Ejemplo, cola A, B, Religión, Cucú, Bendita, Pop1: toca Religión → Religión, A, B, Cucú, Bendita, Pop1; pasa a
      A; toca Bendita → Bendita, B, Cucú, Pop1.
    - **"⏭ Reproducir a continuación"** en el menú de cada canción (si suena algo y no es esa): la mete justo detrás

@@ -151,6 +151,8 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     7, 1, 2, 3, 4, 5, 6, 8, 9…). Con aleatorio: la elegida y el resto mezclado.
   - **Si ya suena esa misma lista**, no se rehace: la tocada se adelanta y suena ya, y lo que venía detrás sigue
     igual (no vuelven las que ya sonaron). "▶ Reproducir" sí empieza de cero.
+  - **"🔀 Aleatorio"** al lado de "▶ Reproducir" (Me gusta, playlists, álbumes, géneros; si hay 2 o más): enciende el
+    aleatorio general y pone la lista entera mezclada empezando por una cualquiera.
   - **"⏭ Reproducir a continuación"** (menú ⋮ de cualquier canción): entra justo detrás de la que suena **solo en la
     cola de ahora** (no toca la playlist, Me gusta ni la lista de origen); varias, en el orden en que se añadieron;
     si ya estaba más adelante, se mueve. Sale marcada "Añadida" en la cola. Sin nada sonando, suena ya.
@@ -728,6 +730,7 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── probar-web.sh        prueba la web en un Chromium de verdad (Playwright en Docker, contra la API local)
 │   ├── prueba-cola.js       la prueba de la cola: arrastrar con ratón y con dedo (PC y móvil)
 │   ├── prueba-siguiente.js  la prueba de "Reproducir a continuación" (tools/probar-web.sh prueba-siguiente.js)
+│   ├── prueba-aleatorio.js  la prueba del botón 🔀 Aleatorio de Me gusta y playlists
 │   └── prueba-internet.js   la prueba de "Buscar en internet" (tools/probar-web.sh prueba-internet.js)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)

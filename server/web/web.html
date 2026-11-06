@@ -116,7 +116,7 @@
   .hero h3 { font-size: 1.5rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
   .hero p { color: var(--texto2); font-size: .9rem; margin-top: 6px; }
   .hero p a { color: var(--acento); cursor: pointer; }
-  .hero .acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .hero .acts, #lib > .acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .pill { padding: 9px 16px; border-radius: 999px; font-weight: 600; font-size: .9rem; }
   .pill.main { background: var(--acento); color: var(--sobre-acento); box-shadow: 0 6px 20px rgb(var(--acento-rgb) / .35); }
   @media (max-width: 560px) { .hero img, .hero .ph { width: 100px; height: 100px; } .hero h3 { font-size: 1.25rem; } }
@@ -960,10 +960,13 @@ async function netTab(which) {
 }
 
 // ---------- pantallas de lista (álbum, artista, playlist, género) ----------
+// ▶ Reproducir (desde la primera) y 🔀 Aleatorio (enciende el aleatorio y empieza por una cualquiera), de la lista key.
+const PLAY_BTNS = (key, n) => `<button class="pill main" data-playall data-l="${key}">▶ Reproducir</button>`
+  + (n > 1 ? `<button class="pill glass" data-shuffleall data-l="${key}">🔀 Aleatorio</button>` : '');
 function hero({img, title, sub, songs, round, acts = ''}) {
   return `<div class="hero${round ? ' round' : ''}">${img ? `<img src="${esc(img)}" alt="">` : '<span class="ph"></span>'}
     <div class="info"><h3>${esc(title)}</h3><p>${sub}</p>${songs ? `<p>${nSongs(songs.length)} · ${total(songs)}</p>` : ''}
-    <div class="acts">${songs && songs.length ? '<button class="pill main" data-playall>▶ Reproducir</button>' : ''}${acts}</div></div></div>`;
+    <div class="acts">${songs && songs.length ? PLAY_BTNS('view', songs.length) : ''}${acts}</div></div></div>`;
 }
 async function showNetAlbum(id) {
   const a = await api('/search/album/' + encodeURIComponent(id));
@@ -1056,7 +1059,7 @@ async function showLib() {
       : '<div class="empty">Todavía no tienes playlists.<br>Crea una con ＋ o desde el menú ⋮ de cualquier canción.<br>Son las mismas que en la app.</div>';
   } else if (libTab === 'favoritas') {
     await loadFavs(); setList('lib', [...favs.values()], 'lista');
-    box.innerHTML = favs.size ? `<h2>Me gusta <small>${favs.size}</small></h2><div class="list">${rows('lib')}</div>`
+    box.innerHTML = favs.size ? `<h2>Me gusta <small>${favs.size}</small></h2><div class="acts">${PLAY_BTNS('lib', favs.size)}</div><div class="list">${rows('lib')}</div>`
       : '<div class="empty">Toca ♡ en una canción para guardarla aquí.<br>Se ve igual en la app y en la web.</div>';
   } else if (libTab === 'historial') {
     setList('lib', (await api('/history?limit=100').catch(() => ({songs: []}))).songs, 'lista');
@@ -1111,7 +1114,12 @@ wrap.addEventListener('click', e => {
     if (l.kind === 'radio') return playOne(s);
     const all = l.full || l.songs;   // la lista entera, aunque la fila enseñe menos
     return playList(all, Math.max(0, all.findIndex(x => x.id === s.id)), l.orden); }
-  if (e.target.closest('[data-playall]')) return lists.view && playList(lists.view.full || lists.view.songs, 0, lists.view.orden, true);
+  const pa = e.target.closest('[data-playall], [data-shuffleall]');
+  if (pa) { const l = lists[pa.dataset.l || 'view']; if (!l) return; listCtx = ctxOf(pa.dataset.l || 'view');
+    const all = l.full || l.songs;
+    if (!('shuffleall' in pa.dataset)) return playList(all, 0, l.orden, true);
+    if (l.orden) { shuffleArt = true; store.set('aleatorio_artista', true); } else { shuffleOn = true; store.set('aleatorio', true); }
+    return playList(all, Math.floor(Math.random() * all.length), l.orden, true); }
   const pl = e.target.closest('[data-pl]'); if (pl) return showPlaylist(pls[+pl.dataset.pl]);
   const g = e.target.closest('[data-genre]'); if (g) return showGenre(g.dataset.genre);
   const t = e.target.closest('[data-artist]'); if (t) return showArtist(t.dataset.artist);
