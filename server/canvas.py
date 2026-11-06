@@ -69,6 +69,7 @@ class Canvas:
         self.state.setdefault("paused_until", 0)
         self.urgent = collections.OrderedDict()   # id -> cuándo se pidió (alguien la está poniendo)
         self.soon = collections.OrderedDict()     # id -> recién bajada por la precarga
+        self.wake = threading.Event()             # una pedida corta la pausa entre las de fondo
         os.makedirs(DIR, exist_ok=True)
         threading.Thread(target=self._run, daemon=True, name="canvas").start()
 
@@ -93,8 +94,9 @@ class Canvas:
         """Alguien la está poniendo: si no tiene Canvas ni se intentó ya, va la primera de la cola."""
         with self.lock:
             st = self.status(vid)
-            if st == "haciendo":
-                self.urgent.setdefault(vid, time.time())
+            if st == "haciendo" and vid not in self.urgent:
+                self.urgent[vid] = time.time()
+                self.wake.set()
             return st
 
     def want(self, vid):
@@ -267,6 +269,11 @@ class Canvas:
                 self._save()
                 log.info("canvas: %d borrados (sus canciones ya no están)", len(gone))
 
+    def _rest(self, secs):
+        """Espera secs, o menos si alguien pide una (la que se está poniendo no espera la pausa de las de fondo)."""
+        self.wake.wait(secs)
+        self.wake.clear()
+
     def _run(self):
         time.sleep(30)
         cleaned = 0
@@ -288,14 +295,14 @@ class Canvas:
                 with self.lock:
                     vid, kind = self._next(night or self.user_idle(IDLE))
                 if not vid:
-                    time.sleep(5)
+                    self._rest(5)
                     continue
                 self._one(vid)
                 with self.lock:
                     self.urgent.pop(vid, None)
                     self.soon.pop(vid, None)
                 if kind == "fondo":
-                    time.sleep(random.uniform(*GAP) * (1 if night else DAY_SLOWER))
+                    self._rest(random.uniform(*GAP) * (1 if night else DAY_SLOWER))
             except Exception as ex:
                 code = getattr(ex, "status_code", 0)
                 log.info("canvas: %s %s", vid, ex)
