@@ -59,6 +59,8 @@
 12. **Pestaña DC** — `POST /discord/inicio`, `DELETE /discord`, `GET /dc/estado?desde=`, `POST /dc/pedir`,
     `/dc/saltar`, `/dc/anterior`, `/dc/pausa`, `/dc/quitar`, `/dc/mover`. `/me` trae `discord` (`{name, photo}` o `null`). Detalle en el
     README, "Pestaña DC". Esta pestaña **no tiene referencia en la web**: su comportamiento está en la sección B.
+13. **Escuchar en varios dispositivos** — `GET /conectar?disp=&nombre=&desde=` (espera larga), `POST /conectar/estado`,
+    `POST /conectar/orden`. Detalle en el README, "Escuchar en varios dispositivos"; comportamiento en B.12.
 
 ## B. Comportamientos a igualar
 
@@ -164,3 +166,31 @@
     - Las canciones con `id: null` se ven y se mueven, pero no se abren.
     - El reproductor de la app no se toca: la pestaña controla el bot y nada más.
     - "Desvincular Discord" con `DELETE /discord`. Un 503 es "el bot no contesta".
+
+12. **Escuchar en varios dispositivos (como Spotify Connect)** — la web es la referencia (`server/web/web.html`,
+    "escuchar en varios dispositivos").
+    - **Id del dispositivo**: uno al azar la primera vez, guardado (6–40 caracteres `[A-Za-z0-9_-]`); **nombre**:
+      "Celular · App" (o el modelo, p. ej. "Pixel 7 · App"). La web se llama "PC · Chrome", "Celular · Chrome"…
+    - **Bucle**: mientras la app esté abierta o sonando, `GET /conectar?disp=&nombre=&desde=<v>` sin parar (espera
+      larga de 25 s; tras un error, esperar 5 s). Con la respuesta:
+      - `activo == mi id`: soy el que suena. Hacer las `ordenes` con `n` mayor que la última hecha (`pausa {pausar}`,
+        `siguiente`, `anterior`, `ir {pos}`, `cola {cola, qi, nueva, radio, repetir}`: cambiar la cola; si `nueva` o
+        cambió la canción de `qi`, empezar esa) y luego contar el estado con `hecho`. Si antes era mando: **me la
+        pasaron** → poner `sonando.cola` en `sonando.qi` desde `sonando.pos` y que suene.
+      - otro `activo` con `activo_vivo`: **modo mando**. No suena nada aquí (pausar si sonaba); el mini reproductor y
+        el grande enseñan `sonando` (canción, cola, segundo = `pos` + lo que pasó desde que llegó, si no está en
+        pausa), con "🔊 En <nombre>" en el mini y "Sonando en <nombre>" (color de acento) en el botón 🔊. Botones →
+        `POST /conectar/orden`: play/pausa `pausa {pausar}`, ⏭ `siguiente`, ⏮ `anterior`, barra `ir {pos}`; tocar una
+        canción, poner una lista, "a continuación", mover o quitar de la cola, aleatorio o repetir → hacerlo en la
+        copia de la cola y mandar `cola {cola, qi, radio, repetir, aleatorio, nueva: true si empieza otra}`. Sin volumen.
+      - nadie vivo sonando y `sonando` con canción: dejarla cargada aquí **en pausa en su segundo** (al dar play
+        sigue aquí).
+    - **El que suena cuenta** (`POST /conectar/estado {disp, nombre, datos, tomar, hecho}`) al empezar canción, al
+      pausar/seguir, al mover el segundo, al cambiar la cola (entonces con `cola`) y cada 15 s mientras suena. `datos`:
+      `cancion` (ficha con `id, title, artist, album, duration, thumb, where`), `pos`, `pausa`, `qi`, `radio`,
+      `repetir` (`off|all|one`), `aleatorio`, `duracion`, `cola` (fichas). `tomar: true` si suena aquí y el servidor
+      cree que suena en otro (dar play aquí se queda la música; el otro se pausa solo).
+    - **Botón 🔊 "Dónde suena"** en el reproductor grande, debajo de los controles: hoja con los dispositivos vivos
+      ("Este dispositivo" primero; el que suena en color de acento, "Suena aquí"); tocar otro → `orden transferir {a}`
+      (si suena aquí, contar el estado justo antes para que siga en el mismo segundo). Con uno solo: "Abre la web o
+      la app en otro dispositivo con tu cuenta y saldrá aquí".

@@ -314,13 +314,24 @@
                          box-shadow: 0 10px 34px rgb(0 0 0 / calc(.35 * var(--sombra))); }
   .np.con-canvas .tabs::after { display: none; }
   .np.con-canvas .tabs button.on::after { bottom: 6px; left: 42%; right: 42%; }
-  .np.con-canvas :is(.top, .titles, .seek, .times, .ctls, .vol) { --texto: #fff; --texto2: rgb(255 255 255 / .78); color: var(--texto); }
+  .np.con-canvas :is(.top, .titles, .seek, .times, .ctls, .vol, .disp) { --texto: #fff; --texto2: rgb(255 255 255 / .78); color: var(--texto); }
   .np.con-canvas h3 { color: #fff; }
+  .np.con-canvas .disp.fuera { color: var(--acento); }
   .np.con-canvas :is(.titles, .times, .top) { text-shadow: 0 1px 10px rgb(0 0 0 / .55); }
   .np.con-canvas :is(.ctls, .vol) { filter: drop-shadow(0 1px 6px rgb(0 0 0 / .45)); }
   .np .in { z-index: 1; }
   @media (prefers-reduced-motion: reduce) { .np .canvas { display: none; } }
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
+  /* Dónde suena (escuchar en varios dispositivos): botón con un altavoz debajo de los controles; en color de acento si
+     suena en otro dispositivo (lo de aquí es un mando) */
+  .np .disp { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px auto 0; padding: 7px 14px;
+              border-radius: 999px; color: var(--texto2); font-size: .86rem; font-weight: 600; }
+  .np .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
+  .np .disp svg { width: 19px; height: 19px; flex: none; }
+  .np .disp.fuera { color: var(--acento); }
+  .bar .en { color: var(--acento); font-size: .74rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sheet .opt.dsp-on { color: var(--acento); }
+  .sheet .nota { color: var(--texto2); font-size: .85rem; line-height: 1.45; padding: 6px 14px 10px; }
   .np .titles div { flex: 1; min-width: 0; }
   .np h3 { font-size: 1.45rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .np .art { color: var(--texto2); margin-top: 4px; cursor: pointer; display: inline-block; }
@@ -493,7 +504,7 @@ aplicarTema();
 <div class="dock">
   <div class="bar glass" id="bar">
     <img id="pImg" alt="">
-    <div class="meta"><div class="t" id="pT"></div><div class="a" id="pA"></div></div>
+    <div class="meta"><div class="t" id="pT"></div><div class="a" id="pA"></div><div class="en" id="pEn" hidden></div></div>
     <span class="time" id="pTime"></span>
     <button class="heart" id="pFav" aria-label="Me gusta"></button>
     <button class="ctl side" id="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
@@ -535,6 +546,7 @@ aplicarTema();
       <button class="ctl toggle" id="npRepeat" aria-label="Repetir"></button>
     </div>
     <div class="vol"><button data-mute aria-label="Silenciar"></button><input type="range" min="0" max="100" data-vol aria-label="Volumen"></div>
+    <button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
     <div class="tabs" id="npTabs"><button data-np="cola" class="on">Siguiente</button><button data-np="letra">Letra</button></div>
     <div id="npPanel"></div>
   </div>
@@ -1271,13 +1283,17 @@ function opinar(ctx) {
 
 // <audio> no puede mandar la cabecera con la sesión: la API da un enlace solo para esa canción, que caduca y no
 // lleva la sesión dentro (si se copia, no da acceso a la cuenta).
-async function playAudio(s) {
+async function playAudio(s, desde = 0, sonar = true) {
   let url;
   try { url = (await api(`/stream/${encodeURIComponent(s.id)}/enlace`, {method: 'POST'})).url; }
   catch (e) { if (cur === s) toast('No se pudo reproducir'); return; }
   if (cur !== s) return;   // cambió de canción mientras pedía el enlace
   audio.src = url;
+  if (desde > 1) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once: true});
+  if (!sonar) return;   // lista para seguir aquí (venía de otro dispositivo): suena al darle a play
   audio.play().catch(e => { if (e.name === 'AbortError') return;   // cambió de canción antes de empezar
+    // el navegador no deja sonar sin que se haya tocado la página (p. ej. al pasarle la música desde otro dispositivo)
+    if (e.name === 'NotAllowedError') { ico(true); return toast('Toca ▶ para que suene aquí'); }
     toast('No se pudo reproducir (' + e.name + ')'); informaFallo('play', s, e); });
 }
 // Cuenta al servidor por qué no sonó (sale en su registro): sin esto, desde fuera solo se ve "no suena".
@@ -1286,12 +1302,21 @@ function informaFallo(donde, s, e) {
   api('/web/fallo', {method: 'POST', body: JSON.stringify({donde, id: s?.id || '', error: e ? e.name + ': ' + e.message : '',
     media: m ? m.code + ' ' + (m.message || '') : '', navegador: navigator.userAgent})}).catch(() => {});
 }
-function start() {
+// desde/sonar: al seguir aquí lo que sonaba en otro dispositivo (en ese segundo, y sonando o en pausa).
+// Si suena en otro dispositivo (remoto), no suena aquí: se le manda la cola nueva con la canción que toca.
+function start(desde = 0, sonar = true) {
+  if (remoto && !cxAplicando) { cur = queue[qi]; if (!cur) return; cxManda('cola', {...cxCola(), nueva: true}); return pintaCancion(); }
   cierraLaQueSonaba();
   cur = queue[qi]; if (!cur) return;
   playing = {s: cur, ctx: cur._rec ? (['para_ti', 'vuelve'].includes(listCtx) ? listCtx : 'radio') : listCtx};
   if (cur._rec && ++radioRecs === 10) quizaPreguntar('radio');
-  playAudio(cur);
+  playAudio(cur, desde, sonar);
+  pintaCancion();
+  if (cur.where === 'youtube') toast('La primera vez tarda unos segundos: se está guardando en el servidor');
+  if (isRadio && queue.length - 1 - qi <= 2) fillRadio();
+}
+// Lo que se ve de la canción que suena (aquí o en otro dispositivo): barra de abajo, reproductor grande, filas…
+function pintaCancion() {
   $('bar').classList.add('on');
   $('pImg').src = cur.thumb || ''; $('pT').textContent = cur.title; $('pA').textContent = cur.artist || '';
   $('tint').style.backgroundImage = cur.thumb ? `url("${cur.thumb.replace(/"/g, '%22')}")` : 'none';
@@ -1302,21 +1327,28 @@ function start() {
     navigator.mediaSession.metadata = new MediaMetadata({title: cur.title, artist: cur.artist || '', album: cur.album || '',
       artwork: cur.thumb ? [{src: cur.thumb, sizes: '480x360'}] : []});
   }
-  if (cur.where === 'youtube') toast('La primera vez tarda unos segundos: se está guardando en el servidor');
-  if (isRadio && queue.length - 1 - qi <= 2) fillRadio();
 }
 async function next() {
+  if (remoto) return cxManda('siguiente');
   if (qi < queue.length - 1) { qi++; return start(); }
   if (repeat === 'all' && queue.length) { qi = 0; return start(); }
   if (isRadio || follow) { const n = await fillRadio(); if (n) { qi++; return start(); } }
   audio.pause(); audio.currentTime = 0;
 }
-function prev() { if (audio.currentTime > 3 || qi === 0) audio.currentTime = 0; else { qi--; start(); } }
+function prev() { if (remoto) return cxManda('anterior'); if (audio.currentTime > 3 || qi === 0) audio.currentTime = 0; else { qi--; start(); } }
+// play/pausa: aquí, o en el dispositivo donde suena. Lo que vino de otro (aún sin enlace) empieza en su segundo.
+function playPausa() {
+  if (remoto) return cxManda('pausa', {pausar: !cx.sonando?.pausa});
+  if (!cur) return;
+  if (!audio.src) return start(cxPos || 0);
+  audio.paused ? audio.play() : audio.pause();
+}
+const irA = t => { if (remoto) cxManda('ir', {pos: t}); else audio.currentTime = t; };
 $('next').onclick = e => { e.stopPropagation(); next(); };
 $('prev').onclick = e => { e.stopPropagation(); prev(); };
-$('play').onclick = e => { e.stopPropagation(); audio.paused ? audio.play() : audio.pause(); };
+$('play').onclick = e => { e.stopPropagation(); playPausa(); };
 $('pFav').onclick = e => { e.stopPropagation(); cur && toggleFav(cur); };
-$('prog').onclick = e => { e.stopPropagation(); const d = audio.duration; if (d) audio.currentTime = d * e.offsetX / e.currentTarget.offsetWidth; };
+$('prog').onclick = e => { e.stopPropagation(); const d = duracion(); if (d) irA(d * e.offsetX / e.currentTarget.offsetWidth); };
 $('bar').onclick = () => openNp();
 audio.onended = () => { cierraLaQueSonaba(); if (repeat === 'one') { playing = {s: cur, ctx: playing ? playing.ctx : listCtx}; audio.currentTime = 0; audio.play(); } else next(); };
 // ---------- volumen (se recuerda; las dos barras, la de abajo y la del reproductor grande, van juntas) ----------
@@ -1347,19 +1379,24 @@ const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayI
   const v = $('npCanvasV'); if (p) v.pause(); else if ($('np').classList.contains('con-canvas')) v.play().catch(() => {}); };   // y el Canvas
 audio.onplay = () => ico(false); audio.onpause = () => ico(true);
 let seeking = false;
-audio.ontimeupdate = () => {
-  const d = audio.duration || cur?.duration || 0;
-  $('progI').style.width = d ? (100 * audio.currentTime / d) + '%' : 0;
-  $('pTime').textContent = d ? `${dur(audio.currentTime) || '0:00'} / ${dur(d)}` : '';
-  if (!seeking) $('npSeek').value = d ? Math.round(1000 * audio.currentTime / d) : 0;
-  $('npCur').textContent = dur(audio.currentTime) || '0:00'; $('npDur').textContent = dur(d) || '0:00';
+// el segundo y la duración de lo que suena: aquí, o lo que dice el dispositivo donde suena (contando lo que pasó desde)
+const tiempo = () => remoto ? cxPosAhora() : audio.currentTime;
+const duracion = () => (remoto ? cx?.sonando?.duracion : audio.duration) || cur?.duration || 0;
+const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : !audio.paused;
+function pintaTiempo() {
+  const t = tiempo(), d = duracion();
+  $('progI').style.width = d ? (100 * Math.min(t, d) / d) + '%' : 0;
+  $('pTime').textContent = d ? `${dur(t) || '0:00'} / ${dur(d)}` : '';
+  if (!seeking) $('npSeek').value = d ? Math.round(1000 * Math.min(t, d) / d) : 0;
+  $('npCur').textContent = dur(t) || '0:00'; $('npDur').textContent = dur(d) || '0:00';
   followLyrics();
-};
+}
+audio.ontimeupdate = () => { if (!remoto) pintaTiempo(); };
 if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('nexttrack', () => next());
   navigator.mediaSession.setActionHandler('previoustrack', () => prev());
-  navigator.mediaSession.setActionHandler('play', () => audio.play());
-  navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+  navigator.mediaSession.setActionHandler('play', () => playPausa());
+  navigator.mediaSession.setActionHandler('pause', () => playPausa());
 }
 
 // ---------- recomendaciones (radio) ----------
@@ -1405,6 +1442,138 @@ async function fillRadio() {
   } finally { radioBusy = false; }
 }
 
+// ---------- escuchar en varios dispositivos (como Spotify Connect; conectar.py en el servidor) ----------
+// Cada página es un dispositivo (id guardado en el navegador y un nombre como "PC · Chrome"). La que suena cuenta al
+// servidor lo que pasa (canción, segundo, cola…); todas esperan cambios (GET /conectar, espera larga). Si suena en
+// otro dispositivo, aquí se ve eso y los botones son un mando: pausa, siguiente, ir a un segundo y cualquier cambio de
+// la cola (poner una lista, "a continuación", mover, quitar…) se hace en la copia de aquí y se manda entera. Con 🔊
+// se elige dónde suena (el de antes se pausa; el nuevo sigue en el mismo segundo). Dar play aquí se queda la música.
+const DISP = (() => {
+  try { let d = localStorage.getItem('dispositivo'); if (!d) localStorage.setItem('dispositivo', d = 'w' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36)); return d; }
+  catch (e) { return 'w' + Math.random().toString(36).slice(2, 14); }
+})();
+const DISP_NOMBRE = (() => {
+  const u = navigator.userAgent;
+  const nav = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Navegador';
+  const que = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Celular' : 'Tablet') : 'PC';
+  return `${que} · ${nav}`;
+})();
+let cx = null, remoto = false, cxAplicando = false;   // lo último del servidor; ¿suena en otro?; aplicando lo de fuera
+let cxOrden = 0, cxQVer = -1, cxRep = 'off', cxFirma = '', cxUltima = 0, cxPos = 0, cxColaContada = -1;
+const fichaQ = s => ({...ficha(s), where: s.where, ...(s._rec ? {_rec: true} : {}), ...(s._cola ? {_cola: true} : {})});
+const cxCola = () => ({cola: queue.map(fichaQ), qi, radio: isRadio, repetir: repeat, aleatorio: shuffleNow()});
+const cxPosAhora = () => { const s = cx?.sonando; if (!s) return 0; return Math.min((s.pos || 0) + (s.pausa ? 0 : (Date.now() - cx.recibido) / 1000), s.duracion || 1e9); };
+const cxNombre = id => (cx?.dispositivos || []).find(d => d.id === id)?.nombre || 'otro dispositivo';
+async function cxManda(tipo, datos = {}) {
+  if (tipo === 'cola') { cxQVer = qVer; cxRep = repeat; }
+  try { await api('/conectar/orden', {method: 'POST', body: JSON.stringify({disp: DISP, tipo, datos})}); }
+  catch (e) { toast(e.status === 409 ? 'Ya no está sonando en ' + cxNombre(cx?.activo) : 'No pude mandar la orden'); }
+}
+async function cxCuenta() {   // el que suena cuenta lo que pasa (y se queda la música si suena aquí)
+  if (!cur || remoto) return;
+  const datos = {cancion: fichaQ(cur), pos: Math.round((audio.currentTime || 0) * 10) / 10, pausa: audio.paused, qi, radio: isRadio,
+                 repetir: repeat, aleatorio: shuffleNow(), duracion: audio.duration || cur.duration || 0};
+  const v = qVer; if (v !== cxColaContada) datos.cola = queue.map(fichaQ);
+  cxFirma = [cur.id, qi, qVer, repeat, audio.paused].join('|'); cxUltima = Date.now();
+  try {
+    await api('/conectar/estado', {method: 'POST', body: JSON.stringify({disp: DISP, nombre: DISP_NOMBRE, datos,
+      tomar: !audio.paused && cx?.activo !== DISP, hecho: cxOrden})});
+    cxColaContada = v;
+  } catch (e) {}
+}
+function cxHaz(o) {   // una orden de otro dispositivo para este, que es el que suena
+  const d = o.datos || {};
+  if (o.tipo === 'pausa') { if (d.pausar) audio.pause(); else if (!audio.src) start(cxPos); else audio.play().catch(() => {}); }
+  else if (o.tipo === 'siguiente') next();
+  else if (o.tipo === 'anterior') prev();
+  else if (o.tipo === 'ir') audio.currentTime = d.pos || 0;
+  else if (o.tipo === 'cola' && d.cola?.length) {
+    const antes = cur?.id;
+    queue = d.cola.slice(); qi = Math.max(0, Math.min(d.qi || 0, queue.length - 1)); queueSig = ''; qVer++;
+    if ('radio' in d) isRadio = !!d.radio; if (d.repetir) repeat = d.repetir;
+    if (d.nueva || queue[qi]?.id !== antes) start(); else { cur = queue[qi]; paintQueue(); paintNp(); }
+  }
+}
+// Lo de otro dispositivo, aquí: espejo (suena allí, esto es un mando) o adoptado (sigue aquí, sonando o en pausa)
+function cxEspejo(s) {
+  cxAplicando = true;
+  const antes = cur?.id;
+  queue = s.cola?.length ? s.cola.slice() : [s.cancion]; qi = Math.max(0, Math.min(s.qi || 0, queue.length - 1));
+  isRadio = !!s.radio; repeat = s.repetir || 'off'; qVer++; cxQVer = qVer; cxRep = repeat;
+  cur = queue[qi]?.id === s.cancion?.id ? queue[qi] : s.cancion;
+  if (cur?.id !== antes) pintaCancion(); else paintNp();
+  paintQueue(); ico(!!s.pausa); pintaTiempo();
+  cxAplicando = false;
+}
+function cxAdopta(s, sonar) {
+  if (!s?.cancion) return;
+  cxAplicando = true;
+  queue = s.cola?.length ? s.cola.slice() : [s.cancion]; qi = Math.max(0, Math.min(s.qi || 0, queue.length - 1));
+  isRadio = !!s.radio; repeat = s.repetir || 'off'; queueSig = ''; qVer++; cxPos = s.pos || 0;
+  start(cxPos, sonar);
+  if (!sonar) { ico(true); pintaTiempoEn(cxPos); }
+  cxAplicando = false;
+}
+function pintaTiempoEn(t) { const d = cur?.duration || 0; $('npSeek').value = d ? Math.round(1000 * t / d) : 0; $('npCur').textContent = dur(t) || '0:00';
+  $('progI').style.width = d ? (100 * t / d) + '%' : 0; }
+function cxRecibe(r) {
+  const yaEra = cx; cx = r; cx.recibido = Date.now();
+  const s = r.sonando, yo = r.activo === DISP, otro = r.activo && !yo && r.activo_vivo;
+  if (yo) {
+    if (remoto) { remoto = false; cxAdopta(s, true); toast('Ahora suena aquí'); }        // me la pasaron
+    else if (!cur && s) cxAdopta(s, false);                                                // recargó la página: en pausa
+    const nuevas = r.ordenes.filter(o => o.n > cxOrden);
+    for (const o of nuevas) { cxOrden = o.n; cxHaz(o); }
+    if (nuevas.length) setTimeout(cxCuenta, 300);
+  } else if (otro && s?.cancion) {
+    if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
+    cxEspejo(s);
+  } else if (remoto || (!cur && s?.cancion)) {   // el que sonaba se cerró: lo de allí queda aquí, en pausa
+    remoto = false; cxAdopta(s, false);
+  }
+  pintaDisp();
+}
+async function cxBucle() {
+  let desde = 0;
+  for (;;) {
+    try { const r = await api(`/conectar?disp=${DISP}&nombre=${encodeURIComponent(DISP_NOMBRE)}&desde=${desde}`); desde = r.v; cxRecibe(r); }
+    catch (e) { await new Promise(ok => setTimeout(ok, 5000)); }
+  }
+}
+setInterval(() => {   // cada segundo: el mando pinta el segundo y manda los cambios de la cola; el que suena los cuenta
+  if (remoto) {
+    pintaTiempo(); if (cx?.sonando && !cx.sonando.pausa) ico(false);
+    if (!cxAplicando && (qVer !== cxQVer || repeat !== cxRep)) cxManda('cola', cxCola());
+    return;
+  }
+  if (!cur || (cx?.activo !== DISP && audio.paused)) return;
+  if ([cur.id, qi, qVer, repeat, audio.paused].join('|') !== cxFirma || (!audio.paused && Date.now() - cxUltima > 15000)) cxCuenta();
+}, 1000);
+audio.addEventListener('seeked', () => { if (!remoto) cxCuenta(); });
+function pintaDisp() {
+  const fuera = remoto ? cxNombre(cx.activo) : '';
+  $('npDisp').classList.toggle('fuera', !!fuera);
+  $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : 'Este dispositivo · ' + DISP_NOMBRE;
+  $('pEn').hidden = !fuera; $('pEn').textContent = fuera ? '🔊 En ' + fuera : '';
+  document.querySelector('.np .vol').style.visibility = fuera ? 'hidden' : '';   // el volumen es el de allí
+}
+$('npDisp').onclick = () => {
+  const lista = [...(cx?.dispositivos || []).filter(d => d.vivo)];
+  if (!lista.some(d => d.id === DISP)) lista.unshift({id: DISP, nombre: DISP_NOMBRE, vivo: true});
+  const activo = cx?.activo_vivo ? cx.activo : DISP;
+  sheet('<h4>Dónde suena</h4>' + lista.map(d => `<button class="opt${d.id === activo ? ' dsp-on' : ''}" data-d="${esc(d.id)}"><i>${/Celular|iPhone|Tablet|iPad|App/.test(d.nombre) ? '📱' : '💻'}</i>
+      <span>${esc(d.id === DISP ? 'Este dispositivo' : d.nombre)}<small>${esc(d.id === activo ? (d.id === DISP ? DISP_NOMBRE + ' · suena aquí' : 'Suena aquí') : d.id === DISP ? DISP_NOMBRE : 'Abierto')}</small></span></button>`).join('')
+    + (lista.length < 2 ? '<p class="nota">Abre la web o la app en otro dispositivo con tu cuenta y saldrá aquí.</p>' : ''));
+  $('sheet').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    closeSheet();
+    const a = b.dataset.d; if (a === activo) return;
+    if (activo === DISP && cur && !remoto) await cxCuenta();   // que el otro siga justo en este segundo
+    cxManda('transferir', {a});
+  });
+};
+if (session) cxBucle();
+pintaDisp();
+
 // ---------- reproductor grande ----------
 let npTab = 'cola';
 const panelFijo = matchMedia('(min-width: 1100px)');   // en el PC el reproductor grande ya está a la derecha
@@ -1436,12 +1605,12 @@ $('npClose').onclick = closeNp;
   });
 })();
 addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeNp(); } });
-$('npPlay').onclick = () => audio.paused ? audio.play() : audio.pause();
+$('npPlay').onclick = () => playPausa();
 $('npNext').onclick = () => next(); $('npPrev').onclick = () => prev();
 $('npFav').onclick = () => cur && toggleFav(cur);
 $('npMore').onclick = () => cur && songMenu(cur);
-$('npA').onclick = () => { if (cur?.artist) { closeNp(); showArtist(cur.artist); } };$('npSeek').oninput = () => { seeking = true; const d = audio.duration || 0; $('npCur').textContent = dur(d * $('npSeek').value / 1000) || '0:00'; };
-$('npSeek').onchange = () => { const d = audio.duration; if (d) audio.currentTime = d * $('npSeek').value / 1000; seeking = false; };
+$('npA').onclick = () => { if (cur?.artist) { closeNp(); showArtist(cur.artist); } };$('npSeek').oninput = () => { seeking = true; const d = duracion(); $('npCur').textContent = dur(d * $('npSeek').value / 1000) || '0:00'; };
+$('npSeek').onchange = () => { const d = duracion(); if (d) irA(d * $('npSeek').value / 1000); seeking = false; };
 $('npShuffle').onclick = () => {
   if (isRadio) return;
   if (fromArtist) { shuffleArt = !shuffleArt; store.set('aleatorio_artista', shuffleArt); }
@@ -1518,7 +1687,7 @@ async function pintaCanvas() {
   }
   if (v.dataset.id !== s.id) { v.src = url; v.dataset.id = s.id; }
   $('np').classList.add('con-canvas'); ajustaEscena();
-  if (!audio.paused) v.play().catch(() => {});
+  if (sonandoAhora()) v.play().catch(() => {});
 }
 panelFijo.addEventListener('change', () => pintaCanvas());
 // Con Canvas, la escena (vídeo, títulos y controles) llena el alto: en el móvil la pantalla entera (la cola y la letra,
@@ -1666,7 +1835,7 @@ $('qList').addEventListener('click', e => npPanelClick(e));
 $('npPanel').addEventListener('click', e => npPanelClick(e));
 function npPanelClick(e) {
   const q = e.target.closest('[data-q]'); if (q) { qi = +q.dataset.q; start(); }
-  const l = e.target.closest('[data-at]'); if (l) audio.currentTime = +l.dataset.at;
+  const l = e.target.closest('[data-at]'); if (l) irA(+l.dataset.at);
 }
 
 // ---------- letras ----------
@@ -1715,7 +1884,7 @@ async function loadLyrics() {
 }
 function followLyrics() {
   if (!lyrLines.length || npTab !== 'letra' || !npVisible()) return;
-  let i = -1; for (let k = 0; k < lyrLines.length && lyrLines[k].at <= audio.currentTime; k++) i = k;
+  const t = tiempo(); let i = -1; for (let k = 0; k < lyrLines.length && lyrLines[k].at <= t; k++) i = k;
   if (i === lyrNow) return; lyrNow = i;
   $('npPanel').querySelectorAll('.lyr p').forEach((p, k) => { p.classList.toggle('now', k === i); p.classList.toggle('past', k < i); });
   const el = $('npPanel').querySelector(`[data-li="${i}"]`); if (el) el.scrollIntoView({block: 'center', behavior: 'smooth'});

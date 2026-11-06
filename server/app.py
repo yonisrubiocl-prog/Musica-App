@@ -31,6 +31,7 @@ from google.oauth2 import id_token
 
 import discord_dc
 from canvas import Canvas
+from conectar import Conectar
 import titulos
 import userdata
 from enrich import Enricher
@@ -1363,6 +1364,43 @@ async def dc_order(path, found, body, wait=discord_dc.BOT_WAIT):
     return data
 
 
+# ---------- escuchar en varios dispositivos (conectar.py) ----------
+CONECTAR = Conectar()
+CONECTAR.cuentas = {k: v for k, v in CONECTAR.cuentas.items() if k in users.USERS.data}   # sin cuentas que ya no están
+DISP = r"^[\w-]{6,40}$"
+
+
+@app.get("/conectar")
+async def conectar_ver(disp: str = Query(pattern=DISP), nombre: str = Query("", max_length=40),
+                       desde: int = Query(0), found=Depends(check_token)):
+    """Dónde y qué está sonando en la cuenta, y sus dispositivos abiertos. Si la versión sigue siendo `desde`, espera un
+    cambio (hasta 25 s). Al que suena le llegan también las órdenes de los otros (`ordenes`)."""
+    return await CONECTAR.esperar(need_user(found), disp, nombre, desde)
+
+
+@app.post("/conectar/estado")
+async def conectar_estado(disp: str = Body(embed=True, pattern=DISP), nombre: str = Body("", embed=True, max_length=40),
+                          datos: dict = Body(embed=True), tomar: bool = Body(False, embed=True),
+                          hecho: int | None = Body(None, embed=True), found=Depends(check_token)):
+    """El que suena cuenta lo que pasa (`datos`: cancion, pos, pausa, cola, qi, radio, repetir, aleatorio, duracion).
+    409 si está sonando en otro dispositivo de la cuenta (salvo `tomar`: el que da play aquí se queda la música).
+    `hecho`: la última orden que ya hizo."""
+    if not CONECTAR.estado(need_user(found), disp, nombre, datos, tomar, hecho):
+        raise HTTPException(409, "está sonando en otro dispositivo")
+    return {"ok": True}
+
+
+@app.post("/conectar/orden")
+async def conectar_orden(disp: str = Body(embed=True, pattern=DISP), tipo: str = Body(embed=True, max_length=20),
+                         datos: dict = Body({}, embed=True), found=Depends(check_token)):
+    """Una orden para el dispositivo que suena: pausa {pausar}, siguiente, anterior, ir {pos}, cola {cola, qi,
+    nueva?, radio?, repetir?, aleatorio?} (poner o cambiar la cola), transferir {a} (que suene en otro)."""
+    err = CONECTAR.orden(need_user(found), disp, tipo, datos)
+    if err:
+        raise HTTPException(409, err)
+    return {"ok": True}
+
+
 @app.get("/dc/estado")
 async def dc_estado(desde: str = Query("", max_length=32), found=Depends(check_token)):
     """Lo que enseña la pestaña DC. Si la versión sigue siendo `desde`, espera un cambio (hasta 25 s)."""
@@ -1684,6 +1722,7 @@ async def serve():
     servers = [uvicorn.Server(uvicorn.Config(a, host="0.0.0.0", port=p, access_log=False, log_config=None))
                for a, p in ((app, PUBLIC_PORT), (internal, INTERNAL_PORT))]
     tasks = [asyncio.create_task(s.serve()) for s in servers]
+    guarda = asyncio.create_task(CONECTAR.guardar())   # noqa: F841 (vive lo que viva el proceso)
     await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     for s in servers:
         s.should_exit = True

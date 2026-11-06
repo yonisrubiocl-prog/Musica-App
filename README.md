@@ -282,6 +282,9 @@ las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nue
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, thumb, songs}` (`thumb`: la portada del álbum), por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
 | `GET /canvas/{id}/estado` | ¿Tiene Canvas? `{estado: listo \| haciendo \| no, motivo?, espera?}` (`motivo`: por qué no tiene; `espera`: por qué no se puede hacer ahora, p. ej. sin red con YouTube). Preguntarlo al empezar cada canción: si no lo tiene ni se intentó, se hace ya (~1 min). `no` es para siempre (portada viva). Pide sesión |
 | `GET /canvas/{id}` | El Canvas: `video/mp4` (H.264, 540×960, 7 s, sin sonido) para poner en bucle; 404 si no tiene. Pide sesión |
+| `GET /conectar?disp=&nombre=&desde=` | Escuchar en varios dispositivos: `{v, activo, activo_vivo, este, dispositivos: [{id, nombre, vivo}], sonando: {cancion, pos (el segundo de ahora), pausa, cola, qi, radio, repetir, aleatorio, duracion}, ordenes}` (`ordenes`, solo al que suena). Si `v` sigue siendo `desde`, espera un cambio (25 s). `disp`: 6–40 letras, números, `_` o `-`. Pide sesión |
+| `POST /conectar/estado` | `{disp, nombre, datos, tomar?, hecho?}`: el que suena cuenta lo que pasa (`datos` como `sonando`; `cola` solo si cambió). 409 si suena en otro dispositivo vivo, salvo `tomar`. `hecho`: la última orden ya hecha |
+| `POST /conectar/orden` | `{disp, tipo, datos}` para el que suena: `pausa {pausar}`, `siguiente`, `anterior`, `ir {pos}`, `cola {cola, qi, nueva?, radio?, repetir?, aleatorio?}`, `transferir {a}` (que suene en el dispositivo `a`, en el mismo segundo). 409 con el motivo |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió. Con la sesión en la cabecera, o con `?t=` de un enlace de la ruta siguiente |
 | `POST /stream/<id>/enlace` | `{url}`: enlace a `/stream/<id>?t=…` firmado (`server/data/stream.key`, se crea sola) que vale solo para esa canción y esa cuenta durante 6 h, sin la sesión dentro. Lo usa la web, porque `<audio>` no puede mandar la cabecera; si se copia, no da acceso a la cuenta. Borrar `stream.key` caduca todos |
 
@@ -308,6 +311,27 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `POST /interno/cambiar` | `{viejo, nuevo, olvidar?}` (ids de YouTube): cambia una canción por otra versión en todas las cuentas (favoritas con su fecha, playlists en su sitio, historial), bajando `nuevo` aunque parezca la misma; desde entonces pedir `viejo` da `nuevo`; `olvidar` (por defecto) borra la vieja. Se usó el 06-11-2026 con *Frijolero*: el videoclip de MolotovVEVO viene **censurado**, la del disco *Dance And Dense Denso* no |
 | `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
 | `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
+
+### Escuchar en varios dispositivos (como Spotify Connect)
+
+Desde el 06-11-2026 (`server/conectar.py`; en la web; la app, pendiente). Cada cuenta tiene **una reproducción**: la
+que suena en un dispositivo (la web del PC, la app del celular…), y los demás de la misma cuenta **la ven y la
+manejan**. No toca YouTube.
+- **Cada dispositivo** se da un id (la web lo guarda en el navegador) y un nombre ("PC · Chrome", "Celular · Chrome").
+- **El que suena** cuenta lo que pasa (`POST /conectar/estado`): canción, segundo, cola entera, aleatorio, repetir,
+  pausa. Lo hace al cambiar algo y cada 15 s mientras suena. Si otro dispositivo vivo está sonando, 409; con `tomar`
+  (darle play aquí), la música pasa a este y el otro se pausa solo.
+- **Todos esperan cambios** con `GET /conectar` (espera larga de 25 s, `async`: no ocupa hilos). Un dispositivo está
+  vivo si preguntó hace menos de 45 s.
+- **Si suena en otro**, el mini reproductor y el grande enseñan eso ("🔊 En PC · Chrome" / "Sonando en PC · Chrome")
+  y sus botones son un mando (`POST /conectar/orden`): pausa, siguiente, anterior, ir a un segundo, y cualquier cambio
+  de la cola (poner una lista o una canción, "a continuación", mover, quitar, aleatorio, repetir) se hace en la copia
+  de la cola y se manda entera (`cola`). El volumen se esconde (es el de allí).
+- **🔊 Dónde suena** (botón debajo de los controles del reproductor grande): la lista de dispositivos abiertos; al
+  elegir otro (`transferir`), el de antes se pausa y el nuevo sigue **en el mismo segundo**.
+- Si el que sonaba se cierra, lo de allí queda en los demás **en pausa, en su segundo**, para seguir donde se dejó.
+- Se guarda en `/data/conectar.json` cada 20 s. Prueba con dos navegadores sin tocar cuentas reales:
+  `tools/probar-conectar.sh` (servidor de mentira con la lógica real y audio de mentira).
 
 ### Pestaña DC (controlar el bot desde la app)
 
@@ -753,6 +777,7 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── genres.py           género por artista (a mano, MusicBrainz, iTunes); también comando para corregir
 │   ├── precarga.py         baja despacio los álbumes de estudio de los artistas más escuchados
 │   ├── versiones.py        cambia en favoritas/playlists las versiones de vídeo por la canción del disco
+│   ├── conectar.py         escuchar en varios dispositivos: qué suena y dónde, órdenes entre ellos (sección propia)
 │   ├── canvas.py           los Canvas: trozo de 7 s del videoclip de cada canción (sección "Portada viva" y "Canvas")
 │   ├── titulos.py          el título que se enseña, sin "(Official Video)" ni el artista delante (sección "Canciones")
 │   ├── duplicadas.py       junta la misma canción guardada varias veces (cada noche) y la quita de "Buscar en YouTube"
@@ -781,6 +806,7 @@ pestaña DC enseña `sin_bot` con el bot dentro.
 │   ├── prueba-cola.js       la prueba de la cola: arrastrar con ratón y con dedo (PC y móvil)
 │   ├── prueba-siguiente.js  la prueba de "Reproducir a continuación" (tools/probar-web.sh prueba-siguiente.js)
 │   ├── prueba-aleatorio.js  la prueba del botón 🔀 Aleatorio de Me gusta y playlists
+│   ├── probar-conectar.sh   la prueba de escuchar en varios dispositivos (con prueba-conectar.js y conectar-falso.py)
 │   └── prueba-internet.js   la prueba de "Buscar en internet" (tools/probar-web.sh prueba-internet.js)
 ├── README.md     este documento
 (/var/lib/music/                   la biblioteca: canciones + index.json, fuera de git)

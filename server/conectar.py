@@ -1,0 +1,166 @@
+"""Escuchar en varios dispositivos (como Spotify Connect): cada cuenta tiene una reproducción, la que suena en un
+dispositivo (la web del PC, la app del celular…), y los demás la ven y la manejan.
+
+- El que suena cuenta lo que pasa (POST /conectar/estado): canción, segundo, cola, aleatorio, repetir, pausa. Si
+  otro dispositivo de la cuenta está sonando, se le dice 409 (salvo que diga `tomar`: entonces pasa a ser él).
+- Todos esperan cambios (GET /conectar, espera larga de hasta ESPERA s, como la pestaña DC): lo que suena, dónde y
+  la lista de dispositivos; al que suena, además, las órdenes que le mandaron los otros.
+- Desde otro dispositivo (POST /conectar/orden): pausa, siguiente, anterior, ir a un segundo, poner una cola nueva
+  ("cola", con la canción que toca) o "transferir" a otro dispositivo (el de antes se pausa, el nuevo sigue en el
+  mismo segundo).
+Un dispositivo está "vivo" si preguntó hace menos de VIVO s. Todo en memoria (y en FILE cada poco, para seguir donde
+se dejó tras reiniciar). Sin peticiones a YouTube. Ver README.md, "Escuchar en varios dispositivos".
+"""
+import asyncio
+import json
+import logging
+import os
+import time
+
+log = logging.getLogger("musicapp.conectar")
+
+FILE = "/data/conectar.json"
+ESPERA = 25                             # la espera larga de GET /conectar
+VIVO = 45                               # un dispositivo que no pregunta en este rato ya no está
+GUARDA = 20                             # cada cuánto se guarda en FILE si cambió algo
+MAX_COLA = 1000                         # canciones de una cola como mucho
+TIPOS = {"pausa", "siguiente", "anterior", "ir", "cola", "transferir"}
+
+
+class Conectar:
+    def __init__(self):
+        self.cuentas = {}                     # sub -> {v, activo, disp: {id: {nombre, visto}}, sonando, ordenes, n}
+        self.eventos = {}                     # sub -> asyncio.Event (se cambia por uno nuevo en cada cambio)
+        self.sucio = False
+        try:
+            with open(FILE) as f:
+                self.cuentas = json.load(f)
+        except (OSError, ValueError):
+            pass
+
+    def _cuenta(self, sub):
+        c = self.cuentas.setdefault(sub, {"v": 1, "activo": None, "disp": {}, "sonando": None, "ordenes": [], "n": 0})
+        return c
+
+    def _cambio(self, sub):
+        c = self._cuenta(sub)
+        c["v"] += 1
+        self.sucio = True
+        ev = self.eventos.pop(sub, None)
+        if ev:
+            ev.set()
+
+    def _vivo(self, c, d):
+        x = c["disp"].get(d)
+        return bool(x) and time.time() - x["visto"] < VIVO
+
+    def _visto(self, sub, disp, nombre):
+        """Apunta que `disp` está abierto. Si es nuevo o vuelve tras un rato, cambia la lista para los demás."""
+        c = self._cuenta(sub)
+        era = self._vivo(c, disp)
+        x = c["disp"].setdefault(disp, {"nombre": nombre or "Dispositivo", "visto": 0})
+        x["visto"] = time.time()
+        if nombre:
+            x["nombre"] = nombre[:40]
+        for d in [d for d, y in c["disp"].items() if time.time() - y["visto"] > 30 * 86400]:   # olvidar los viejos
+            c["disp"].pop(d)
+        if not era:
+            self._cambio(sub)
+
+    def _pos(self, s):
+        """El segundo por el que va ahora (el que suena lo dijo hace un rato)."""
+        if not s:
+            return 0
+        p = s.get("pos") or 0
+        if not s.get("pausa"):
+            p += time.time() - (s.get("at") or time.time())
+        return round(min(p, s.get("duracion") or p), 1)
+
+    def vista(self, sub, disp):
+        """Lo que ve `disp`: dónde suena, lo que suena (con el segundo de ahora) y, si es él el que suena, sus órdenes."""
+        c = self._cuenta(sub)
+        activo = c["activo"]
+        vivo = bool(activo) and self._vivo(c, activo)
+        s = c["sonando"]
+        return {"v": c["v"], "activo": activo, "activo_vivo": vivo, "este": disp,
+                "dispositivos": [{"id": d, "nombre": x["nombre"], "vivo": self._vivo(c, d)}
+                                 for d, x in sorted(c["disp"].items(), key=lambda i: -i[1]["visto"])
+                                 if self._vivo(c, d) or d == activo],
+                "sonando": {**s, "pos": self._pos(s)} if s else None,
+                "ordenes": [o for o in c["ordenes"]] if disp == activo else []}
+
+    async def esperar(self, sub, disp, nombre, desde):
+        self._visto(sub, disp, nombre)
+        c = self._cuenta(sub)
+        if desde == c["v"]:
+            ev = self.eventos.setdefault(sub, asyncio.Event())
+            try:
+                await asyncio.wait_for(ev.wait(), ESPERA)
+            except asyncio.TimeoutError:
+                pass
+            self._visto(sub, disp, nombre)
+        return self.vista(sub, disp)
+
+    def estado(self, sub, disp, nombre, datos, tomar=False, hecho=None):
+        """El dispositivo `disp` cuenta lo que suena. False si suena otro (vivo) y no lo quiere tomar."""
+        self._visto(sub, disp, nombre)
+        c = self._cuenta(sub)
+        if c["activo"] != disp and c["activo"] and self._vivo(c, c["activo"]) and not tomar:
+            return False
+        if c["activo"] != disp:
+            log.info("conectar: %s suena ahora en %s", sub[:6], c["disp"][disp]["nombre"])
+            c["activo"], c["ordenes"] = disp, []
+        if hecho is not None:
+            c["ordenes"] = [o for o in c["ordenes"] if o["n"] > hecho]
+        s = dict(c["sonando"] or {})
+        for k in ("cancion", "pos", "pausa", "qi", "radio", "repetir", "aleatorio", "duracion", "artista"):
+            if k in datos:
+                s[k] = datos[k]
+        if "cola" in datos:
+            s["cola"] = (datos["cola"] or [])[:MAX_COLA]
+        s["at"] = time.time()
+        c["sonando"] = s
+        self._cambio(sub)
+        return True
+
+    def orden(self, sub, disp, tipo, datos):
+        """Una orden de `disp` para el que suena. Devuelve un error (texto) o None."""
+        if tipo not in TIPOS:
+            return "orden desconocida"
+        self._visto(sub, disp, None)
+        c = self._cuenta(sub)
+        if tipo == "transferir":
+            a = (datos or {}).get("a")
+            if a not in c["disp"] or not self._vivo(c, a):
+                return "ese dispositivo no está abierto"
+            if a == c["activo"]:
+                return None
+            s = c["sonando"]
+            if s:   # el nuevo sigue en el mismo segundo, sonando
+                c["sonando"] = {**s, "pos": self._pos(s), "at": time.time(), "pausa": False}
+            log.info("conectar: %s pasa la música a %s", sub[:6], c["disp"][a]["nombre"])
+            c["activo"], c["ordenes"] = a, []
+            self._cambio(sub)
+            return None
+        if not c["activo"] or not self._vivo(c, c["activo"]):
+            return "no está sonando en ningún dispositivo"
+        c["n"] += 1
+        c["ordenes"] = (c["ordenes"] + [{"n": c["n"], "tipo": tipo, "datos": datos or {}, "de": disp}])[-50:]
+        if tipo == "cola" and c["sonando"]:   # lo ven ya los demás, sin esperar a que el que suena lo cuente
+            c["sonando"] = {**c["sonando"], "cola": (datos.get("cola") or [])[:MAX_COLA], "qi": datos.get("qi", 0)}
+        self._cambio(sub)
+        return None
+
+    async def guardar(self):
+        while True:
+            await asyncio.sleep(GUARDA)
+            if not self.sucio:
+                continue
+            self.sucio = False
+            try:
+                tmp = FILE + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump(self.cuentas, f, ensure_ascii=False)
+                os.replace(tmp, FILE)
+            except OSError as e:
+                log.warning("conectar: no pude guardar: %s", e)
