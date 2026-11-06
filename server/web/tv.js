@@ -406,6 +406,20 @@ function mandoEspejo(a, n) {
     o('cola', {cola: s.cola, qi, nueva: true, radio: !!s.radio}); return '⏭'; }
   return '';
 }
+// Al devolverle la música: si la TV ya tiene cargada esa misma canción y la misma cola (lo normal al ir y volver),
+// solo va al segundo y suena, sin volver a pedir los enlaces ni cargarlo todo (tardaba unos segundos y la página y el
+// celular se veían "pegados" mientras). Si no, false y se pone la cola entera (tocar).
+function sigoAqui(s, cola) {
+  const items = acciones.cola ? acciones.cola().items : [], ahora = items[acciones.cola().i];
+  if (!ahora || idDe(ahora.media) !== s.cancion.id || items.length !== cola.length) return false;
+  if (!items.every((it, k) => idDe(it.media) === cola[k].id)) return false;
+  quitaEspejo();
+  cx.propia = true; cx.cola = cola; cx.radio = !!s.radio; cx.colaV++; cx.tomada = Date.now();
+  acciones.ir?.(s.pos || 0); acciones.play?.();
+  log('sigo con lo que ya tenía, en el', Math.round(s.pos || 0));
+  recuenta(); cxCuenta(true);
+  return true;
+}
 // Si a los 5 s de tener la llave nadie le ha pasado una cola (el mensaje de la web o la app se perdió o tardó: la
 // pantalla puede tardar ~20 s en cargar), la TV pregunta a la API qué suena en la cuenta y lo pone ella.
 async function siNadaSuena() {
@@ -446,7 +460,7 @@ async function cxBucle() {
         if (!cx.propia && !eraActiva && s?.cancion && Date.now() - cx.tomada > 5000) {
           log('me pasan la música:', s.cancion.title || s.cancion.id);
           const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
-          tocar(cola, i, false, s.pos || 0, !!s.radio);
+          if (!sigoAqui(s, cola)) tocar(cola, i, false, s.pos || 0, !!s.radio);
         }
         eraActiva = true;
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
@@ -571,6 +585,7 @@ if (window.cast && cast.framework && !demo) {
     menos10: () => { pm.seek(Math.max(0, (pm.getCurrentTimeSec() || 0) - 10)); return '−10 s'; },
     siguiente: () => { salta(1); return '⏭'; },
     saltaA: n => { salta(n); return n < 0 ? '⏮' : '⏭'; },
+    ir: t => pm.seek(t),
     cola: () => { try { const q = pm.getQueueManager(); return {items: q.getItems() || [], i: q.getCurrentItemIndex()}; } catch (e) { return {items: [], i: 0}; } },
     anterior: () => {
       const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (e) { return 0; } })();
