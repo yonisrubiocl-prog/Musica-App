@@ -1222,8 +1222,9 @@ wrap.addEventListener('click', e => {
 const audio = $('audio');
 let cur = null, queue = [], qi = -1, isRadio = false;
 let tv = null, tvListo = false, tvRadioT = 0;
-// ¿lo que suena va a la TV? Con la TV conectada pero la música pasada a este dispositivo ("Dónde suena"), suena aquí
-const enTv = () => !!tv && !tv.aqui;   // conectada a la TV (Google Cast): {sesion, player, ctrl, nombre, pos, llave}; ver "enviar a la TV"
+// ¿lo que suena va a la TV? Con la TV conectada pero la música en este dispositivo (pasada con "Dónde suena", o al
+// recargar la página con la TV conectada y el servidor diciendo que suena aquí), suena aquí: antes el play iba a la TV
+const enTv = () => !!tv && !tv.aqui && cx?.activo !== DISP;   // conectada a la TV (Google Cast): {sesion, player, ctrl, nombre, pos, llave}; ver "enviar a la TV"
 // Dos aleatorios independientes: el general (Inicio, Biblioteca, playlists, álbumes) y el de la página de un
 // artista (empieza apagado). El botón cambia el de lo que está sonando.
 let shuffleOn = store.get('aleatorio', false), shuffleArt = store.get('aleatorio_artista', false), fromArtist = false;
