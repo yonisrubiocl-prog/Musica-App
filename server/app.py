@@ -750,9 +750,10 @@ def web_app(path: str = ""):
 
 @app.get("/canvas/{vid}/estado", dependencies=[Depends(check_token)])
 def canvas_state(vid: str):
-    """¿Tiene Canvas? {estado: listo | haciendo | no}. Preguntarlo al poner la canción: si no lo tiene ni se intentó,
-    se hace ya (va la primera de la cola; tarda ~1 min). "no" es para siempre: queda la portada viva."""
-    return {"estado": CANVAS.ask(valid_vid(vid))}
+    """¿Tiene Canvas? {estado: listo | haciendo | no, motivo?, espera?}. Preguntarlo al poner la canción: si no lo
+    tiene ni se intentó, se hace ya (va la primera de la cola; tarda ~1 min). "no" es para siempre (queda la portada
+    viva) y trae el motivo; "espera" dice por qué no se puede hacer ahora (sin red con YouTube, falló hace poco…)."""
+    return CANVAS.ask(valid_vid(vid))
 
 
 @app.get("/canvas/{vid}", dependencies=[Depends(check_token)])

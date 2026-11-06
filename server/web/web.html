@@ -290,14 +290,34 @@
                 pointer-events: none; opacity: 0; transition: opacity 700ms var(--ease); }
   .np .canvas video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .np .canvas::after { content: ""; position: absolute; inset: 0;
-                       background: linear-gradient(color-mix(in srgb, var(--np-bg) 50%, transparent), transparent 16%,
-                                                   transparent 40%, color-mix(in srgb, var(--np-bg) 60%, transparent) 62%,
-                                                   color-mix(in srgb, var(--np-bg) 88%, transparent) 82%, var(--np-bg)); }
+                       /* casi transparente: una capa leve para que se lea, y un borde corto abajo para que el vídeo
+                          no acabe en seco al bajar a la cola o la letra */
+                       background: linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .08) 18%, rgb(0 0 0 / .08) 55%,
+                                                   rgb(0 0 0 / .3) calc(100% - 18px), var(--np-bg)); }
   .np.con-canvas .canvas { opacity: 1; }
   .np .cover { transition: opacity 700ms var(--ease); }
   .np.con-canvas .cover { opacity: 0; }
-  .np.con-canvas .tabs { background: color-mix(in srgb, var(--np-bg) 82%, transparent);   /* de cristal sobre el vídeo */
-                         backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .np .cover { position: relative; }
+  .np .cvb { position: absolute; right: 10px; bottom: 10px; width: 30px; height: 30px; border-radius: 50%; display: grid;
+             place-items: center; color: #fff; background: rgb(0 0 0 / .4); opacity: .65; transition: opacity 200ms;
+             backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .np .cvb[hidden] { display: none; }
+  .np .cvb:hover { opacity: 1; }
+  .np .cvb svg { width: 16px; height: 16px; }
+  .np .cvb.haciendo svg { animation: latido 1.6s ease-in-out infinite; }
+  @keyframes latido { 50% { opacity: .3; } }
+  /* Sobre el vídeo: Siguiente / Letra en una cajita de cristal flotante (como la barra de Inicio, Buscar y Biblioteca),
+     y el texto en blanco con sombra suave (también con el tema claro). */
+  .np.con-canvas .tabs { margin: 18px 0 0; padding: 0; top: 10px; border: 1px solid var(--borde-cristal); border-radius: 18px;
+                         background: color-mix(in srgb, var(--barra) 70%, transparent);
+                         backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+                         box-shadow: 0 10px 34px rgb(0 0 0 / calc(.35 * var(--sombra))); }
+  .np.con-canvas .tabs::after { display: none; }
+  .np.con-canvas .tabs button.on::after { bottom: 6px; left: 42%; right: 42%; }
+  .np.con-canvas :is(.top, .titles, .seek, .times, .ctls, .vol) { --texto: #fff; --texto2: rgb(255 255 255 / .78); color: var(--texto); }
+  .np.con-canvas h3 { color: #fff; }
+  .np.con-canvas :is(.titles, .times, .top) { text-shadow: 0 1px 10px rgb(0 0 0 / .55); }
+  .np.con-canvas :is(.ctls, .vol) { filter: drop-shadow(0 1px 6px rgb(0 0 0 / .45)); }
   .np .in { z-index: 1; }
   @media (prefers-reduced-motion: reduce) { .np .canvas { display: none; } }
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
@@ -502,7 +522,7 @@ aplicarTema();
       Mientras suena verás aquí la portada, la cola y la letra.</span></div>
     <div class="top"><button class="back" id="npClose" aria-label="Cerrar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
       <span class="ahora"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i>Reproduciendo</span><button class="kebab" id="npMore" aria-label="Más"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>
-    <div class="cover"><img id="npImg" alt=""></div>
+    <div class="cover"><img id="npImg" alt=""><button class="cvb" id="npCvB" hidden aria-label="Estado del Canvas"></button></div>
     <div class="titles"><div><h3 id="npT"></h3><span class="art" id="npA"></span>
       <div class="albl" id="npAl" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg><span id="npAlT"></span></div></div><button class="heart" id="npFav" aria-label="Me gusta"></button></div>
     <input type="range" class="seek" id="npSeek" min="0" max="1000" value="0">
@@ -1447,21 +1467,42 @@ $('npTabs').onclick = e => {
 // Al poner una canción se pregunta si tiene (/canvas/<id>/estado). Si no lo tiene ni se intentó, el servidor lo hace
 // ya (~1 min): se vuelve a preguntar cada 20 s, unas cuantas veces. El vídeo (~400 KB) se baja solo con el reproductor
 // grande a la vista (en el PC siempre; en el móvil al abrirlo) y se guarda en memoria para las últimas 12.
-const canvasUrl = new Map(), canvasEst = new Map();   // id -> objectURL; id -> listo | haciendo | no
+// canvasEst: id -> {estado: listo | haciendo | no | error, motivo?, espera?} (lo que contesta el servidor)
+const canvasUrl = new Map(), canvasEst = new Map();   // id -> objectURL; id -> estado
 const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)');
 let canvasTimer = null;
+const cvDe = s => (s && canvasEst.get(s.id)) || {};
 async function canvasEstado(s, intento = 0) {
   clearTimeout(canvasTimer);
-  if (!s || sinMovimiento.matches || ['listo', 'no'].includes(canvasEst.get(s.id))) return pintaCanvas();
-  let e = 'no';
-  try { e = (await api(`/canvas/${encodeURIComponent(s.id)}/estado`)).estado; } catch (err) {}
+  if (!s || sinMovimiento.matches || ['listo', 'no'].includes(cvDe(s).estado)) return pintaCanvas();
+  let e;
+  if (!/^[\w-]{11}$/.test(s.id)) e = {estado: 'no', motivo: 'no viene de YouTube'};
+  else try { e = await api(`/canvas/${encodeURIComponent(s.id)}/estado`); }
+  catch (err) { e = {estado: 'error', motivo: 'no pude preguntarle al servidor'}; }
+  if (e.estado === 'haciendo' && intento >= 8) e = {...e, espera: e.espera || 'tarda más de lo normal; vuelve a ponerla en un rato'};
   canvasEst.set(s.id, e);
-  if (e === 'haciendo' && intento < 8) canvasTimer = setTimeout(() => cur?.id === s.id && canvasEstado(s, intento + 1), 20000);
+  if (e.estado === 'haciendo' && intento < 8) canvasTimer = setTimeout(() => cur?.id === s.id && canvasEstado(s, intento + 1), 20000);
   if (cur?.id === s.id) pintaCanvas();
 }
+// Iconito en la esquina de la portada cuando no se ve el Canvas, para saber por qué (al tocarlo lo dice): tachado = no
+// tiene (para siempre), latiendo = se está haciendo, reloj = en espera, aviso = error. Con Canvas no sale.
+const CV_FILM = '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>';
+const CV_ICO = {no: CV_FILM + '<path d="M2 2l20 20" stroke-width="2.4"/>', haciendo: CV_FILM,
+  espera: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', error: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>'};
+function pintaBadge() {
+  const b = $('npCvB'), e = cvDe(cur), k = e.estado === 'haciendo' && e.espera ? 'espera' : e.estado;
+  b.hidden = !CV_ICO[k] || sinMovimiento.matches;
+  if (b.hidden) return;
+  b.className = 'cvb ' + k;
+  b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CV_ICO[k]}</svg>`;
+  b.title = {no: 'Sin Canvas: ' + e.motivo, haciendo: 'Preparando el Canvas…', espera: 'Canvas en espera: ' + e.espera,
+             error: 'No pude comprobar el Canvas: ' + e.motivo}[k];
+}
+$('npCvB').onclick = e => { e.stopPropagation(); toast($('npCvB').title); };
 async function pintaCanvas() {
   const v = $('npCanvasV'), s = cur;
-  if (!s || canvasEst.get(s.id) !== 'listo' || sinMovimiento.matches || !(panelFijo.matches || $('np').classList.contains('on'))) {
+  pintaBadge();
+  if (!s || cvDe(s).estado !== 'listo' || sinMovimiento.matches || !(panelFijo.matches || $('np').classList.contains('on'))) {
     $('np').classList.remove('con-canvas'); v.pause(); return ajustaEscena();
   }
   let url = canvasUrl.get(s.id);
@@ -1470,7 +1511,7 @@ async function pintaCanvas() {
       const r = await fetch('/canvas/' + encodeURIComponent(s.id), {headers: {Authorization: 'Bearer ' + session}});
       if (!r.ok) throw new Error(r.status);
       url = URL.createObjectURL(await r.blob());
-    } catch (e) { canvasEst.set(s.id, 'no'); return pintaCanvas(); }
+    } catch (e) { canvasEst.set(s.id, {estado: 'error', motivo: 'el vídeo no se pudo bajar'}); return pintaCanvas(); }
     canvasUrl.set(s.id, url);
     if (canvasUrl.size > 12) { const [k, old] = canvasUrl.entries().next().value; URL.revokeObjectURL(old); canvasUrl.delete(k); }
     if (cur !== s) return;   // cambió de canción mientras bajaba

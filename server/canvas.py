@@ -91,13 +91,24 @@ class Canvas:
         return "no" if vid in self.state["no"] or self._dead(vid) else "haciendo"
 
     def ask(self, vid):
-        """Alguien la está poniendo: si no tiene Canvas ni se intentó ya, va la primera de la cola."""
+        """Alguien la está poniendo: si no tiene Canvas ni se intentó ya, va la primera de la cola. Devuelve
+        {estado, motivo?, espera?}: el motivo de un "no" y, si no se puede hacer ahora, por qué espera."""
         with self.lock:
             st = self.status(vid)
-            if st == "haciendo" and vid not in self.urgent:
-                self.urgent[vid] = time.time()
-                self.wake.set()
-            return st
+            out = {"estado": st}
+            if st == "no":
+                out["motivo"] = (self.state["no"].get(vid) or {}).get("why") or "falló varias veces al hacerlo"
+            elif st == "haciendo":
+                if vid not in self.urgent and not self._waiting(vid):
+                    self.urgent[vid] = time.time()
+                    self.wake.set()
+                if time.time() < self.state["paused_until"]:
+                    out["espera"] = "sin conexión con YouTube o bloqueados un rato; se hará solo después"
+                elif self._waiting(vid):
+                    out["espera"] = "falló hace poco; se reintenta solo en unas horas"
+                elif not self.lib.peek("yt-" + vid):
+                    out["espera"] = "la canción aún se está guardando"
+            return out
 
     def want(self, vid):
         """La precarga acaba de bajarla: va antes que las de fondo."""

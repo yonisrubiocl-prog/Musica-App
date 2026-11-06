@@ -80,8 +80,15 @@
      en memoria los últimos ~12. Sin Canvas (o con "reducir animaciones" del sistema): la portada viva.
      **Cómo queda la pantalla (como en Spotify):** el vídeo, el título y los controles ocupan **la pantalla entera**
      (la portada, invisible, crece para llenar el alto), con las pestañas Siguiente / Letra justo en el borde de abajo;
-     la cola y la letra van debajo, al bajar, sobre el fondo normal (el vídeo no sigue detrás de ellas). La barra de
-     pestañas, de cristal (fondo ~80 % + desenfoque) mientras hay Canvas. **No bajar la pantalla sola** hasta la
+     la cola y la letra van debajo, al bajar, sobre el fondo normal (el vídeo no sigue detrás de ellas). Sin degradado
+     oscuro: solo una capa negra muy leve (~30 % arriba, ~8 % en medio, ~30 % abajo) y el texto en blanco con sombra
+     suave (también con el tema claro). Las pestañas, en una **cajita flotante de cristal** con esquinas de 18 px, como
+     la barra de Inicio / Buscar / Biblioteca (fondo de la barra al 70 % + desenfoque, borde fino, sombra).
+     **Iconito de estado** (30 px, redondo, negro al 40 % con desenfoque, abajo a la derecha de la portada, solo cuando
+     no se ve el Canvas): película tachada = `no` (al tocarlo, aviso con el `motivo` que manda el servidor); película
+     latiendo = `haciendo`; reloj = `haciendo` con `espera` (aviso con la `espera`); triángulo = error al preguntar.
+     `GET /canvas/{id}/estado` trae ahora `motivo` (con `no`) y `espera` (con `haciendo`, si no se puede hacer ya).
+     **No bajar la pantalla sola** hasta la
      canción que suena en la cola mientras se mira la portada/el vídeo; **tocar una pestaña sí baja** hasta ella.
    - **Títulos limpios y portadas:** la API ya manda el `title` sin "(Official Video)", "// Letra" ni el artista
      delante ("Rompe La Cintura", no "Alexis y Fido - Rompe La Cintura // Letra"); la app no tiene que hacer nada,

@@ -211,6 +211,10 @@ KB por canción en `/var/lib/musicapp/canvas/<id>.mp4`. La portada deja su sitio
   que da YouTube no responde, se usa el de respaldo que trae el propio enlace (`mn=principal,respaldo`, `fvip`), como
   hace su reproductor. El 06-11-2026 de madrugada se cayó la caché de YouTube del proveedor de internet
   (`sn-xouxa…`, 181.42.62.81) y no bajaba nada, ni la precarga; **no era un bloqueo** (YouTube contestaba normal).
+- **Iconito en la esquina de la portada** cuando no se ve el Canvas (para probar y saber que no es un fallo): tachado =
+  no tiene (al tocarlo dice el motivo), latiendo = se está haciendo, reloj = en espera, aviso = error. Con Canvas no sale.
+- **Con Canvas**, el vídeo se ve limpio (solo una capa leve y sombra en el texto, que va en blanco) y Siguiente / Letra
+  van en una cajita de cristal flotante como la barra de Inicio / Buscar / Biblioteca.
 - En la web, el vídeo solo se baja con el reproductor grande a la vista (en el PC siempre; en el móvil al abrirlo), y
   con "reducir movimiento" no sale.
 
@@ -270,7 +274,7 @@ las listas de precarga se tocan sin `sudo` (carpetas con setgid, para que lo nue
 | `GET /artists` | Todos los artistas guardados: `{artists: [{name, songs, albums, thumb}]}`, los que más canciones tienen primero; con `?orden=tuyos`, primero **los que más escuchas** (`tuyo: true`; cada vez que pusiste una canción suya cuenta, la mitad a los 45 días, y suman un poco favoritas y playlists: `Recomendar.top_artists`). Agrupa sin mayúsculas ni tildes ("Milo j" = "Milo J"); a las canciones sin artista en su ficha pero con título "Artista - Canción" les toma lo de antes del guion. Pide sesión |
 | `GET /artist?name=…` | Un artista: `{name, songs, albums: [{name, year, songs, thumb}], loose: [canciones sin álbum y colaboraciones]}`; álbumes del más nuevo al más viejo. Con sesión de usuario, además **`tuyas`** (las suyas en tus favoritas, la última marcada primero, y luego en tus playlists) y **`todas`** (la cola de "Reproducir": las tuyas y luego las demás, las más puestas primero). 404 si no hay. Pide sesión |
 | `GET /album?artist=…&name=…` | Las canciones guardadas de un álbum: `{name, artist, year, thumb, songs}` (`thumb`: la portada del álbum), por fecha y título (YouTube no da el número de pista; las bajadas por la precarga sí lo traen, `track_no`). 404 si no hay. Pide sesión |
-| `GET /canvas/{id}/estado` | ¿Tiene Canvas? `{estado: listo \| haciendo \| no}`. Preguntarlo al empezar cada canción: si no lo tiene ni se intentó, se hace ya (~1 min). `no` es para siempre (portada viva). Pide sesión |
+| `GET /canvas/{id}/estado` | ¿Tiene Canvas? `{estado: listo \| haciendo \| no, motivo?, espera?}` (`motivo`: por qué no tiene; `espera`: por qué no se puede hacer ahora, p. ej. sin red con YouTube). Preguntarlo al empezar cada canción: si no lo tiene ni se intentó, se hace ya (~1 min). `no` es para siempre (portada viva). Pide sesión |
 | `GET /canvas/{id}` | El Canvas: `video/mp4` (H.264, 540×960, 7 s, sin sonido) para poner en bucle; 404 si no tiene. Pide sesión |
 | `GET /stream/<id>` | El audio (`audio/webm`, Opus) por ID de YouTube. Si no está guardado lo baja (una sola vez aunque lo pidan varios a la vez). Admite `Range` (saltar dentro de la canción). Cabecera `X-Source` dice de dónde salió. Con la sesión en la cabecera, o con `?t=` de un enlace de la ruta siguiente |
 | `POST /stream/<id>/enlace` | `{url}`: enlace a `/stream/<id>?t=…` firmado (`server/data/stream.key`, se crea sola) que vale solo para esa canción y esa cuenta durante 6 h, sin la sesión dentro. Lo usa la web, porque `<audio>` no puede mandar la cabecera; si se copia, no da acceso a la cuenta. Borrar `stream.key` caduca todos |
