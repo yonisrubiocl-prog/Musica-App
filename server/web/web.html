@@ -1338,7 +1338,7 @@ function informaFallo(donde, s, e) {
 // Si suena en otro dispositivo (remoto), no suena aquí: se le manda la cola nueva con la canción que toca.
 function start(desde = 0, sonar = true) {
   if (remoto && !cxAplicando) { cur = queue[qi]; if (!cur) return; cxManda('cola', {...cxCola(), nueva: true}); return pintaCancion(); }
-  if (tv) { cur = queue[qi]; if (!cur) return; tvCarga(qi, desde); pintaCancion(); if (isRadio && queue.length - 1 - qi <= 2) fillRadio(); return; }
+  if (tv) { cur = queue[qi]; if (!cur) return; tvCarga(qi, desde); pintaCancion(); if (isRadio && queue.length - 1 - qi <= TV_PROX) fillRadio(); return; }
   cierraLaQueSonaba();
   cur = queue[qi]; if (!cur) return;
   playing = {s: cur, ctx: cur._rec ? (['para_ti', 'vuelve'].includes(listCtx) ? listCtx : 'radio') : listCtx};
@@ -1639,6 +1639,7 @@ pintaDisp();
 // van añadiendo más cuando pasa de canción. Los botones de siempre (play, siguiente, anterior, barra, volumen) manejan
 // la TV, y "varios dispositivos" cuenta lo que suena allí ("PC · Chrome → <TV>"). Al desconectar, sigue aquí en pausa.
 const TV_APP = '25E4DFA9', TV_CANAL = 'urn:x-cast:com.yoneapolis.musica';
+const TV_PROX = 6;   // cuántas siguientes tiene siempre la TV (las de "A continuación")
 // La llave de la TV (POST /tv/llave): con ella la TV es independiente (menús, sonar) pero no puede cambiar nada
 async function tvLlave() {
   if (!tv) return;
@@ -1682,8 +1683,12 @@ function tvTermina() {
   if (cur) start(pos, false);   // aquí, en pausa, en el segundo de la TV
   pintaDisp();
 }
-async function tvItem(s) {
-  const {url} = await api(`/stream/${encodeURIComponent(s.id)}/enlace`, {method: 'POST'});
+async function tvEnlaces(lista) {   // los enlaces de varias de una vez (solo firmas: no le pregunta nada a YouTube)
+  const {enlaces} = await api('/stream/enlaces', {method: 'POST', body: JSON.stringify({ids: lista.map(s => s.id)})});
+  return lista.map(s => tvItem(s, enlaces[s.id])).filter(Boolean);
+}
+function tvItem(s, url) {
+  if (!url) return null;
   const mi = new chrome.cast.media.MediaInfo(location.origin + url, 'audio/webm');
   const m = new chrome.cast.media.MusicTrackMediaMetadata();
   m.title = s.title || ''; m.artist = s.artist || ''; m.albumName = s.album || '';
@@ -1693,10 +1698,10 @@ async function tvItem(s) {
   const it = new chrome.cast.media.QueueItem(mi); it.autoplay = true; it.preloadTime = 10;
   return it;
 }
-async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: esa y las 2 siguientes
+async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: esa y las TV_PROX siguientes
   if (!tv) return;
   try {
-    const items = await Promise.all(queue.slice(i, i + 3).map(tvItem));
+    const items = await tvEnlaces(queue.slice(i, i + 1 + TV_PROX));
     if (!items.length || !tv) return;
     const req = new chrome.cast.media.QueueLoadRequest(items);
     req.startIndex = 0; req.currentTime = pos || 0; req.repeatMode = chrome.cast.media.RepeatMode.OFF;
@@ -1704,18 +1709,20 @@ async function tvCarga(i, pos = 0) {   // la cola de la TV desde la canción i: 
     await new Promise((ok, mal) => tv.sesion.getSessionObj().queueLoad(req, ok, mal));
   } catch (e) { toast('No pude mandarla a la TV'); console.warn('Cast', e); }
 }
-async function tvMas() {   // que la TV tenga siempre las 2 siguientes (si la cola es de aquí, no si la eligió la TV)
+async function tvMas() {   // que la TV tenga siempre las TV_PROX siguientes (si la cola es de aquí, no si la eligió la TV)
   if (!tv || tvMasCorre || remoto) return;
   tvMasCorre = true;
   try {
-    const media = tv.sesion.getMediaSession();
-    while (media && tv && tv.hasta < Math.min(queue.length - 1, qi + 2)) {
-      const it = await tvItem(queue[tv.hasta + 1]);
-      await new Promise((ok, mal) => media.queueAppendItem(it, ok, mal));
-      tv.hasta++;
+    const media = tv.sesion.getMediaSession(), hasta = Math.min(queue.length - 1, qi + TV_PROX);
+    if (media && tv && tv.hasta < hasta) {
+      const items = await tvEnlaces(queue.slice(tv.hasta + 1, hasta + 1));
+      if (items.length && tv) {
+        await new Promise((ok, mal) => media.queueInsertItems(new chrome.cast.media.QueueInsertItemsRequest(items), ok, mal));
+        tv.hasta += items.length;
+      }
     }
   } catch (e) { console.warn('Cast', e); } finally { tvMasCorre = false; }
-  if (isRadio && queue.length - 1 - qi <= 2) fillRadio();
+  if (isRadio && queue.length - 1 - qi <= TV_PROX) fillRadio().then(n => n && tvMas());
 }
 function tvCambio(e) {
   if (!tv) return;

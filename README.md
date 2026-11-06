@@ -349,7 +349,7 @@ manejan**. No toca YouTube.
 
 Desde el 06-11-2026: `server/web/tv.html` + `tv.js`, en `https://musica.yoneapolis.com/tv/`, registrada en la consola
 de Cast como receptor propio (App ID `25E4DFA9`, inédito: solo en la TV registrada del dueño; modo invitado apagado).
-La app (sender) manda la cola por Cast (la que suena y las 2 siguientes: `contentUrl` = enlace firmado de
+La app (sender) manda la cola por Cast (la que suena y las siguientes, mejor 6 para llenar "A continuación": `contentUrl` = enlace firmado de
 `POST /stream/<id>/enlace`, `audio/webm`, metadata de música con portada, `customData.id`) y maneja pausa, siguiente,
 etc. La página suena en su `<audio>` con el reproductor de CAF y enseña, para mirarla de lejos en 16:9: el **Canvas**
 (vertical) o la portada que se mueve, el fondo difuminado que respira, título y artista grandes, la **letra** (línea
@@ -375,7 +375,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   vertical (9:16): sin Canvas, la portada cuadrada en medio sobre ella misma difuminada, para que no cambie de tamaño.
 - **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
   (sale si hay una TV con Cast en la red). Al conectar, lo que suena sigue en la TV en el mismo segundo: se le carga
-  la canción y las 2 siguientes y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
+  la canción y las 6 siguientes (`TV_PROX`, las de "A continuación"; enlaces de una vez con `POST /stream/enlaces`)
+  y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
   volumen manejan la TV; "varios dispositivos" cuenta lo de allí como "PC · Chrome → <TV>". Al desconectar, sigue en
   la página en pausa.
 - **La llave de la TV** (`POST /tv/llave`, solo con una sesión de verdad): al conectar, la web (y la app, pendiente) le
