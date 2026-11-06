@@ -143,8 +143,10 @@
   /* ⋮ de las tarjetas de canciones: el menú (a continuación, al final de la cola, playlist…) sin cambiar la lista que
      suena; tocar la tarjeta la pone a sonar. En el PC sale al pasar por encima; también con clic derecho o dejándola pulsada */
   .card { position: relative; }
-  .card .cmenu { position: absolute; top: 8px; right: 8px; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid;
-                 place-items: center; background: rgb(0 0 0 / .5); color: #fff; font-size: 18px; font-weight: 700; line-height: 1; }
+  .card .cmenu { position: absolute; bottom: 8px; right: 4px; z-index: 1; width: 30px; height: 30px; border-radius: 50%; display: grid;
+                 place-items: center; color: var(--texto2); font-size: 20px; font-weight: 700; line-height: 1; transition: background 150ms; }
+  .card .cmenu:hover { background: var(--cristal2); color: var(--texto); }
+  .card:has(.cmenu) div { padding-right: 34px; }   /* abajo a la derecha, junto al título: que el texto no se meta debajo */
   @media (hover: hover) { .card .cmenu { opacity: 0; transition: opacity 150ms; } .card:hover .cmenu, .card:focus-visible .cmenu { opacity: 1; } }
   .card img, .card .ph { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--elevado); }
   .card .ph { display: grid; place-items: center; font-size: 2.2rem; color: var(--texto2); }
