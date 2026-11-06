@@ -396,7 +396,9 @@ pantalla) solo suena: no pide Canvas ni letra.
   suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
   web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.
-- **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa). En los
+- **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
+  final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,
+  en un cuadrito de cristal. En los
   menús, lo que suena queda **a la izquierda** en un panel solo de información (portada o Canvas, título, artista,
   barra), como el panel del reproductor de la web en el PC; llegando a él con ← y OK se va a Ahora, donde están los
   botones. Inicio empieza con un saludo ("Buenas tardes, Yoni") y accesos rápidos (Me gusta y 5 playlists); las filas

@@ -56,8 +56,10 @@
   h1 { font-size: 6.4vh; line-height: 1.08; font-weight: 800; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .artista { font-size: 3.8vh; color: var(--texto2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .album { font-size: 2.4vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .letra { margin-top: 2vh; min-height: 9vh; }
-  .letra:empty { min-height: 0; margin-top: 0; }
+  /* la letra en un cuadrito de cristal (sin fondo se perdía sobre la portada difuminada) */
+  .letra { margin-top: 2vh; min-height: 9vh; padding: 1.8vh 2.4vh; border-radius: 1.8vh; background: rgb(0 0 0 / .28);
+           -webkit-backdrop-filter: blur(2vh); backdrop-filter: blur(2vh); box-shadow: inset 0 0 0 .15vh rgb(255 255 255 / .08); }
+  .letra:empty { display: none; }
   .letra p { font-size: 3.6vh; font-weight: 700; line-height: 1.25; transition: opacity 300ms; }
   .letra p + p { font-size: 2.6vh; font-weight: 600; color: var(--texto2); margin-top: .8vh; }
   .barra { margin-top: 2.4vh; height: .8vh; border-radius: 1vh; background: rgb(255 255 255 / .16); overflow: hidden; }
@@ -72,6 +74,7 @@
   .mini img, .mini .ph { width: 13vh; height: 13vh; border-radius: 1.2vh; object-fit: cover; background: #1c1930; display: grid; place-items: center; font-size: 4vh; }
   .mini b { display: block; margin-top: .8vh; font-size: 1.8vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mini small { display: block; font-size: 1.5vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini.todo .ph { background: rgb(255 255 255 / .1); font-size: 5vh; }
   .mini.f:focus img, .mini.f:focus .ph { box-shadow: 0 0 0 .45vh #fff, 0 1.2vh 3vh rgb(var(--acento-rgb) / .5); }
 
   /* botones (se manejan con el control remoto: el elegido, iluminado) */

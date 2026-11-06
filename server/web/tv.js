@@ -90,7 +90,8 @@ function pintaCola(proximas) {
   const enfocada = document.activeElement?.closest?.('#colaFila');
   $('colaFila').innerHTML = lista.map(p => { const m = p.media.metadata || {}, img = imagenDe(p.media);
     return `<button class="mini f" data-salto="${p.salto}">${img ? `<img src="${esc(img)}" alt="">` : '<span class="ph">♪</span>'}
-      <b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small></button>`; }).join('');
+      <b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small></button>`; }).join('')
+    + `<button class="mini f todo" data-todo="1"><span class="ph">☰</span><b>Lista completa</b><small>Toda la cola</small></button>`;
   if (enfocada) enfoca($('colaFila').querySelector('.f') || document.querySelector('#controles .grande'));
 }
 
@@ -163,6 +164,7 @@ document.getElementById('controles').addEventListener('click', e => { const b = 
 document.getElementById('panelIr').addEventListener('click', () => { pila = []; irA('ahora'); });
 document.getElementById('colaFila').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.todo) return abre(colaCompleta, 'ahora');
   const hecho = acciones.saltaA ? acciones.saltaA(+b.dataset.salto) : ''; log('a continuación: salto', b.dataset.salto); if (hecho) avisa(hecho);
 });
 const DIR = {37: 'izq', 39: 'der', 38: 'arr', 40: 'aba', ArrowLeft: 'izq', ArrowRight: 'der', ArrowUp: 'arr', ArrowDown: 'aba'};
@@ -212,11 +214,12 @@ function irA(v, render) {
   $('menu').hidden = v === 'ahora';
   if (v === 'ahora') return enfoca(document.querySelector('#controles .grande'));
   $('menu').innerHTML = '<div class="scroll"><p class="vacio">Cargando…</p></div>';
-  (render || VISTAS[v])().then(h => { $('menu').innerHTML = `<div class="scroll">${h}</div>`; enfoca(visibles().find(el => el.closest('#menu'))); })
+  (render || VISTAS[v])().then(h => { $('menu').innerHTML = `<div class="scroll">${h}</div>`;
+    enfoca($('menu').querySelector('[data-foco]') || visibles().find(el => el.closest('#menu'))); })
     .catch(e => { $('menu').innerHTML = `<div class="scroll"><p class="vacio">No pude cargarlo (${esc(e.message)})</p></div>`; log('menú:', e.message); });
 }
 function abre(render, base) { pila.push({base: base || (vista === 'detalle' ? pila[pila.length - 1]?.base : vista), render}); irA('detalle', render); }
-function volver() { pila.pop(); const p = pila[pila.length - 1]; p ? irA('detalle', p.render) : irA(VISTA_BASE); }
+function volver() { const q = pila.pop(), p = pila[pila.length - 1]; p ? irA('detalle', p.render) : irA(q?.base === 'ahora' ? 'ahora' : VISTA_BASE); }
 let VISTA_BASE = 'inicio';
 document.getElementById('pestanas').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { pila = []; VISTA_BASE = b.dataset.vista; irA(b.dataset.vista); } });
 const tarjetas = (lista, k) => lista.map((s, i) => `<button class="tarjeta f" data-l="${k}" data-i="${i}">${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<span class="ph">♪</span>'}
@@ -277,6 +280,15 @@ const artista = nombre => async () => {
     ${imgOk(al.thumb) ? `<img src="${imgOk(al.thumb)}" alt="">` : '<span class="ph">💿</span>'}<b>${esc(al.name)}</b><small>${esc(al.year || '')}</small></button>`).join('')}</div>`;
   return h;
 };
+// La lista completa: toda la cola de la TV (la de Cast), la que suena marcada y elegida; OK salta a esa
+async function colaCompleta() {
+  const {items, i} = acciones.cola ? acciones.cola() : {items: [], i: 0};
+  const filas = items.map((it, k) => { const m = it.media?.metadata || {}, img = imagenDe(it.media), ya = k === i;
+    return `<button class="cancion f${ya ? ' sonando' : ''}" data-salto="${k - i}"${ya ? ' data-foco="1"' : ''}><span class="n">${ya ? '▶' : k + 1}</span>${img ? `<img src="${esc(img)}" alt="">` : '<img alt="">'}
+      <div><b>${esc(m.title || '')}</b><small>${esc([m.artist, m.albumName].filter(Boolean).join(' · '))}</small></div><span>${it.media?.duration ? dur(it.media.duration) : ''}</span></button>`; });
+  return `${volverBtn()}<div class="cabecera"><div><h1>Lista completa</h1><p>${items.length} canciones · va en la ${i + 1}</p></div></div>`
+    + (filas.length ? filas.join('') : '<p class="vacio">No hay nada en la cola.</p>');
+}
 // Buscar: teclado en pantalla; los resultados salen debajo al escribir (de lo guardado, sin YouTube)
 let consulta = '', buscaT = null;
 const TECLAS = 'abcdefghijklmnñopqrstuvwxyz0123456789'.split('');
@@ -310,6 +322,7 @@ document.getElementById('menu').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
   if (d.accion === 'volver') return volver();
+  if (d.salto !== undefined) { const n = +d.salto; if (n && acciones.saltaA) avisa(acciones.saltaA(n)); pila = []; return irA('ahora'); }
   if (d.tecla) return escribe(d.tecla);
   if (d.artista) return abre(artista(d.artista));
   if (d.album) return abre(async () => { const a = await api(`/album?artist=${encodeURIComponent(d.de)}&name=${encodeURIComponent(d.album)}`);
@@ -440,7 +453,8 @@ if (window.cast && cast.framework && !demo) {
     mas10: () => { pm.seek((pm.getCurrentTimeSec() || 0) + 10); return '+10 s'; },
     menos10: () => { pm.seek(Math.max(0, (pm.getCurrentTimeSec() || 0) - 10)); return '−10 s'; },
     siguiente: () => { salta(1); return '⏭'; },
-    saltaA: n => { salta(n); return '⏭'; },
+    saltaA: n => { salta(n); return n < 0 ? '⏮' : '⏭'; },
+    cola: () => { try { const q = pm.getQueueManager(); return {items: q.getItems() || [], i: q.getCurrentItemIndex()}; } catch (e) { return {items: [], i: 0}; } },
     anterior: () => {
       const i = (() => { try { return pm.getQueueManager().getCurrentItemIndex(); } catch (e) { return 0; } })();
       if ((pm.getCurrentTimeSec() || 0) > 3 || !i) pm.seek(0); else salta(-1);
@@ -527,9 +541,11 @@ if (window.cast && cast.framework && !demo) {
   if (p.get('id')) {
     leer = () => ({t: (Date.now() - t0) / 1000 + 42, d: 215, pausa: p.has('pausa')});
     const ficha = (titulo, artista, img, album) => ({metadata: {title: titulo || '', artist: artista || '', albumName: album || '', images: img ? [{url: img}] : []}});
-    pinta({contentUrl: `${location.origin}/stream/${p.get('id')}?t=${encodeURIComponent(p.get('t') || '')}`, duration: 215,
-           ...ficha(p.get('titulo'), p.get('artista'), p.get('img'), p.get('album'))},
-          p.getAll('sig').map((t, k) => ({salto: k + 1, media: {contentUrl: `${location.origin}/stream/${p.get('id')}?k=${k}`, ...ficha(t, p.getAll('sigA')[k], p.getAll('sigImg')[k])}})));
+    const yo = {contentUrl: `${location.origin}/stream/${p.get('id')}?t=${encodeURIComponent(p.get('t') || '')}`, duration: 215,
+                ...ficha(p.get('titulo'), p.get('artista'), p.get('img'), p.get('album'))};
+    const sig = p.getAll('sig').map((t, k) => ({salto: k + 1, media: {contentUrl: `${location.origin}/stream/${p.get('id')}?k=${k}`, ...ficha(t, p.getAll('sigA')[k], p.getAll('sigImg')[k])}}));
+    acciones.cola = () => ({items: [{media: yo}, ...sig], i: 0});
+    pinta(yo, sig);
   }
   enfoca(document.querySelector('#controles .grande'));
   if (p.get('llave')) { llave = p.get('llave'); $('pestanas').hidden = false; document.body.classList.add('con-pestanas'); irA(p.get('vista') || 'inicio'); }
