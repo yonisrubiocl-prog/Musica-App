@@ -694,6 +694,11 @@ Cada fase funciona por sí sola.
 
 **Del servidor:**
 - **Igualar la app Android** con la web y el servidor: lista completa en `docs/app-paridad.md`.
+- **Fichas con el artista mal** (visto el 06-11-2026): algunas canciones traen de YouTube un disco como artista
+  ("En El Muelle De San Blas" con artista "Arde El Cielo", que es un disco en vivo de Maná). Sale mal en la web y el
+  Canvas busca su videoclip con ese nombre. Falta detectarlas y corregirlas (por ejemplo, con iTunes o los créditos).
+- **Canvas:** si el primer videoclip encontrado es una imagen quieta, probar con el segundo resultado antes de dejar
+  la canción sin Canvas (~4 peticiones más, solo en esas). Las ya marcadas "casi no se mueve" habría que reintentarlas.
 - **Recomendaciones** (fase 6, `docs/recomendaciones.md`): fase 1 hecha en el servidor y la web; falta en la app
   (ver `docs/app-paridad.md`). Siguientes fases:
   afinar con datos y que las opiniones ajusten (3), mixes (4), lo de todos opcional (5), Descubre (6).
