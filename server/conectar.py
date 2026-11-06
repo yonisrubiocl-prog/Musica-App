@@ -180,8 +180,22 @@ class Conectar:
             return "no está sonando en ningún dispositivo"
         c["n"] += 1
         c["ordenes"] = (c["ordenes"] + [{"n": c["n"], "tipo": tipo, "datos": datos or {}, "de": disp}])[-50:]
-        if tipo == "cola" and c["sonando"]:   # lo ven ya los demás, sin esperar a que el que suena lo cuente
-            c["sonando"] = {**c["sonando"], "cola": (datos.get("cola") or [])[:MAX_COLA], "qi": datos.get("qi", 0)}
+        s = c["sonando"]
+        if tipo == "cola" and s:   # lo ven ya los demás, sin esperar a que el que suena lo cuente
+            cola, qi = (datos.get("cola") or [])[:MAX_COLA], datos.get("qi", 0)
+            s = {**s, "cola": cola, "qi": qi}
+            if datos.get("nueva") and 0 <= qi < len(cola):   # otra canción: ya la nueva, desde el 0
+                s.update(cancion=cola[qi], pos=0, at=time.time())
+            c["sonando"] = s
+        elif tipo in ("siguiente", "anterior") and s and s.get("cola"):
+            # La canción nueva, ya: si no, los mandos seguían con la de antes hasta que el que suena la cargara y la
+            # contara (unos segundos en la TV) y la página "se quedaba pegada". El que suena la confirma después.
+            cola, qi, pos = s["cola"], s.get("qi", 0) or 0, self._pos(s)
+            if tipo == "siguiente" and qi + 1 < len(cola):
+                c["sonando"] = {**s, "cancion": cola[qi + 1], "qi": qi + 1, "pos": 0, "at": time.time()}
+            elif tipo == "anterior":
+                j = qi - 1 if pos <= 3 and qi > 0 else qi
+                c["sonando"] = {**s, "cancion": cola[j], "qi": j, "pos": 0, "at": time.time()}
         self._cambio(sub)
         return None
 

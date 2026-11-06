@@ -327,8 +327,8 @@ de la pantalla Ahora de la TV (solo lo que suena, sin el ruido de las tarjetas) 
 - **Derecha (~38 %):** el Canvas (o la portada sobre ella misma difuminada) de arriba abajo, con pantalla completa.
 - **Izquierda:** "AHORA" y dónde suena (abre Dónde suena); portada pequeña, título, artista y álbum (llevan a su
   página), ♡ y ⋮; un panel **Letra | Cola · N**: la letra con la línea anterior, la actual y la siguiente (altura
-  fija) o **la cola de la página** (la misma lista, con arrastrar para mover); la barra con los tiempos; aleatorio ·
-  −10 · ⏮ · ⏯ · ⏭ · +10 · repetir; volumen, 🔊 Dónde suena / 📺 TV y "ver cola"; y **A continuación** compacta (4,
+  fija) o **la cola de la página** (la misma lista, con arrastrar para mover); la barra con su bolita (se arrastra en vivo y va al soltar); aleatorio ·
+  ⏮ · ⏯ · ⏭ · repetir; volumen, 🔊 Dónde suena / 📺 TV y "ver cola"; y **A continuación** compacta (4,
   "Ver cola ›"), que no sale con la Cola abierta (la lista crece hacia abajo).
 - Los controles de la página y la lista de la cola **no se copian**: los mismos se mueven a Ahora mientras está
   abierta (`prestaAhora`) y vuelven al salir por donde sea (`devuelveAhora`, con un `MutationObserver` sobre el
@@ -355,6 +355,8 @@ manejan**. No toca YouTube.
   elegir otro (`transferir`), el de antes se pausa y el nuevo sigue **en el mismo segundo**. Con un solo dispositivo abierto es
   solo el icono, sin texto; con otro abierto dice "Este dispositivo".
 - Si el que sonaba se cierra, lo de allí queda en los demás **en pausa, en su segundo**, para seguir donde se dejó.
+- **Siguiente / anterior / otra canción** desde un mando: el servidor apunta ya la canción nueva (de la cola que
+  tiene) y el que suena la confirma al cargarla. Antes los mandos seguían con la de antes hasta que la TV la cargara.
 - El que suena cuenta play, pausa, fin de canción y cada orden **al momento** (no espera al intervalo: con la pestaña
   en segundo plano Chrome lo frena a una vez por minuto; lo avisó la sesión de la app el 06-11-2026).
 - **La TV** (Google Cast, ver "Pantalla de la TV") es un dispositivo más: id que empieza por `tv`, con el nombre de

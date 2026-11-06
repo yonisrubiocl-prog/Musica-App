@@ -539,7 +539,9 @@ async function cxBucle() {
         eraActiva = true;
         const nuevas = (r.ordenes || []).filter(o => o.n > cx.orden);
         for (const o of nuevas) { cx.orden = o.n; log('orden de otro dispositivo:', o.tipo, o.tipo === 'pausa' ? (o.datos?.pausar ? 'pausar' : 'seguir') : ''); cxHaz(o); }
-        if (nuevas.length) recuenta();
+        // recontar enseguida solo tras pausar o mover la barra: tras siguiente/anterior/otra cola, la TV aún tiene la
+        // de antes cargando y la contaría (los mandos volvían atrás); al cargar la nueva ya la cuenta sola
+        if (nuevas.some(o => o.tipo === 'pausa' || o.tipo === 'ir')) recuenta();
         if (nuevas.length) cxCuenta();
       } else if (r.activo && r.activo_vivo && Date.now() - cx.tomada > 5000) {   // otro se quedó la música: la TV se pausa
         // (no justo después de poner una cola: la respuesta que llega aún puede ser de antes de quedársela la TV). Sea

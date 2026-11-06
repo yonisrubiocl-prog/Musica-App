@@ -482,8 +482,13 @@
     .ahv .qlist .radio div { flex: 1; } .ahv .qlist .radio small { display: block; color: var(--texto2); font-size: .8rem; margin-top: 2px; }
     /* barra y botones */
     .ahv-prog { display: flex; align-items: center; gap: 14px; color: var(--texto2); font-size: .9rem; font-variant-numeric: tabular-nums; }
-    .ahv-barra { flex: 1; height: 7px; border-radius: 7px; background: rgb(var(--fg) / .16); overflow: hidden; cursor: pointer; }
-    .ahv-barra i { display: block; height: 100%; width: 0; background: var(--acento); border-radius: inherit; }
+    /* la barra con su bolita: lo sonado en el color de acento (--p lo pone pintaSeek) */
+    .ahv-seek { flex: 1; -webkit-appearance: none; appearance: none; height: 7px; border-radius: 7px; cursor: pointer; margin: 0;
+                background: linear-gradient(90deg, var(--acento) var(--p, 0%), rgb(var(--fg) / .16) var(--p, 0%)); }
+    .ahv-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--texto);
+                                      box-shadow: 0 2px 8px rgb(0 0 0 / .4), 0 0 0 4px rgb(var(--acento-rgb) / .25); transition: transform 120ms; }
+    .ahv-seek::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--texto); box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
+    .ahv-seek:hover::-webkit-slider-thumb, .ahv-seek:active::-webkit-slider-thumb { transform: scale(1.2); }
     .ahv-ctl { display: flex; align-items: center; gap: 14px; }
     .ahv-ctl .hueco, .ahv-extra .hueco { flex: 1; }
     .ahv-ctl > button { width: 54px; height: 54px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
@@ -1896,7 +1901,8 @@ $('npTv').onclick = () => { if (tvListo) cast.framework.CastContext.getInstance(
 // volumen, Dónde suena / TV y pantalla completa; "A continuación" compacta (no sale con la Cola abierta: repetiría).
 // Derecha: el Canvas (o la portada) grande. El panel y la cola de los lados se esconden aquí; en las demás pestañas,
 // el reproductor sigue a un lado. En el móvil no sale: el reproductor grande ya es su "Ahora".
-let ahvLetra = {id: null, lineas: []}, ahvLinea = -2, ahvVista = 'letra';
+let ahvLetra = {id: null, lineas: []}, ahvLinea = -2, ahvVista = 'letra', ahvArrastra = false;
+const pintaSeek = pct => $('ahvSeek')?.style.setProperty('--p', Math.max(0, Math.min(100, pct)) + '%');
 function vistaAhora() {
   if (!panelFijo.matches) return go('inicio');
   wrap.innerHTML = `<section class="ahv fade" id="ahv">
@@ -1912,15 +1918,13 @@ function vistaAhora() {
         <div class="ahv-letra" id="ahvL"></div>
         <div class="ahv-cola"><span data-pon="qList"></span></div>
       </div>
-      <div class="ahv-prog"><span id="ahvCur">0:00</span><div class="ahv-barra" id="ahvBar"><i id="ahvP"></i></div><span id="ahvDur">0:00</span></div>
+      <div class="ahv-prog"><span id="ahvCur">0:00</span><input type="range" class="ahv-seek" id="ahvSeek" min="0" max="1000" value="0" aria-label="Ir a un momento de la canción"><span id="ahvDur">0:00</span></div>
       <div class="ahv-ctl">
         <span data-pon="npShuffle"></span>
         <span class="hueco"></span>
-        <button data-ahv="menos10" aria-label="Atrás 10 segundos">−10</button>
         <button data-ahv="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
         <button data-ahv="play" class="grande" id="ahvPlay" aria-label="Reproducir"></button>
         <button data-ahv="next" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-        <button data-ahv="mas10" aria-label="Adelante 10 segundos">+10</button>
         <span class="hueco"></span>
         <span data-pon="npRepeat"></span>
       </div>
@@ -1940,13 +1944,15 @@ function vistaAhora() {
     if (e.target.closest('#ahvDondeB')) return $('npDisp').click();
     if (e.target.closest('#ahvA') && cur?.artist) return showArtist(cur.artist);
     if (e.target.closest('#ahvAl') && cur?.album && cur.where !== 'youtube') return showAlbum(cur.artist || '', cur.album);
-    if (e.target.closest('#ahvBar')) { const d = duracion(), r = $('ahvBar').getBoundingClientRect(); if (d) irA(d * (e.clientX - r.left) / r.width); return; }
     const b = e.target.closest('[data-ahv]'); if (!b) return;
     const a = b.dataset.ahv;
     if (a === 'play') playPausa(); else if (a === 'next') next(); else if (a === 'prev') prev();
-    else if (a === 'mas10' || a === 'menos10') irA(Math.max(0, tiempo() + (a === 'mas10' ? 10 : -10)));
     else if (a === 'pantalla') document.fullscreenElement ? document.exitFullscreen() : $('ahv').requestFullscreen?.().catch(() => {});
   };
+  // la barra: la bolita se arrastra en vivo (se ve el tiempo al que irá) y al soltar va ahí
+  const seek = $('ahvSeek');
+  seek.oninput = () => { ahvArrastra = true; const d = duracion(); pintaSeek(+seek.value / 10); $('ahvCur').textContent = dur(d * seek.value / 1000) || '0:00'; };
+  seek.onchange = () => { const d = duracion(); if (d) irA(d * seek.value / 1000); ahvArrastra = false; };
   prestaAhora();
   vistaPanel(ahvVista);
   ahvLinea = -2; pintaAhora(); pintaAhoraSig(); pintaAhoraCanvas(); ico(!sonandoAhora()); pintaTiempo();
@@ -2001,8 +2007,8 @@ async function ponLetraAhora(s) {
 }
 function pintaAhoraTiempo(t, d) {
   if (!$('ahv') || !cur) return;
-  $('ahvP').style.width = d ? Math.min(100, 100 * t / d) + '%' : 0;
-  $('ahvCur').textContent = dur(t) || '0:00'; $('ahvDur').textContent = dur(d) || '0:00';
+  if (!ahvArrastra) { $('ahvSeek').value = d ? Math.round(1000 * Math.min(t, d) / d) : 0; pintaSeek(d ? 100 * t / d : 0); $('ahvCur').textContent = dur(t) || '0:00'; }
+  $('ahvDur').textContent = dur(d) || '0:00';
   const L = ahvLetra.lineas; if (!L.length) return;
   let i = -1; for (let k = 0; k < L.length && L[k].at <= t + .3; k++) i = k;
   if (i === ahvLinea) return; ahvLinea = i;
