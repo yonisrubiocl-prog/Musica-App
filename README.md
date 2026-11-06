@@ -416,6 +416,10 @@ pantalla) solo suena: no pide Canvas ni letra.
 - **Cambiar la cola desde otro dispositivo** (añadir, quitar, mover) con la misma canción sonando: la TV cambia lo de
   alrededor (`removeItems`/`insertItems` de la cola de Cast) sin recargar la que suena; antes se cortaba unos
   segundos. Si eso falla, vuelve a poner la cola entera en el mismo segundo ("no pude cambiar la cola sin cortar").
+- **Una canción suelta con algo ya sonando** (tarjetas de Inicio, Buscar, filas de una lista): OK abre una ventanita
+  **⏭ Que suene después** (elegido de entrada) · **➕ Al final de la cola** · **▶ Ponerla ya** (cambia la lista);
+  Atrás la cierra. Sin nada sonando, OK la pone directamente; ▶ Reproducir / 🔀 Aleatorio de una lista, también. Si
+  suena aquí, se mete en la cola de Cast sin cortar (`insertItems`); si suena en otro (espejo), va como orden `cola`.
 - **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
   final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,
   en un cuadrito de cristal de **altura fija** (la línea actual hasta en 2 renglones y la siguiente en 1; lo que sobre,
@@ -685,15 +689,17 @@ nada se aprueba ni se bloquea por accidente. Todo se refresca solo (archivos cad
 | **5 Precarga** | Los artistas en el orden en que irán, con estado (bajando, adelantado, pendiente, hecho, quitado) y álbumes abiertos/elegidos |
 | **6 Sistema** | Contenedores (estado, desde cuándo, reinicios, CPU, RAM, imagen), carga, RAM y disco del servidor, avisos y errores del registro de la API y bloqueos de YouTube |
 
-**Con el ratón:** clic en un usuario (Usuarios) y, en su detalle, **Aprobar / Desbloquear**, **Bloquear** y **Hacer o
-quitar administrador** (salen solo los que tocan según su estado); clic en un artista (Precarga) y **Adelantar** y
+**Con el ratón:** clic en un usuario (Usuarios) y, en su detalle, **Aprobar / Desbloquear**, **Bloquear**, **Hacer o
+quitar admin** y **Quitar** (salen solo los que tocan según su estado); clic en un artista (Precarga) y **Adelantar** y
 **Quitar / Devolver**; en Sistema, **Reiniciar API** y **Reiniciar bot**. Todos los botones piden confirmar (también
 aprobar) y no se quedan el foco, así 1–6 siguen cambiando de pestaña.
 
 **Con comandos**, cada pestaña tiene los suyos (abajo se ven los de la pestaña abierta; escritos en otra, el panel dice
 adónde ir):
 **Usuarios**: `:1` aprueba al 1 (`:1 3 4` a varios; si estaba bloqueado, pide confirmar), `:B 2` bloquea (pide
-confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos). **Precarga**:
+confirmar; cierra sus sesiones), `:ADM 2` le da o quita el administrador (sin límite de dispositivos), `:X 2` lo **quita** (pide confirmar; no es
+bloquear: se borra de la lista y se le cierran las sesiones; si vuelve a entrar con Google queda pendiente y hay que
+aprobarle otra vez; sus favoritas y playlists se guardan). **Precarga**:
 `:A 5` adelanta al 5 (primero en `precarga-primero.txt`), `:X 5` lo quita (`Artista | *` en `precarga-saltar.txt`) y
 otra vez `:X` lo devuelve. **Sistema**: `:R API` y `:R BOT` reinician (piden confirmar). **En todas**: `:T` cambia de
 paleta, `:H` ayuda, `:Q` sale (la API sigue igual).
@@ -704,6 +710,7 @@ Por debajo usa `users.py`:
 docker exec musicapp-api python users.py                       # lista
 docker exec musicapp-api python users.py aprobar amigo@gmail.com
 docker exec musicapp-api python users.py bloquear amigo@gmail.com
+docker exec musicapp-api python users.py quitar amigo@gmail.com   # tendrá que volver a pedir acceso
 docker exec musicapp-api python users.py admin yo@gmail.com     # sin límite de dispositivos
 ```
 

@@ -7,6 +7,8 @@ Desde el servidor:
   docker exec musicapp-api python users.py                    # lista de usuarios
   docker exec musicapp-api python users.py aprobar <email>
   docker exec musicapp-api python users.py bloquear <email>    # también cierra sus sesiones
+  docker exec musicapp-api python users.py quitar <email>      # lo borra: cierra sus sesiones y tendrá que volver a
+                                                               # pedir acceso (sus favoritas y playlists se quedan)
   docker exec musicapp-api python users.py admin <email>       # sin límite de dispositivos (el dueño)
   docker exec musicapp-api python users.py noadmin <email>
 """
@@ -166,6 +168,18 @@ def _cli(args):
             USERS.data[sub]["admin"] = action == "admin"
         USERS.save()
         print(f"{who}: {'administrador (sin límite de dispositivos)' if action == 'admin' else 'sin administrador'}")
+        return 0
+    if action == "quitar" and who:
+        found = [sub for sub, u in USERS.data.items() if who in (sub, u["email"])]
+        if not found:
+            print(f"No hay nadie con '{who}'.")
+            return 1
+        for sub in found:
+            del USERS.data[sub]
+        USERS.save()
+        SESSIONS.data = {k: s for k, s in SESSIONS.data.items() if s["sub"] not in found}
+        SESSIONS.save()
+        print(f"{who}: quitado (tendrá que volver a pedir acceso)")
         return 0
     status = {"aprobar": "aprobado", "bloquear": "bloqueado"}.get(action)
     if not status or not who:

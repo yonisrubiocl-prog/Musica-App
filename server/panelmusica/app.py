@@ -1,6 +1,6 @@
 """Panel de la música en la terminal (Textual): Resumen, Usuarios, Actividad, Biblioteca, Precarga y Sistema.
 
-Se manda como siempre: ':' abre la línea de comandos (:1 aprueba al 1, :B 2 bloquea, :H ayuda, :Q sale). Las teclas
+Se manda como siempre: ':' abre la línea de comandos (:1 aprueba al 1, :B 2 bloquea, :X 2 quita, :H ayuda, :Q sale). Las teclas
 sueltas solo mueven (1–6 cambian de pestaña, flechas, ratón): nada se aprueba ni se bloquea por accidente.
 """
 import json
@@ -67,6 +67,8 @@ def guardar_paleta(nombre):
 
 aplicar_paleta("suave")
 PESTANAS = ["resumen", "usuarios", "actividad", "biblioteca", "precarga", "sistema"]
+QUITAR_DETALLE = ("Se le cierran las sesiones y desaparece de la lista; si vuelve a entrar con Google queda pendiente "
+                  "y hay que aprobarle otra vez. Sus favoritas y playlists se quedan.")
 EQ = "▁▂▃▄▅▆▇█▇▆▅▄▃▂"
 DIAS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 ESTADOS = {"running": "encendido", "exited": "apagado", "restarting": "reiniciando", "paused": "en pausa",
@@ -82,6 +84,7 @@ AYUDA = [
     (":<n>", "Aprobar al número n.   Ej:  :1    Varios:  :1 3 4"),
     (":B <n>", "Bloquear al número n (pide confirmar). Cierra sus sesiones al momento."),
     (":ADM <n>", "Hacerle administrador (sin límite de dispositivos) o quitárselo."),
+    (":X <n>", "Quitar al número n (pide confirmar): se borra y tiene que volver a pedir acceso. No queda bloqueado."),
     ("En la pestaña Precarga (5)", None),
     (":A <n>", "Adelantar al artista n: el siguiente en bajarse (el último adelantado va primero)."),
     (":X <n>", "Quitar al artista n de la precarga (pide confirmar). Otra vez :X lo devuelve."),
@@ -270,6 +273,7 @@ class Panel(App):
                             yield Button("✓ Aprobar", id="b-aprobar", variant="success", compact=True)
                             yield Button("⊘ Bloquear", id="b-bloquear", variant="error", compact=True)
                             yield Button("★ Administrador", id="b-admin", variant="primary", compact=True)
+                            yield Button("✕ Quitar", id="b-quitar-u", variant="warning", compact=True)
                         yield Static("", id="detalle-texto")
             with TabPane("3 Actividad", id="actividad"):
                 yield DataTable(id="t-actividad", cursor_type="row", zebra_stripes=True)
@@ -542,7 +546,7 @@ class Panel(App):
         self.query_one("#b-aprobar", Button).label = "✓ Desbloquear" if u["estado"] == "bloqueado" else "✓ Aprobar"
         self.query_one("#b-bloquear").display = u["estado"] != "bloqueado"
         self.query_one("#b-admin").display = u["estado"] == "aprobado"
-        self.query_one("#b-admin", Button).label = "☆ Quitar administrador" if u["admin"] else "★ Hacer administrador"
+        self.query_one("#b-admin", Button).label = "☆ Quitar admin" if u["admin"] else "★ Hacer admin"
         x = Text()
         x.append(f"{u['nombre'] or u['email']}\n", style=f"bold {VIOLETA}")
         x.append(f"{u['email']}\n", style=GRIS)
@@ -599,7 +603,7 @@ class Panel(App):
     # -- botones: lo mismo que los comandos, siempre con confirmación
     def on_button_pressed(self, ev: Button.Pressed):
         b = ev.button.id
-        if b in ("b-aprobar", "b-bloquear", "b-admin"):
+        if b in ("b-aprobar", "b-bloquear", "b-admin", "b-quitar-u"):
             u = self.usuario_elegido()
             if not u:
                 return
@@ -610,6 +614,8 @@ class Panel(App):
             elif b == "b-bloquear":
                 self.confirmar(f"¿Bloquear a {u['email']}?", "Se le cierran todas las sesiones al momento.",
                                lambda: self.cambiar("bloquear", [u]))
+            elif b == "b-quitar-u":
+                self.confirmar(f"¿Quitar a {u['email']}?", QUITAR_DETALLE, lambda: self.cambiar("quitar", [u]))
             else:
                 accion = "noadmin" if u["admin"] else "admin"
                 pregunta = (f"¿Quitarle el administrador a {u['email']}?" if u["admin"] else
@@ -749,7 +755,7 @@ class Panel(App):
         tab = self.query_one(TabbedContent).active
         propios = {
             "resumen": "1–6 cambia de pestaña (2 para aprobar o bloquear)",
-            "usuarios": "clic en alguien y usa sus botones  ·  o :1 aprobar  ·  :B 2 bloquear  ·  :ADM 2 admin",
+            "usuarios": "clic en alguien y usa sus botones  ·  o :1 aprobar  ·  :B 2 bloquear  ·  :X 2 quitar  ·  :ADM 2 admin",
             "actividad": "flechas o ratón para recorrer las últimas 48 h",
             "biblioteca": "Tab cambia de tabla  ·  flechas o ratón para recorrerla",
             "precarga": "clic en un artista y usa los botones  ·  o :A 3 adelantar  ·  :X 3 quitar o devolver",
@@ -832,9 +838,16 @@ class Panel(App):
             return self.ejecutar_precarga(cmd, linea, arts)
         es_usuarios = linea[:1].isdigit() or cmd.startswith("ADM") or cmd == "B" or cmd.startswith("B ")
         if es_usuarios and tab != "usuarios":
-            return self.avisar("Aprobar, bloquear y administrador están en la pestaña Usuarios (2)", "mal")
+            return self.avisar("Aprobar, bloquear, quitar y administrador están en la pestaña Usuarios (2)", "mal")
+        if cmd[:1] == "X" and tab == "usuarios":
+            elegidos = self.elegir(linea[1:], lista)
+            if not elegidos:
+                return self.avisar("Uso: :X <número de la lista>", "mal")
+            return self.confirmar(f"¿Quitar a {', '.join(u['email'] for u in elegidos)}?", QUITAR_DETALLE,
+                                  lambda: self.cambiar("quitar", elegidos))
         if cmd[:1] in ("A", "X") and cmd[1:].strip().isdigit():
-            return self.avisar("Adelantar y quitar artistas están en la pestaña Precarga (5)", "mal")
+            return self.avisar("Adelantar y quitar artistas están en la pestaña Precarga (5); quitar usuarios, en "
+                               "Usuarios (2)", "mal")
         if cmd.startswith("ADM"):
             elegidos = self.elegir(linea[3:], lista)
             if not elegidos:
@@ -932,11 +945,11 @@ class Panel(App):
             ok, salida = d.users_py(accion, u["sub"])
             (hechos if ok else fallos).append(u["email"] if ok else f"{u['email']} ({salida})")
         palabra = {"aprobar": "Aprobado", "bloquear": "Bloqueado", "admin": "Ahora es administrador",
-                   "noadmin": "Ya no es administrador"}[accion]
+                   "noadmin": "Ya no es administrador", "quitar": "Quitado"}[accion]
         if fallos:
             self.call_from_thread(self.avisar, f"Falló: {', '.join(fallos)}", "mal", 15)
         else:
-            self.call_from_thread(self.avisar, f"{palabra}: {', '.join(hechos)}", "mal" if accion == "bloquear" else "ok")
+            self.call_from_thread(self.avisar, f"{palabra}: {', '.join(hechos)}", "mal" if accion in ("bloquear", "quitar") else "ok")
         self.call_from_thread(self.leer_rapido)
 
     @work(thread=True)
