@@ -187,12 +187,16 @@
   .espera b { font-size: 4.4vh; } .espera span { font-size: 2.4vh; color: var(--texto2); }
   body.con-cancion .espera, body.con-pestanas .espera { opacity: 0; pointer-events: none; }
   body.solo-audio * { animation: none !important; }
+  #audio { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
-<!-- el audio, el primero y el único elemento de medios al arrancar: es el que maneja Cast (el vídeo del Canvas lo crea
-     tv.js después; si estuviera aquí, Cast podía cogerlo a él: sin sonido, 7 s y a la siguiente, 06-11-2026) -->
-<audio id="audio" preload="auto"></audio>
+<!-- el reproductor, el primero y el único elemento de medios al arrancar: es el que maneja Cast (el vídeo del Canvas
+     lo crea tv.js después; si estuviera aquí, Cast podía cogerlo a él: sin sonido, 7 s y a la siguiente, 06-11-2026).
+     Es un <video> invisible aunque solo suene audio: con <audio>, en la Chromecast con Google TV Cast ponía al pausar
+     SU interfaz encima (título, barra blanca) y se quedaba el control remoto ("la interfaz de serie reemplaza a la
+     propia cuando suena audio", según Google). Prueba del 06-11-2026. -->
+<video id="audio" preload="auto" playsinline></video>
 <div class="fondo" id="fondo"></div>
 <!-- pestañas (salen cuando la TV tiene la llave: entonces es independiente) -->
 <nav class="pestanas" id="pestanas" hidden>

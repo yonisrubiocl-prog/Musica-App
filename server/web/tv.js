@@ -419,7 +419,10 @@ if (window.cast && cast.framework && !demo) {
   // Lo que no sea nuestro no entra: ni al cargar la cola ni al añadirle canciones
   const rechazo = () => new M.ErrorData(M.ErrorType.LOAD_FAILED);
   let cargandoPropia = 0;   // cuántas cargas propias van (pueden solaparse: la web manda 1 canción y al rato 11)
+  // Todo como vídeo (ver el <video id="audio"> de tv.html): también lo que mande la app o la web por Cast
+  const comoVideo = m => { if (m && /^audio\//.test(m.contentType || '')) m.contentType = 'video/webm'; };
   pm.setMessageInterceptor(M.MessageType.LOAD, req => {
+    comoVideo(req.media); (req.queueData?.items || []).forEach(it => comoVideo(it.media));
     // Una cola nueva de un celular o una web por Cast: esa cola es suya y la TV deja de contar. Cast hace pasar por aquí
     // también los saltos dentro de la cola de la TV ("A continuación", siguiente): esos no (son canciones de su cola).
     if (!cargandoPropia && cx.propia) {
@@ -507,7 +510,7 @@ if (window.cast && cast.framework && !demo) {
       l = l.filter(s => enlaces[s.id]);
       const items = l.map(s => {
         const mi = new M.MediaInformation();
-        mi.contentId = mi.contentUrl = location.origin + enlaces[s.id]; mi.contentType = 'audio/webm'; mi.streamType = M.StreamType.BUFFERED;
+        mi.contentId = mi.contentUrl = location.origin + enlaces[s.id]; mi.contentType = 'video/webm'; mi.streamType = M.StreamType.BUFFERED;
         const md = new M.MusicTrackMediaMetadata(); md.title = s.title || ''; md.artist = s.artist || ''; md.albumName = s.album || '';
         md.images = imagenOk(s.thumb) ? [new cast.framework.messages.Image(s.thumb)] : [];
         mi.metadata = md; mi.customData = {id: s.id}; if (s.duration) mi.duration = s.duration;
