@@ -766,8 +766,7 @@ function songMenu(s, extra = []) {
   const opts = [
     ...(s.artist ? [{icon: '👤', label: 'Ir al artista', sub: s.artist, run: () => { closeNp(); showArtist(s.artist); }}] : []),
     ...(s.album && s.where !== 'youtube' ? [{icon: '💿', label: 'Ir al álbum', sub: s.album, run: () => { closeNp(); showAlbum(s.artist || '', s.album); }}] : []),
-    ...(cur && cur.id !== s.id ? [{icon: '▶', label: 'Ponerla ya', sub: 'Tu lista sigue después', run: () => ponerlaYa(s)},
-                                  {icon: '⏭', label: 'Reproducir a continuación', sub: 'Solo en lo que suena ahora', run: () => playNext(s)},
+    ...(cur && cur.id !== s.id ? [{icon: '⏭', label: 'Reproducir a continuación', sub: 'Solo en lo que suena ahora', run: () => playNext(s)},
                                   {icon: '📥', label: 'Añadir a la cola', sub: 'Al final de lo que suena', run: () => alFinal(s)}] : []),
     {icon: '➕', label: 'Añadir a playlist', run: () => pickPl(s)},
     {icon: on ? '💔' : '♡', label: on ? 'Quitar de Me gusta' : 'Me gusta', run: () => toggleFav(s)},
@@ -1256,14 +1255,6 @@ function playNext(s) {
   let at = qi + 1; while (at < queue.length && queue[at]._cola) at++;
   queue.splice(at, 0, {...s, _cola: true});
   qVer++; paintQueue(); cxColaYa(); toast('Sonará a continuación');
-}
-// "Ponerla ya": suena ya sin perder la lista (se mete detrás de la que suena y se salta a ella; luego sigue la lista)
-function ponerlaYa(s) {
-  if (!cur) { listCtx = 'busqueda'; return playOne(s); }
-  const j = queue.findIndex((x, k) => k > qi && x.id === s.id);
-  if (j >= 0) queue.splice(j, 1);
-  queue.splice(qi + 1, 0, {...s, _cola: true}); qi++; qVer++;
-  start(); paintQueue();
 }
 // "Añadir a la cola": al final de lo que suena (antes de las recomendaciones de la radio), sin cambiar la lista
 function alFinal(s) {
