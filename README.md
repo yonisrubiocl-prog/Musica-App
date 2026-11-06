@@ -392,7 +392,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   playlists y tus artistas; dentro, playlist, álbum o artista con ▶ Reproducir / 🔀 Aleatorio y sus canciones; Buscar:
   teclado en pantalla y resultados de lo guardado (`/search?yt=0`). Se recorre con las flechas (van al elemento más
   cercano en esa dirección; todo lo elegible lleva la clase `f`) y OK; "← Volver" en pantalla; Atrás del mando también
-  vuelve (en Ahora solo avisa "Para salir, desconecta…"), si la TV deja que la página vea la tecla. Al elegir algo, **la TV pone su propia cola** (enlaces de `POST /stream/enlaces`, de una vez) y
+  vuelve (la TV sí deja ver la tecla: `BrowserBack`). **⏻ Salir** al final de las pestañas cierra la pantalla (pide
+  un segundo OK en 4 s); la web o el celular ven que se desconectó y se quedan la música en pausa. Al elegir algo, **la TV pone su propia cola** (enlaces de `POST /stream/enlaces`, de una vez) y
   suena sola, sin depender del celular; en "varios dispositivos" es el dispositivo "TV" (id que empieza por `tv`): la
   web pasa a mando sin pausarla, y la TV hace las órdenes de los otros. Si nada suena ni se toca el control en 30 min,
   se cierra sola (`disableIdleTimeout`: Cast ya no la cierra a los 5). En un navegador: `/tv/?demo&llave=x`.

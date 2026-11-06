@@ -199,7 +199,7 @@ addEventListener('keydown', e => {
     e.preventDefault(); log('atrás:', k, c);
     if (vista === 'detalle') return volver();
     if (vista !== 'ahora') { pila = []; return irA('ahora'); }
-    return avisa('Para salir, desconecta desde la web o el celular');
+    return avisa('Para salir: ⏻ Salir, arriba');
   }
   log('tecla:', k || '?', c); mandaAvisos(true);
 }, true);
@@ -232,7 +232,18 @@ function irA(v, render) {
 function abre(render, base) { pila.push({base: base || (vista === 'detalle' ? pila[pila.length - 1]?.base : vista), render}); irA('detalle', render); }
 function volver() { const q = pila.pop(), p = pila[pila.length - 1]; p ? irA('detalle', p.render) : irA(q?.base === 'ahora' ? 'ahora' : VISTA_BASE); }
 let VISTA_BASE = 'inicio';
-document.getElementById('pestanas').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { pila = []; VISTA_BASE = b.dataset.vista; irA(b.dataset.vista); } });
+document.getElementById('pestanas').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.salir !== undefined) return salir(b);
+  pila = []; VISTA_BASE = b.dataset.vista; irA(b.dataset.vista); });
+// ⏻ Salir: cierra la pantalla de la TV (la web o el celular ven que se desconectó y se quedan con la música en pausa).
+// El primer OK pregunta y solo el segundo, en 4 s, cierra: así no se sale sin querer.
+let salirT = 0;
+function salir(b) {
+  if (Date.now() - salirT > 4000) { salirT = Date.now(); b.textContent = '¿Salir? Pulsa OK otra vez';
+    setTimeout(() => { if (Date.now() - salirT >= 4000) b.textContent = '⏻ Salir'; }, 4100); return; }
+  log('salir con el botón'); mandaAvisos(true);
+  try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) { avisa('No pude cerrarla'); }
+}
 const tarjetas = (lista, k) => lista.map((s, i) => `<button class="tarjeta f" data-l="${k}" data-i="${i}">${imgOk(s.thumb) ? `<img src="${imgOk(s.thumb)}" alt="">` : '<span class="ph">♪</span>'}
   <b>${esc(s.title)}</b><small>${esc(s.artist || '')}</small></button>`).join('');
 const artistas = lista => lista.map(a => `<button class="tarjeta redonda f" data-artista="${esc(a.name)}">${imgOk(a.thumb) ? `<img src="${imgOk(a.thumb)}" alt="">` : '<span class="ph">👤</span>'}

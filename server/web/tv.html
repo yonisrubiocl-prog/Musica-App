@@ -94,6 +94,8 @@
                      font: 600 2.3vh Roboto, system-ui, sans-serif; outline: none; transition: transform 150ms, background 150ms;
                      white-space: nowrap; word-break: keep-all; hyphens: none; letter-spacing: normal; flex: none; }
   .pestanas button.on { background: rgb(255 255 255 / .18); color: var(--texto); }
+  .pestanas .salir { margin-left: 2.4vh; }
+  .pestanas .salir.f:focus { background: rgb(220 60 70 / .75); }
   /* En los menús, la pantalla de Ahora se queda a la izquierda en pequeño (como el panel del reproductor de la web en el
      PC): portada o Canvas, título, artista, barra y botones; los menús, a la derecha. Sin nada sonando, menú entero. */
   body.con-menu .escena { position: fixed; left: 4vw; top: 12vh; bottom: 4vh; width: 24vw; height: auto; z-index: 2; display: flex;
@@ -195,7 +197,7 @@
 <!-- pestañas (salen cuando la TV tiene la llave: entonces es independiente) -->
 <nav class="pestanas" id="pestanas" hidden>
   <button class="f" data-vista="ahora">Ahora</button><button class="f" data-vista="inicio">Inicio</button>
-  <button class="f" data-vista="biblioteca">Biblioteca</button><button class="f" data-vista="buscar">Buscar</button>
+  <button class="f" data-vista="biblioteca">Biblioteca</button><button class="f" data-vista="buscar">Buscar</button><button class="f salir" data-salir>⏻ Salir</button>
 </nav>
 <section class="menu" id="menu" hidden></section>
 
