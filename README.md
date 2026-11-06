@@ -304,6 +304,7 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `GET /interno/song/<clave>` | Ficha sin contarla como puesta |
 | `POST /interno/played/<clave>` | Sonó: suma una vez puesta y actualiza el último uso |
 | `POST /interno/fetch` | `{"url": …, "by": <id de Discord>}`: "dame esta canción". Guardada → `source: local`; si no, la baja → `online`; directos → `live`, sin archivo y con `info.url` para escucharlo |
+| `POST /interno/cambiar` | `{viejo, nuevo, olvidar?}` (ids de YouTube): cambia una canción por otra versión en todas las cuentas (favoritas con su fecha, playlists en su sitio, historial), bajando `nuevo` aunque parezca la misma; desde entonces pedir `viejo` da `nuevo`; `olvidar` (por defecto) borra la vieja. Se usó el 06-11-2026 con *Frijolero*: el videoclip de MolotovVEVO viene **censurado**, la del disco *Dance And Dense Denso* no |
 | `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
 | `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
 
