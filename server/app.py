@@ -917,12 +917,16 @@ def tv_llave_fuera(llave: str = Body(embed=True, max_length=100), found=Depends(
 
 
 @app.post("/tv/registro")
-def tv_registro(request: Request, id: str = Body(embed=True, max_length=11), t: str = Body(embed=True, max_length=200),
+def tv_registro(request: Request, id: str = Body("", embed=True, max_length=11), t: str = Body("", embed=True, max_length=200),
                 lineas: list[str] = Body(embed=True, max_length=30)):
     """Lo que cuenta la pantalla de la TV (sus avisos [tv] y errores) sale en el registro de la API: para depurarla sin
-    chrome://inspect. Sin sesión, pero solo con el ?t= válido de la canción que suena (como /stream): nadie de fuera
-    puede llenar el registro."""
-    sub, u = signed_user(valid_vid(id), t, request)
+    chrome://inspect. Con el ?t= válido de la canción que suena (como /stream) o, si aún no suena nada, con la llave
+    de la TV: nadie de fuera puede llenar el registro."""
+    if id and t:
+        sub, u = signed_user(valid_vid(id), t, request)
+    else:
+        found = check_token(request)
+        sub, u = need_user(found), found[1]
     for x in lineas[:30]:
         log.info("TV de %s: %s", u.get("email", sub[:6]), str(x)[:300])
     return {"ok": True}

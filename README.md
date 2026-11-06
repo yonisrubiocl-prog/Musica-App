@@ -379,7 +379,8 @@ pantalla) solo suena: no pide Canvas ni letra.
   `TV_COLA`; por el canal propio, `{tipo: "cola", cola, qi, pos, radio}`) y la TV la pone y suena ella, igual que al
   elegir algo en sus menús: cuenta lo que suena en "varios dispositivos" y la web pasa a ser **un mando** de la TV
   (play, siguiente, la barra, cambiar la cola… van como órdenes; el volumen, por Cast). Si es radio, el mando le busca
-  más cuando quedan 2. Al recargar la página, la TV sigue con lo suyo; al desconectar, lo de la TV queda en la página
+  más cuando quedan 2. Si a los 5 s de tener la llave nadie le ha pasado la cola (la pantalla puede tardar ~20 s en cargar y el
+  mensaje perderse), la TV pregunta a `/conectar` qué suena en la cuenta y lo pone ella. Al recargar la página, la TV sigue con lo suyo; al desconectar, lo de la TV queda en la página
   en pausa. **Cambiar dónde suena con la TV conectada:** elegir este navegador en "Dónde suena" lo hace sonar
   aquí (la TV queda abierta, en pausa); elegir la TV la vuelve a poner (la TV retoma la cola y el segundo del
   servidor). Cualquier dispositivo que se quede la música pausa la TV, sea de quien sea la cola. (Hasta el 06-11-2026 la web le pasaba unas pocas canciones por Cast y se descuadraban: dos maneras de
@@ -409,7 +410,7 @@ pantalla) solo suena: no pide Canvas ni letra.
   van de borde a borde, alineadas con los títulos. En las listas, cada canción con su número y la que suena marcada.
   Las flechas: de lado gana lo que está a la misma altura; arriba/abajo, lo de la misma columna.
 - **Registro de la TV:** la página manda sus avisos `[tv] …` y errores a `POST /tv/registro` (solo con la firma de la
-  canción que suena) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
+  canción que suena, o con la llave si aún no suena nada) y salen en el registro de la API: `docker logs -f musicapp-api 2>&1 | grep "TV de"`.
   Lo que hace la web con la TV (cuántas le manda, a qué canción pasó) va a `POST /web/registro`: `grep "Web de"`.
 - **Probarla en un navegador:** `/tv/?demo&id=<id>&titulo=…&artista=…&img=…&sig=…` (sin TV; el Canvas y la letra
   necesitan un `t` válido). En la TV registrada se depura desde `chrome://inspect` del PC.

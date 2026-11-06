@@ -39,11 +39,12 @@ const log = (...a) => {
   const txt = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
   console.log('[tv]', txt); pendientes.push(txt); if (pendientes.length > 200) pendientes.shift();
 };
-function mandaAvisos(yaMismo) {   // yaMismo: al cerrarse la página (sendBeacon sale aunque se cierre)
-  if (!pendientes.length || !actual?.t) return;
-  const body = JSON.stringify({id: actual.id, t: actual.t, lineas: pendientes.splice(0, 30)});
-  if (yaMismo && navigator.sendBeacon) navigator.sendBeacon('/tv/registro', new Blob([body], {type: 'application/json'}));
-  else fetch('/tv/registro', {method: 'POST', headers: {'Content-Type': 'application/json'}, body}).catch(() => {});
+function mandaAvisos(yaMismo) {   // yaMismo: al cerrarse la página (keepalive: sale aunque se cierre)
+  if (!pendientes.length || (!actual?.t && !llave)) return;
+  // con la firma de la canción que suena o, si aún no suena nada, con la llave (antes sin canción no salía nada)
+  const conFirma = !!actual?.t, body = JSON.stringify({...(conFirma ? {id: actual.id, t: actual.t} : {}), lineas: pendientes.splice(0, 30)});
+  fetch('/tv/registro', {method: 'POST', keepalive: !!yaMismo, body,
+    headers: {'Content-Type': 'application/json', ...(conFirma ? {} : {Authorization: 'Bearer ' + llave})}}).catch(() => {});
 }
 setInterval(mandaAvisos, 3000);
 addEventListener('pagehide', () => { log('la página se cierra'); mandaAvisos(true); despedida(); });
@@ -377,6 +378,18 @@ const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
             propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
+// Si a los 5 s de tener la llave nadie le ha pasado una cola (el mensaje de la web o la app se perdió o tardó: la
+// pantalla puede tardar ~20 s en cargar), la TV pregunta a la API qué suena en la cuenta y lo pone ella.
+async function siNadaSuena() {
+  if (actual || cx.propia || cx.ido) return;
+  try {
+    const r = await api(`/conectar?disp=${cx.disp}&nombre=TV&desde=-1`), s = r.sonando;
+    if (actual || cx.propia || !s?.cancion) return log('nadie me pasó la cola y en la cuenta no suena nada');
+    log('nadie me pasó la cola: pongo lo que suena en la cuenta,', s.cancion.title || s.cancion.id);
+    const cola = s.cola?.length ? s.cola : [s.cancion], i = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
+    tocar(cola, i, false, s.pos || 0, !!s.radio);
+  } catch (e) { log('no pude preguntar qué suena:', e.message); }
+}
 // Al cerrarse, la TV se despide (POST /conectar/salir): si no, los demás la veían "sonando" hasta 45 s más (VIVO del
 // servidor) aunque ya no estuviera. keepalive: sale aunque la página se esté cerrando. Después ya no pregunta más.
 function despedida() {
@@ -540,7 +553,7 @@ if (window.cast && cast.framework && !demo) {
       llave = d.llave; log('llave recibida, caduca', new Date((d.caduca || 0) * 1000).toISOString().slice(0, 16));
       $('pestanas').hidden = false; document.body.classList.add('con-pestanas');
       if (primera && !actual) irA('inicio');
-      if (primera) cxBucle();
+      if (primera) { cxBucle(); setTimeout(siNadaSuena, 5000); }
     } else if (d.tipo === 'cola' && llave && Array.isArray(d.cola)) {   // la web le pasa su cola al conectar: suena aquí
       log('la web me pasa', d.cola.length, 'canciones desde la', (d.qi || 0) + 1);
       tocar(d.cola, d.qi || 0, false, +d.pos || 0, !!d.radio);
