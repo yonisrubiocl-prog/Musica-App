@@ -319,6 +319,17 @@ biblioteca y candados). Los túneles solo reenvían al 8000, así que desde inte
 | `POST /interno/ficha/<clave>` | Completa artista/álbum preguntándole a YouTube; 503 si está bloqueado |
 | `DELETE /interno/song/<clave>` | Olvidar: borra archivo y ficha |
 
+### Pestaña Ahora de la web (PC)
+
+Desde el 06-11-2026, solo en pantallas de 1100 px o más (en el móvil el reproductor grande ya hace de "Ahora"): una
+cuarta pestaña, **Ahora**, como la pantalla Ahora de la TV y sin el ruido de las tarjetas. Canvas o portada en grande
+a la izquierda; a la derecha "Sonando aquí / en <dispositivo>", título, artista (lleva a su página), álbum, la letra
+en un cuadro de **altura fija** (actual y siguiente), la barra (clic para ir a un segundo), −10 · ⏮ · ⏯ · ⏭ · +10,
+**pantalla completa** y "A continuación" (6, clic salta a esa) con **☰ Lista completa** (hoja con toda la cola). En
+esta pestaña se esconden el panel de la derecha y la cola de la izquierda; en las demás, el reproductor sigue a un
+lado como siempre. Usa lo mismo que el resto (`pintaCancion`, `pintaTiempo`, `paintQueue`, `pintaCanvas`, `ico`):
+funciona igual sonando aquí, en otro dispositivo (mando) o en la TV.
+
 ### Escuchar en varios dispositivos (como Spotify Connect)
 
 Desde el 06-11-2026 (`server/conectar.py`; en la web y la app). Cada cuenta tiene **una reproducción**: la
