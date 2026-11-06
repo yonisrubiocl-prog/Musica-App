@@ -35,10 +35,15 @@ const AUDIO_FALSO = () => {   // audio de mentira: play/pausa/segundo sin sonar 
   const songs = await pc.evaluate(async () => (await api('/library?sort=nombre&limit=8')).songs);
   await pc.evaluate(s => playList(s.slice(0, 6), 0, false, true), songs);
   await pc.waitForTimeout(2500);
+  const solo = await pc.evaluate(() => ({oculto: $('npDispT').hidden, solo: $('npDisp').classList.contains('solo')}));
+  ok(solo.oculto && solo.solo, 'con un solo dispositivo, el botón 🔊 es solo el iconito (sin texto)');
   const cel = await abre('cel', {viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true,
     userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36'});
   await cel.waitForTimeout(2000);
   let a = await st(pc), b = await st(cel);
+  await pc.waitForTimeout(500);
+  const dos = await pc.evaluate(() => ({texto: $('npDispT').hidden ? '' : $('npDispT').textContent, solo: $('npDisp').classList.contains('solo')}));
+  ok(dos.texto === 'Este dispositivo' && !dos.solo, `con el celular abierto, el PC dice «${dos.texto}»`);
   ok(!a.remoto && !a.paused && a.cur === songs[0].id, `el PC suena (${a.cur})`);
   ok(b.remoto && b.cur === a.cur && b.en.includes('PC'), `el celular ve lo del PC: «${b.en}» · ${b.disp}`);
   ok(b.paused, 'y en el celular no suena nada');

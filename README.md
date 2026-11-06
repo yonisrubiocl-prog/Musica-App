@@ -332,7 +332,8 @@ manejan**. No toca YouTube.
   de la cola (poner una lista o una canción, "a continuación", mover, quitar, aleatorio, repetir) se hace en la copia
   de la cola y se manda entera (`cola`). El volumen se esconde (es el de allí).
 - **🔊 Dónde suena** (botón debajo de los controles del reproductor grande): la lista de dispositivos abiertos; al
-  elegir otro (`transferir`), el de antes se pausa y el nuevo sigue **en el mismo segundo**.
+  elegir otro (`transferir`), el de antes se pausa y el nuevo sigue **en el mismo segundo**. Con un solo dispositivo abierto es
+  solo el icono, sin texto; con otro abierto dice "Este dispositivo".
 - Si el que sonaba se cierra, lo de allí queda en los demás **en pausa, en su segundo**, para seguir donde se dejó.
 - Se guarda en `/data/conectar.json` cada 20 s. Prueba con dos navegadores sin tocar cuentas reales:
   `tools/probar-conectar.sh` (servidor de mentira con la lógica real y audio de mentira).

@@ -330,6 +330,8 @@
   .np .disp:hover { color: var(--texto); background: rgb(var(--fg) / .06); }
   .np .disp svg { width: 19px; height: 19px; flex: none; }
   .np .disp.fuera { color: var(--acento); }
+  .np .disp.solo { padding: 7px; opacity: .6; }
+  .np .disp.solo:hover { opacity: 1; }
   .bar .en { color: var(--acento); font-size: .74rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sheet .opt.dsp-on { color: var(--acento); }
   .sheet .nota { color: var(--texto2); font-size: .85rem; line-height: 1.45; padding: 6px 14px 10px; }
@@ -1589,7 +1591,11 @@ function pintaDisp() {
   $('npDisp').hidden = !rend.conectar;
   const fuera = remoto ? cxNombre(cx.activo) : '';
   $('npDisp').classList.toggle('fuera', !!fuera);
-  $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : 'Este dispositivo · ' + DISP_NOMBRE;
+  // solo con este dispositivo, el iconito y nada más; con otro abierto, "Este dispositivo" (se le puede pasar)
+  const otros = (cx?.dispositivos || []).some(d => d.vivo && d.id !== DISP);
+  $('npDispT').textContent = fuera ? 'Sonando en ' + fuera : otros ? 'Este dispositivo' : '';
+  $('npDispT').hidden = !fuera && !otros;
+  $('npDisp').classList.toggle('solo', !fuera && !otros);
   $('pEn').hidden = !fuera; $('pEn').textContent = fuera ? '🔊 En ' + fuera : '';
   document.querySelector('.np .vol').style.visibility = fuera ? 'hidden' : '';   // el volumen es el de allí
 }
