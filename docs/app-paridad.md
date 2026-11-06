@@ -201,3 +201,22 @@
     dispositivos** (apagado: parar el bucle de `/conectar` y no contar el estado; si estaba de mando, quedarse con lo
     de allí en pausa; sin botón 🔊) y **✨ Animaciones** (portada viva, fondo que respira, ecualizador quietos). Botón
     "🔋 Modo ahorro: apagar todo" (y "Encender todo" si ya están apagados).
+14. **Enviar a la TV (Google Cast, receptor propio `25E4DFA9` en `/tv/`)** (06-11-2026; así lo hace la web): la TV es
+    **independiente**, como un dispositivo más, y el celular solo la enciende y luego es su mando.
+    - Al conectar: `POST /tv/llave` → `{llave, caduca}` y por el canal propio `urn:x-cast:com.yoneapolis.musica`
+      mandar `{tipo: "llave", llave, caduca}` y **después** `{tipo: "cola", cola, qi, pos, radio}`: la cola entera
+      (fichas `id, title, artist, album, duration, thumb, where`; hasta 300: desde 20 antes de la que suena), `qi` la
+      que suena dentro de esa lista, `pos` el segundo. La TV pide ella los enlaces (`POST /stream/enlaces`), la pone y
+      suena; en `/conectar` aparece como dispositivo `TV` (id que empieza por `tv`) y se queda la música.
+    - **No** usar `queueLoad`/`queueInsertItems` con enlaces de `/stream/<id>/enlace` (la manera vieja: se
+      descuadraban las listas y la TV dejaba de contar lo que suena).
+    - Mientras está conectada, el celular es **mando** de la TV (como con otro dispositivo en "varios dispositivos"):
+      play, siguiente, anterior, ir a un segundo y cualquier cambio de cola van como `POST /conectar/orden`; el celular
+      no cuenta su estado (`/conectar/estado`) ni suena. El volumen sí por Cast (el de la TV). Si es radio y quedan 2
+      o menos, el mando busca más (una vez cada 30 s como mucho) y las manda en la cola nueva.
+    - Al recargar/volver a la app con la TV ya conectada (sesión retomada): solo una llave nueva, sin cola (la TV
+      sigue con lo suyo).
+    - Al desconectar: `DELETE /tv/llave {llave}` y lo que sonaba en la TV queda en el celular, en pausa, en el
+      mismo segundo.
+    - Lo que la TV hace sola (menús, Lista completa, botones del mando) llega por `/conectar` como cualquier
+      dispositivo: nada más que hacer en la app.
