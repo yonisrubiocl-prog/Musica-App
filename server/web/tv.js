@@ -27,6 +27,17 @@ function limpia(media) {
   return media;
 }
 const imagenDe = media => media?.metadata?.images?.[0]?.url || '';
+const log = (...a) => console.log('[tv]', ...a);   // se ve en chrome://inspect (PC en la misma wifi)
+// El vídeo del Canvas se crea aquí, cuando hace falta (no en el HTML): así Cast nunca lo toma por el reproductor
+const video = () => document.getElementById('canvas');
+function videoNuevo() {
+  video()?.remove();
+  const v = document.createElement('video');
+  v.id = 'canvas'; v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
+  v.disableRemotePlayback = true; v.setAttribute('disableremoteplayback', '');
+  $('media').append(v);
+  return v;
+}
 
 // La canción que suena
 function pinta(media, siguiente) {
@@ -41,7 +52,7 @@ function pinta(media, siguiente) {
     $('titulo').textContent = actual.titulo; $('artista').textContent = actual.artista; $('album').textContent = actual.album;
     if (img) $('tapa').src = img; else $('tapa').removeAttribute('src');
     $('fondo').style.backgroundImage = img ? `url("${img.replace(/["\\]/g, '')}")` : 'none';
-    $('media').classList.remove('con-canvas'); $('canvas').removeAttribute('src');
+    $('media').classList.remove('con-canvas'); video()?.remove();
     $('letra').textContent = ''; lineas = []; lineaAhora = -2;
     if (!soloAudio) { canvas(actual); letra(actual); }
   }
@@ -64,9 +75,10 @@ async function canvas(c, intento = 0) {
   try { e = await (await fetch(`/canvas/${c.id}/estado${q}`)).json(); } catch (err) { return; }
   if (actual !== c) return;
   if (e.estado === 'listo') {
-    const v = $('canvas');
+    const v = videoNuevo();
     v.oncanplay = () => { if (actual === c) { $('media').classList.add('con-canvas'); if (!leer().pausa) v.play().catch(() => {}); } };
     v.src = `/canvas/${c.id}${q}`;
+    log('canvas de', c.id);
   } else if (e.estado === 'haciendo' && intento < 8) cvTimer = setTimeout(() => actual === c && canvas(c, intento + 1), 20000);
 }
 
@@ -94,7 +106,7 @@ setInterval(() => {
   $('progreso').style.width = total ? Math.min(100, 100 * t / total) + '%' : 0;
   $('actual').textContent = dur(t); $('total').textContent = dur(total);
   document.body.classList.toggle('sonando', !pausa); document.body.classList.toggle('en-pausa', pausa);
-  const v = $('canvas'); if (v.getAttribute('src')) { if (pausa && !v.paused) v.pause(); else if (!pausa && v.paused) v.play().catch(() => {}); }
+  const v = video(); if (v) { if (pausa && !v.paused) v.pause(); else if (!pausa && v.paused) v.play().catch(() => {}); }
   if (lineas.length) pintaLetra(t);
 }, 500);
 
@@ -103,7 +115,8 @@ const demo = new URLSearchParams(location.search).has('demo');
 if (window.cast && cast.framework && !demo) {
   const ctx = cast.framework.CastReceiverContext.getInstance(), pm = ctx.getPlayerManager();
   const E = cast.framework.events.EventType, M = cast.framework.messages;
-  pm.setMediaElement($('audio'));
+  const audio = $('audio');
+  pm.setMediaElement(audio);
   // Lo que no sea nuestro no entra: ni al cargar la cola ni al añadirle canciones
   const rechazo = () => new M.ErrorData(M.ErrorType.LOAD_FAILED);
   pm.setMessageInterceptor(M.MessageType.LOAD, req => {
@@ -122,16 +135,23 @@ if (window.cast && cast.framework && !demo) {
   };
   leer = () => ({t: pm.getCurrentTimeSec() || 0, d: pm.getDurationSec() || 0, pausa: pm.getPlayerState() !== M.PlayerState.PLAYING});
   const ahora = () => { const m = pm.getMediaInformation(); if (m) pinta(m, siguiente()); };
-  pm.addEventListener(E.PLAYER_LOAD_COMPLETE, ahora);
+  pm.addEventListener(E.PLAYER_LOAD_COMPLETE, () => {
+    log('cargada:', pm.getMediaInformation()?.metadata?.title, '· duración según Cast', pm.getDurationSec(),
+        '· el <audio> tiene', audio.currentSrc ? 'el /stream' : 'NADA', '· vídeos en la página', document.querySelectorAll('video').length);
+    ahora();
+  });
+  pm.addEventListener(E.ERROR, e => log('error de Cast:', e.detailedErrorCode, e.error));
   pm.addEventListener(E.MEDIA_STATUS, ahora);
   pm.addEventListener([E.PAUSE, E.PLAYING], () => {
-    const v = $('canvas'); if (v.getAttribute('src')) (pm.getPlayerState() === M.PlayerState.PLAYING ? v.play().catch(() => {}) : v.pause());
+    const v = video(); if (v) (pm.getPlayerState() === M.PlayerState.PLAYING ? v.play().catch(() => {}) : v.pause());
   });
   pm.addEventListener(E.MEDIA_FINISHED, () => { if (!siguiente()) { actual = null; document.body.classList.remove('con-cancion'); } });
   ctx.addEventListener(cast.framework.system.EventType.READY, () => {
+    pm.setMediaElement(audio);   // otra vez, por si acaso: el reproductor es el <audio>
     const caps = ctx.getDeviceCapabilities();
     soloAudio = !!caps && caps[cast.framework.system.DeviceCapabilities.DISPLAY_SUPPORTED] === false;   // parlante
     document.body.classList.toggle('solo-audio', soloAudio);
+    log('lista · pantalla:', !soloAudio);
   });
   const op = new cast.framework.CastReceiverOptions();
   op.maxInactivity = 3600;   // que no se corte la conexión con la app en las pausas largas

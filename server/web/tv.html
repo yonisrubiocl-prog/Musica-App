@@ -77,9 +77,12 @@
 </style>
 </head>
 <body>
+<!-- el audio, el primero y el único elemento de medios al arrancar: es el que maneja Cast (el vídeo del Canvas lo crea
+     tv.js después; si estuviera aquí, Cast podía cogerlo a él: sin sonido, 7 s y a la siguiente, 06-11-2026) -->
+<audio id="audio" preload="auto"></audio>
 <div class="fondo" id="fondo"></div>
 <main class="escena">
-  <div class="media" id="media"><img id="tapa" alt=""><video id="canvas" muted loop playsinline preload="auto"></video></div>
+  <div class="media" id="media"><img id="tapa" alt=""></div>
   <div class="info">
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i>Sonando en la TV<span class="pausa">En pausa</span></div>
     <h1 id="titulo"></h1>
@@ -92,7 +95,6 @@
   </div>
 </main>
 <div class="espera"><img src="/logo-480.webp" alt=""><b>Música</b><span>Elige una canción en la app y mándala a la TV</span></div>
-<audio id="audio"></audio>
 <script src="/tv/tv.js"></script>
 </body>
 </html>

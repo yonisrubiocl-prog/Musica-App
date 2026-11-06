@@ -355,6 +355,11 @@ etc. La página suena en su `<audio>` con el reproductor de CAF y enseña, para 
 (vertical) o la portada que se mueve, el fondo difuminado que respira, título y artista grandes, la **letra** (línea
 actual y siguiente), la barra y **"A continuación"**. El vídeo se para con la música. En un parlante Cast (sin
 pantalla) solo suena: no pide Canvas ni letra.
+- **El reproductor es el `<audio>`**, el único elemento de medios al arrancar; el `<video>` del Canvas lo crea `tv.js`
+  después, cuando hace falta (con `disableRemotePlayback`). En la primera prueba (06-11-2026, Google TV iFFalcon, app
+  1.0.46) el vídeo estaba en el HTML antes que el audio y Cast lo cogió a él: no sonaba, se pausaba y cada canción
+  duraba 7 s. En `chrome://inspect` salen avisos `[tv] …` (qué se cargó, cuánto dura según Cast, si el audio tiene el
+  `/stream` y cuántos vídeos hay).
 - **Seguridad:** pública y sin login, pero sin datos: nunca la sesión. El `?t=` del enlace vale solo para esa canción y
   esa cuenta (audio, `/canvas/<id>` y `/lyrics/<id>`; nunca favoritas, playlists ni historial). Como cualquiera con el
   App ID podría lanzarla, solo acepta audio de `/stream/…` de este dominio e imágenes de aquí, `i.ytimg.com` y
