@@ -207,6 +207,10 @@ KB por canción en `/var/lib/musicapp/canvas/<id>.mp4`. La portada deja su sitio
   nadie usa YouTube, con 1,5–5 min al azar entre una y otra (~18 por hora). Todo por el ritmo general con YouTube;
   con aviso de bloqueo, 24 h quieto. Los de canciones que el tope de espacio borra se borran una vez al día.
 - **Estado** en `/data/canvas.json` (`ok`, `no` con el motivo, `err`); resumen en `GET /interno/canvas`.
+- **Nodo de vídeo de respaldo** (`use_fallback` en `app.py`, para el Canvas y para todas las descargas): si el nodo
+  que da YouTube no responde, se usa el de respaldo que trae el propio enlace (`mn=principal,respaldo`, `fvip`), como
+  hace su reproductor. El 06-11-2026 de madrugada se cayó la caché de YouTube del proveedor de internet
+  (`sn-xouxa…`, 181.42.62.81) y no bajaba nada, ni la precarga; **no era un bloqueo** (YouTube contestaba normal).
 - En la web, el vídeo solo se baja con el reproductor grande a la vista (en el PC siempre; en el móvil al abrirlo), y
   con "reducir movimiento" no sale.
 

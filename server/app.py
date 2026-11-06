@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import html
 import secrets
+import socket
 import subprocess
 import json
 import logging
@@ -216,6 +217,42 @@ def youtube(fn, yt=True, cost=COST_INFO):
         raise HTTPException(502, str(e).replace("ERROR: ", "")[:200])
 
 
+_hosts = {}                             # nodo de vídeo -> (¿responde?, cuándo se miró)
+
+
+def reachable(host):
+    """¿Se puede conectar con este nodo de vídeo de YouTube? Se recuerda 5 min."""
+    ok, when = _hosts.get(host, (None, 0))
+    if time.time() - when > 300:
+        try:
+            socket.create_connection((host, 443), timeout=4).close()
+            ok = True
+        except OSError:
+            ok = False
+        _hosts[host] = (ok, time.time())
+    return ok
+
+
+def use_fallback(info):
+    """Si el nodo de vídeo que da YouTube no responde, cambia al de respaldo que trae el propio enlace (mn=principal,
+    respaldo y fvip=su número), como hace el reproductor de YouTube. Pasó el 06-11-2026: la caché de YouTube del
+    proveedor de internet (sn-xouxa…, 181.42.62.81) se cayó toda la madrugada y no se pudo bajar nada; no era un
+    bloqueo (YouTube contestaba normal)."""
+    told = set()
+    for f in [info, *(info.get("formats") or []), *(info.get("requested_formats") or [])]:
+        u = f.get("url") or ""
+        host = urlparse(u).netloc
+        if not host.endswith(".googlevideo.com") or reachable(host):
+            continue
+        q = parse_qs(urlparse(u).query)
+        mn, fvip = (q.get("mn") or [""])[0].split(","), (q.get("fvip") or [""])[0]
+        if len(mn) > 1 and fvip.isdigit():
+            f["url"] = u.replace(host, f"rr{fvip}---{mn[1]}.googlevideo.com", 1)
+            if host not in told:
+                told.add(host)
+                log.info("nodo de vídeo %s sin respuesta: uso el de respaldo rr%s---%s", host, fvip, mn[1])
+
+
 def download(url, by=None, dedupe=True):
     """Baja el audio (webm/Opus si hay) a la biblioteca, una sola vez aunque la pidan varios a la vez.
     Devuelve (info, ruta); los directos no se guardan: ruta None y en info["url"] el enlace para escucharlo.
@@ -243,6 +280,7 @@ def download(url, by=None, dedupe=True):
                 if dedupe and (k := DUPLICADAS.same_as_saved(key, info)):   # ya está con otro título
                     same.append(k)
                     return info, None
+                use_fallback(info)
                 y.process_info(info)
                 return info, y.prepare_filename(info)
 
@@ -365,9 +403,11 @@ def canvas_fetch(vid, start, secs, base):
     """Baja solo un trozo (secs s desde start) del vídeo, sin sonido, para el Canvas (canvas.py)."""
     def run():
         with ydl(format="bestvideo[height<=720][vcodec^=avc1]/bestvideo[height<=720]/bestvideo[height<=1080]/bestvideo",
-                 noplaylist=True, outtmpl=f"{base}.%(ext)s",
-                 download_ranges=yt_dlp.utils.download_range_func(None, [(start, start + secs)])) as y:
-            info = y.extract_info(f"https://www.youtube.com/watch?v={vid}")
+                 noplaylist=True, outtmpl=f"{base}.%(ext)s") as y:
+            info = y.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
+            info.update(section_start=start, section_end=start + secs)   # solo ese tramo (como download_ranges)
+            use_fallback(info)
+            y.process_info(info)
             return y.prepare_filename(info)
     return youtube(run, True, COST_DOWNLOAD)
 

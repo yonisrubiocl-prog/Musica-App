@@ -21,6 +21,7 @@ import logging
 import os
 import random
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -125,7 +126,7 @@ class Canvas:
         """(id, de dónde) de la siguiente, o (None, None)."""
         now = time.time()
         for vid, asked in list(self.urgent.items()):
-            if not self._todo(vid):
+            if not self._todo(vid) or self._waiting(vid):   # falló hace poco: no se insiste aunque la sigan pidiendo
                 self.urgent.pop(vid)
             elif self.lib.peek("yt-" + vid):
                 return vid, "urgent"
@@ -241,7 +242,7 @@ class Canvas:
             if frozen > FROZEN * SECS:
                 log.info("canvas: %s está quieto (%.1f de %d s)", src, frozen, SECS)
                 return False
-            os.replace(out, os.path.join(DIR, vid + ".mp4"))
+            shutil.move(out, os.path.join(DIR, vid + ".mp4"))   # /tmp y /canvas son discos distintos
             return True
         finally:
             for p in (raw, out):
