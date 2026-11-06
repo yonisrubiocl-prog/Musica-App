@@ -68,7 +68,7 @@ function pinta(media, proximas = []) {
   const id = u.pathname.split('/')[2], t = u.searchParams.get('t') || '';
   if (!ID.test(id)) return;
   document.body.classList.add('con-cancion');
-  if (!actual || actual.id !== id) {
+  if (!actual || actual.id !== id || actual.t !== t) {   // (la misma con firma nueva: venía del espejo, sin Canvas ni letra)
     const img = imagenDe(media);
     actual = {id, t, titulo: m.title || '', artista: m.artist || m.albumArtist || '', album: m.albumName || '', dur: media.duration || 0};
     $('titulo').textContent = actual.titulo; $('artista').textContent = actual.artista; $('album').textContent = actual.album;
@@ -184,7 +184,7 @@ const recuperaFoco = () => { if (document.activeElement && document.activeElemen
 addEventListener('focus', () => { log('la página recupera el control'); setTimeout(recuperaFoco, 50); });
 addEventListener('blur', () => log('la página pierde el control (otra cosa en pantalla)'));
 setInterval(recuperaFoco, 1000);
-function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); recuenta(); }
+function pulsa(a) { const f = acciones[a]; const hecho = espejo ? mandoEspejo(a) : f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); recuenta(); }
 // Tras play/pausa o un salto, contarlo ya (y otra vez al rato): si el aviso de Cast no llega, el mando (la web o el
 // celular) seguía creyendo que sonaba y su play mandaba "pausar" a una TV ya en pausa (le pasó a Juancho, 06-11-2026)
 const recuenta = () => { setTimeout(() => cxCuenta(), 400); setTimeout(() => cxCuenta(), 2000); };
@@ -193,7 +193,7 @@ document.getElementById('panelIr').addEventListener('click', () => { pila = []; 
 document.getElementById('colaFila').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.todo) return abre(colaCompleta, 'ahora');
-  const hecho = acciones.saltaA ? acciones.saltaA(+b.dataset.salto) : ''; log('a continuación: salto', b.dataset.salto); if (hecho) avisa(hecho);
+  const hecho = espejo ? mandoEspejo('saltaA', +b.dataset.salto) : acciones.saltaA ? acciones.saltaA(+b.dataset.salto) : ''; log('a continuación: salto', b.dataset.salto); if (hecho) avisa(hecho);
 });
 const DIR = {37: 'izq', 39: 'der', 38: 'arr', 40: 'aba', ArrowLeft: 'izq', ArrowRight: 'der', ArrowUp: 'arr', ArrowDown: 'aba'};
 addEventListener('keydown', e => {
@@ -378,6 +378,34 @@ const cx = {disp: (() => { try { let d = localStorage.getItem('dispositivo'); if
                            catch (e) { return 'tv' + Math.random().toString(36).slice(2, 12); } })(),
             propia: false, cola: [], radio: false, colaV: 0, colaContadaV: -1, orden: 0, ultima: 0, tomada: 0};
 let eraActiva = false;   // en la última respuesta, la que sonaba era la TV
+// Espejo: si la música suena en otro dispositivo (la pasaron al PC o al celular), la TV enseña eso (portada, título,
+// barra, "Sonando en PC · Chrome") en vez de quedarse en su última canción, y sus botones lo manejan a distancia
+// (órdenes de /conectar). Al devolverle la música, ya tiene la canción a la vista.
+let espejo = null;   // {s: lo que suena allí, nombre, recibido}
+const leerEspejo = () => { const s = espejo.s;
+  return {t: Math.min((s.pos || 0) + (s.pausa ? 0 : (Date.now() - espejo.recibido) / 1000), s.duracion || 1e9), d: s.duracion || s.cancion?.duration || 0, pausa: !!s.pausa}; };
+function ponEspejo(s, nombre) {
+  const antes = espejo?.s?.cancion?.id;
+  espejo = {s, nombre, recibido: Date.now()};
+  $('dondeSuena').textContent = 'Sonando en ' + nombre;
+  if (antes === s.cancion.id && actual?.id === s.cancion.id) return;
+  const media = c => ({contentUrl: `${location.origin}/stream/${c.id}?t=`, duration: c.duration || 0,
+    metadata: {title: c.title || '', artist: c.artist || '', albumName: c.album || '', images: c.thumb ? [{url: c.thumb}] : []}});
+  const cola = s.cola || [], qi = Math.max(0, cola.findIndex(x => x.id === s.cancion.id));
+  pinta(media(s.cancion), cola.slice(qi + 1, qi + 7).map((c, k) => ({media: media(c), salto: k + 1})));
+}
+function quitaEspejo() { if (!espejo) return; espejo = null; $('dondeSuena').textContent = 'Sonando en la TV'; }
+// los botones de la TV con espejo: órdenes para el dispositivo donde suena
+function mandoEspejo(a, n) {
+  const s = espejo.s, t = leerEspejo().t, o = (tipo, datos = {}) => api('/conectar/orden', {method: 'POST', body: JSON.stringify({disp: cx.disp, tipo, datos})}).catch(e => log('orden:', e.message));
+  if (a === 'playpausa' || a === 'play' || a === 'pausa') { const pausar = a === 'pausa' || (a === 'playpausa' && !s.pausa); o('pausa', {pausar}); s.pausa = pausar; s.pos = t; espejo.recibido = Date.now(); return pausar ? '⏸' : '▶'; }
+  if (a === 'siguiente') { o('siguiente'); return '⏭'; }
+  if (a === 'anterior') { o('anterior'); return '⏮'; }
+  if (a === 'mas10' || a === 'menos10') { const pos = Math.max(0, t + (a === 'mas10' ? 10 : -10)); o('ir', {pos}); s.pos = pos; espejo.recibido = Date.now(); return a === 'mas10' ? '+10 s' : '−10 s'; }
+  if (a === 'saltaA' && s.cola?.length) { const qi = Math.max(0, s.cola.findIndex(x => x.id === s.cancion.id)) + n;
+    o('cola', {cola: s.cola, qi, nueva: true, radio: !!s.radio}); return '⏭'; }
+  return '';
+}
 // Si a los 5 s de tener la llave nadie le ha pasado una cola (el mensaje de la web o la app se perdió o tardó: la
 // pantalla puede tardar ~20 s en cargar), la TV pregunta a la API qué suena en la cuenta y lo pone ella.
 async function siNadaSuena() {
@@ -408,6 +436,10 @@ async function cxBucle() {
         try { cast.framework.CastReceiverContext.getInstance().stop(); } catch (e) {}
         return;
       }
+      if (r.activo === cx.disp) quitaEspejo();
+      else if (r.activo && r.activo_vivo && r.sonando?.cancion && Date.now() - cx.tomada > 5000)
+        ponEspejo(r.sonando, r.dispositivos?.find(d => d.id === r.activo)?.nombre || 'otro dispositivo');
+      else quitaEspejo();
       if (r.activo === cx.disp) {
         // me pasaron la música ("Dónde suena" → TV) sin ser mía: la retomo desde lo que tiene el servidor (cola y segundo)
         const s = r.sonando;
@@ -451,7 +483,7 @@ function avisa(txt) {
 // Cada medio segundo: barra, tiempos, pausa (y el Canvas con ella) y la letra
 setInterval(() => {
   if (!actual || soloAudio) return;
-  const {t, d, pausa} = leer(), total = d || actual.dur;
+  const {t, d, pausa} = espejo ? leerEspejo() : leer(), total = d || actual.dur;
   $('progreso').style.width = total ? Math.min(100, 100 * t / total) + '%' : 0;
   $('actual').textContent = dur(t); $('total').textContent = dur(total);
   document.body.classList.toggle('sonando', !pausa); document.body.classList.toggle('en-pausa', pausa); pintaPlay(pausa);
@@ -499,7 +531,7 @@ if (window.cast && cast.framework && !demo) {
   };
   const siguiente = () => proximas()[0]?.media || null;
   leer = () => ({t: pm.getCurrentTimeSec() || 0, d: pm.getDurationSec() || 0, pausa: pm.getPlayerState() !== M.PlayerState.PLAYING});
-  const ahora = () => { const m = pm.getMediaInformation(); if (m) pinta(m, proximas()); };
+  const ahora = () => { const m = pm.getMediaInformation(); if (m && !espejo) pinta(m, proximas()); };
   pm.addEventListener(E.PLAYER_LOAD_COMPLETE, () => {
     log('cargada:', pm.getMediaInformation()?.metadata?.title, '· duración según Cast', pm.getDurationSec(),
         '· el <audio> tiene', audio.currentSrc ? 'el /stream' : 'NADA', '· vídeos en la página', document.querySelectorAll('video').length,
@@ -578,6 +610,7 @@ if (window.cast && cast.framework && !demo) {
       const req = new M.LoadRequestData();
       req.queueData = new M.QueueData(); req.queueData.items = items; req.queueData.startIndex = Math.min(i, items.length - 1);
       req.media = items[req.queueData.startIndex].media; req.autoplay = true; if (desde) req.currentTime = desde;
+      quitaEspejo();
       cx.propia = true; cx.cola = l; cx.radio = radio; cx.colaV++; cx.tomada = Date.now();
       cargandoPropia++;
       try { await pm.load(req); } finally { cargandoPropia--; }
