@@ -29,6 +29,7 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 
 import discord_dc
+from canvas import Canvas
 import titulos
 import userdata
 from enrich import Enricher
@@ -117,7 +118,7 @@ _yt_turns = threading.Lock()
 _yt_next = 0.0                          # cuándo puede salir la siguiente petición
 _yt_recent = collections.deque()        # cuándo salieron las de la última hora
 _yt_last_user = 0.0                     # última vez que alguien (no la precarga ni las fichas) usó YouTube
-BACKGROUND = {"precarga", "enrich"}     # hilos de fondo: no cuentan como uso de alguien
+BACKGROUND = {"precarga", "enrich", "canvas"}   # hilos de fondo: no cuentan como uso de alguien
 
 
 YT_STATE = "/data/youtube-estado.json"      # cómo está YouTube ahora (lo lee panel.py)
@@ -360,7 +361,30 @@ GENRES = Genres(LIB)                                   # género por artista (ge
 LIB.genre_of_artist, LIB.genre_stamp = GENRES.of, GENRES.stamp
 # Recomendaciones (recomendar.py, plan en docs/recomendaciones.md). RECOMENDAR=0 las apaga: rutas 404.
 REC = Recomendar(LIB, userdata) if os.environ.get("RECOMENDAR", "1") == "1" else None
-PRECARGA = Precarga(LIB, ytm, lambda u: download(u, dedupe=False), lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
+def canvas_fetch(vid, start, secs, base):
+    """Baja solo un trozo (secs s desde start) del vídeo, sin sonido, para el Canvas (canvas.py)."""
+    def run():
+        with ydl(format="bestvideo[height<=720][vcodec^=avc1]/bestvideo[height<=720]/bestvideo[height<=1080]/bestvideo",
+                 noplaylist=True, outtmpl=f"{base}.%(ext)s",
+                 download_ranges=yt_dlp.utils.download_range_func(None, [(start, start + secs)])) as y:
+            info = y.extract_info(f"https://www.youtube.com/watch?v={vid}")
+            return y.prepare_filename(info)
+    return youtube(run, True, COST_DOWNLOAD)
+
+
+CANVAS = Canvas(LIB, ytm, canvas_fetch, lambda: _yt_blocked_until > time.time(),          # trozos de videoclip
+                lambda s: time.time() - _yt_last_user > s)                                # (canvas.py)
+
+
+def precarga_download(url):
+    """La precarga baja una canción y, detrás, su Canvas (antes que los de fondo)."""
+    info, path = download(url, dedupe=False)
+    if path and key_of(url).startswith("yt-"):
+        CANVAS.want(key_of(url)[3:])
+    return info, path
+
+
+PRECARGA = Precarga(LIB, ytm, precarga_download, lambda: _yt_blocked_until > time.time(),   # álbumes de los artistas
                     lambda s: time.time() - _yt_last_user > s)                     # más escuchados (precarga.py)
 DUPLICADAS = Duplicadas(LIB, userdata)   # la misma canción guardada varias veces: se juntan (duplicadas.py)
 VERSIONES = Versiones(LIB, ytm, lambda u: download(u, dedupe=False), userdata, lambda: _yt_blocked_until > time.time(),   # vídeo -> disco
@@ -682,6 +706,22 @@ def web_app(path: str = ""):
     Android. Usa la sesión que guarda la página principal al entrar. Cualquier ruta bajo /web/ da la misma página."""
     with open(os.path.join(WEB, "web.html")) as f:
         return page(f.read(), {"Cache-Control": "no-cache"})
+
+
+@app.get("/canvas/{vid}/estado", dependencies=[Depends(check_token)])
+def canvas_state(vid: str):
+    """¿Tiene Canvas? {estado: listo | haciendo | no}. Preguntarlo al poner la canción: si no lo tiene ni se intentó,
+    se hace ya (va la primera de la cola; tarda ~1 min). "no" es para siempre: queda la portada viva."""
+    return {"estado": CANVAS.ask(valid_vid(vid))}
+
+
+@app.get("/canvas/{vid}", dependencies=[Depends(check_token)])
+def canvas(vid: str):
+    """El Canvas (vídeo vertical de 7 s, sin sonido, H.264, ~400 KB) para poner en bucle. 404 si no tiene."""
+    path = CANVAS.path(valid_vid(vid))
+    if not path:
+        raise HTTPException(404, "sin canvas")
+    return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "private, max-age=604800"})
 
 
 @app.get("/logo{rest}", include_in_schema=False)
@@ -1328,6 +1368,12 @@ def songs(pairs):
 
 internal = FastAPI(title="MusicApp interno", docs_url=None, redoc_url=None, openapi_url=None,
                    dependencies=[Depends(check_bot)])
+
+
+@internal.get("/interno/canvas")
+def internal_canvas():
+    """Cómo van los Canvas (canvas.py): cuántos hay, cuántos sin videoclip, la cola y lo que ocupan."""
+    return CANVAS.summary()
 
 
 @internal.get("/interno/match")

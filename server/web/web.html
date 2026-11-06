@@ -272,8 +272,7 @@
   .np .cover { width: min(100%, 420px); aspect-ratio: 1; margin: 16px auto 0; border-radius: 20px; overflow: hidden;
                background: var(--elevado); box-shadow: 0 24px 60px rgb(0 0 0 / .55); }
   /* Portada viva: la portada se acerca y se mueve muy despacio (Ken Burns) y el fondo "respira", solo mientras suena.
-     Todo CSS: sin vídeo ni peticiones. (Se probó también un Canvas con trozos de videoclip: precioso pero demasiado;
-     ver README, "Portada viva".) */
+     Todo CSS: sin vídeo ni peticiones. Es lo que se ve cuando la canción no tiene Canvas (más abajo). */
   .np .cover img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 45%;
                    animation: portadaViva 24s ease-in-out infinite alternate; animation-play-state: paused; }
   .np .tint { animation: respira 9s ease-in-out infinite alternate; animation-play-state: paused; }
@@ -283,6 +282,19 @@
                            100% { transform: scale(1.2) translate(-2.5%, 1.5%) rotate(-.5deg); } }
   @keyframes respira { from { opacity: .4; transform: scale(1); } to { opacity: .65; transform: scale(1.12); } }
   @media (prefers-reduced-motion: reduce) { .np .cover img, .np .tint { animation: none; } }
+  /* Canvas: 7 s del videoclip de fondo, en bucle y sin sonido, como en Spotify; la portada deja su sitio al vídeo.
+     Sin Canvas (o con "reducir movimiento"), la portada viva de arriba. */
+  .np .canvas { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 700ms var(--ease); }
+  .np .canvas video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .np .canvas::after { content: ""; position: absolute; inset: 0;
+                       background: linear-gradient(rgb(var(--fondo-rgb) / .5), transparent 16%, transparent 34%,
+                                                   rgb(var(--fondo-rgb) / .62) 52%, rgb(var(--fondo-rgb) / .9) 70%,
+                                                   rgb(var(--fondo-rgb) / .97)); }
+  .np.con-canvas .canvas { opacity: 1; }
+  .np .cover { transition: opacity 700ms var(--ease); }
+  .np.con-canvas .cover { opacity: 0; }
+  .np .in { z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { .np .canvas { display: none; } }
   .np .titles { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   .np .titles div { flex: 1; min-width: 0; }
   .np h3 { font-size: 1.45rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -336,6 +348,7 @@
     .np::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
                  background: radial-gradient(120% 60% at 50% 0%, rgb(var(--acento-rgb) / .16), transparent 60%); }
     .np .tint { position: absolute; inset: -25%; opacity: .55; }
+    .np .canvas { position: absolute; }
     .np .in { position: relative; z-index: 1; height: 100%; overflow-y: auto; padding: 20px 26px 28px; --np-pad: 20px; --np-x: 26px; --np-bg: var(--hoja); }
     .np .top .back { visibility: hidden; }
     .np .cover { width: 100%; margin-top: 14px; border-radius: 22px;
@@ -479,6 +492,7 @@ aplicarTema();
 </aside>
 <div class="np sin" id="np" aria-hidden="true">
   <div class="tint" id="npTint"></div>
+  <div class="canvas" aria-hidden="true"><video id="npCanvasV" muted loop playsinline preload="auto"></video></div>
   <div class="in">
     <div class="vacio"><img src="/logo-480.webp" alt=""><b>Aquí sonará tu música</b><span>Elige una canción, un álbum o pon una radio.<br>
       Mientras suena verás aquí la portada, la cola y la letra.</span></div>
@@ -1259,7 +1273,7 @@ function start() {
   $('tint').style.backgroundImage = cur.thumb ? `url("${cur.thumb.replace(/"/g, '%22')}")` : 'none';
   $('tint').classList.toggle('on', !!cur.thumb);
   document.querySelectorAll('.row').forEach(r => r.classList.toggle('playing', r.dataset.row === cur.id));
-  paintHearts(); paintNp();
+  paintHearts(); paintNp(); canvasEstado(cur);
   if ('mediaSession' in navigator) {   // controles en la pantalla de bloqueo y en los auriculares
     navigator.mediaSession.metadata = new MediaMetadata({title: cur.title, artist: cur.artist || '', album: cur.album || '',
       artwork: cur.thumb ? [{src: cur.thumb, sizes: '480x360'}] : []});
@@ -1305,7 +1319,8 @@ addEventListener('keydown', e => {   // flechas arriba/abajo (fuera de un campo 
 });
 audio.onerror = () => { if (playing) playing.error = true; if (cur) { toast('No se pudo reproducir «' + cur.title + '»'); informaFallo('audio', cur); } };
 const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayIco').innerHTML = p ? ICO.play : ICO.pause;
-  $('np').classList.toggle('sonando', !p); document.body.classList.toggle('sonando', !p); };   // la portada viva solo se mueve mientras suena
+  $('np').classList.toggle('sonando', !p); document.body.classList.toggle('sonando', !p);   // la portada viva solo se mueve mientras suena
+  const v = $('npCanvasV'); if (p) v.pause(); else if ($('np').classList.contains('con-canvas')) v.play().catch(() => {}); };   // y el Canvas
 audio.onplay = () => ico(false); audio.onpause = () => ico(true);
 let seeking = false;
 audio.ontimeupdate = () => {
@@ -1374,8 +1389,8 @@ tresColumnas.addEventListener('change', () => { if (!tresColumnas.matches && npT
 setTimeout(paintNp, 0);   // al abrir la página: los mensajes de "sin música" del panel y de la cola
 function npVisible() { return panelFijo.matches || $('np').classList.contains('on'); }
 panelFijo.addEventListener('change', () => paintNp());
-function openNp() { if (!cur || panelFijo.matches) return; $('np').classList.add('on'); document.body.classList.add('locked'); paintNp(); }
-function closeNp() { if (panelFijo.matches) return; $('np').classList.remove('on'); document.body.classList.remove('locked'); }
+function openNp() { if (!cur || panelFijo.matches) return; $('np').classList.add('on'); document.body.classList.add('locked'); paintNp(); pintaCanvas(); }
+function closeNp() { if (panelFijo.matches) return; $('np').classList.remove('on'); document.body.classList.remove('locked'); pintaCanvas(); }
 $('npClose').onclick = closeNp;
 // En el móvil: arrastrarlo hacia abajo desde arriba del todo lo cierra (la pantalla sigue al dedo).
 (() => {
@@ -1420,6 +1435,44 @@ $('npTabs').onclick = e => {
   else npTab = b.dataset.np;
   paintNp();
 };
+// ---------- Canvas ----------
+// Al poner una canción se pregunta si tiene (/canvas/<id>/estado). Si no lo tiene ni se intentó, el servidor lo hace
+// ya (~1 min): se vuelve a preguntar cada 20 s, unas cuantas veces. El vídeo (~400 KB) se baja solo con el reproductor
+// grande a la vista (en el PC siempre; en el móvil al abrirlo) y se guarda en memoria para las últimas 12.
+const canvasUrl = new Map(), canvasEst = new Map();   // id -> objectURL; id -> listo | haciendo | no
+const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)');
+let canvasTimer = null;
+async function canvasEstado(s, intento = 0) {
+  clearTimeout(canvasTimer);
+  if (!s || sinMovimiento.matches || ['listo', 'no'].includes(canvasEst.get(s.id))) return pintaCanvas();
+  let e = 'no';
+  try { e = (await api(`/canvas/${encodeURIComponent(s.id)}/estado`)).estado; } catch (err) {}
+  canvasEst.set(s.id, e);
+  if (e === 'haciendo' && intento < 8) canvasTimer = setTimeout(() => cur?.id === s.id && canvasEstado(s, intento + 1), 20000);
+  if (cur?.id === s.id) pintaCanvas();
+}
+async function pintaCanvas() {
+  const v = $('npCanvasV'), s = cur;
+  if (!s || canvasEst.get(s.id) !== 'listo' || sinMovimiento.matches || !(panelFijo.matches || $('np').classList.contains('on'))) {
+    $('np').classList.remove('con-canvas'); v.pause(); return;
+  }
+  let url = canvasUrl.get(s.id);
+  if (!url) {
+    try {
+      const r = await fetch('/canvas/' + encodeURIComponent(s.id), {headers: {Authorization: 'Bearer ' + session}});
+      if (!r.ok) throw new Error(r.status);
+      url = URL.createObjectURL(await r.blob());
+    } catch (e) { canvasEst.set(s.id, 'no'); return pintaCanvas(); }
+    canvasUrl.set(s.id, url);
+    if (canvasUrl.size > 12) { const [k, old] = canvasUrl.entries().next().value; URL.revokeObjectURL(old); canvasUrl.delete(k); }
+    if (cur !== s) return;   // cambió de canción mientras bajaba
+  }
+  if (v.dataset.id !== s.id) { v.src = url; v.dataset.id = s.id; }
+  $('np').classList.add('con-canvas');
+  if (!audio.paused) v.play().catch(() => {});
+}
+panelFijo.addEventListener('change', () => pintaCanvas());
+
 function paintNp() {
   $('np').classList.toggle('sin', !cur);   // sin canción: el panel de la derecha enseña un mensaje en vez de quedar vacío
   if (tresColumnas.matches) { if (npTab === 'cola') npTab = 'letra'; paintQueue(); }

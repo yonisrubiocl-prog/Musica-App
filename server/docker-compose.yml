@@ -23,6 +23,7 @@ services:
       - /var/lib/music:/music                        # la biblioteca única (canciones + index.json)
       - /var/lib/musicapp/app:/app-dist:ro           # la app para Android (musica.apk), la baja /acceso
       - /var/lib/musicapp/recomendar:/recomendar     # eventos, opiniones y estado de las recomendaciones
+      - /var/lib/musicapp/canvas:/canvas             # los Canvas (trozos de videoclip, canvas.py)
     logging:
       driver: json-file
       options: {max-size: "5m", max-file: "2"}

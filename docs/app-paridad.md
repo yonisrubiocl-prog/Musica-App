@@ -72,6 +72,12 @@
    - **Si ya suena esa misma lista** (compara los ids de la lista con los de la que armó la cola), no rehacer la
      cola: la tocada se saca de donde esté y suena ya, y lo que venía detrás sigue igual (no vuelven las que ya
      sonaron; si toca la que suena, nada). "▶ Reproducir" o una canción de otra lista sí empiezan de cero.
+   - **Canvas (como Spotify):** al empezar cada canción, `GET /canvas/{id}/estado` → `listo | haciendo | no`. Con
+     `haciendo` (el servidor lo está haciendo, ~1 min) volver a preguntar cada 20 s unas 8 veces mientras siga esa
+     canción. Con `listo`, y solo con el reproductor grande abierto, bajar `GET /canvas/{id}` (mp4 H.264 vertical
+     540×960, 7 s, sin sonido, ~100–500 KB) y ponerlo **de fondo a pantalla completa, en bucle y mudo**, con la
+     portada oculta y un degradado oscuro abajo para que se lean título y controles; se para cuando se pausa la
+     música. Guardar en memoria los últimos ~12. Sin Canvas (o con "reducir animaciones" del sistema): la portada viva.
    - **Títulos limpios y portadas:** la API ya manda el `title` sin "(Official Video)", "// Letra" ni el artista
      delante ("Rompe La Cintura", no "Alexis y Fido - Rompe La Cintura // Letra"); la app no tiene que hacer nada,
      solo no volver a "limpiarlo" ella (y para buscar letras puede usarlo tal cual). `GET /album` trae ahora
