@@ -159,6 +159,14 @@ function enfoca(el) {
   el.focus({preventScroll: true});
   el.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
 }
+// Si algo de fuera (la interfaz de Cast) se queda el control un rato, al volver se elige otra vez lo de antes
+let ultimoFoco = null;
+addEventListener('focusin', e => { if (e.target?.classList?.contains('f')) ultimoFoco = e.target; });
+const recuperaFoco = () => { if (document.activeElement && document.activeElement !== document.body) return;
+  const vis = visibles(); enfoca(vis.includes(ultimoFoco) ? ultimoFoco : vis[0]); };
+addEventListener('focus', () => { log('la página recupera el control'); setTimeout(recuperaFoco, 50); });
+addEventListener('blur', () => log('la página pierde el control (otra cosa en pantalla)'));
+setInterval(recuperaFoco, 1000);
 function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); recuenta(); }
 // Tras play/pausa o un salto, contarlo ya (y otra vez al rato): si el aviso de Cast no llega, el mando (la web o el
 // celular) seguía creyendo que sonaba y su play mandaba "pausar" a una TV ya en pausa (le pasó a Juancho, 06-11-2026)
@@ -537,7 +545,12 @@ if (window.cast && cast.framework && !demo) {
   op.customNamespaces = {[CANAL]: cast.framework.system.MessageType.JSON};
   op.maxInactivity = 3600;   // que no se corte la conexión con la app en las pausas largas
   op.disableIdleTimeout = true;   // con menús no debe cerrarse a los 5 min sin sonar: se cierra sola a los 30 (arriba)
+  // En algunas Google TV (la de Juancho, 06-11-2026), al pausar Cast ponía SU interfaz encima (título, barra blanca,
+  // iconos en cuadraditos) y se quedaba con el control hasta dar play desde fuera. Esto le dice a Cast que la página
+  // tiene su propia interfaz manejable; no hay opción documentada para quitarla del todo.
+  try { const ui = new cast.framework.ui.UiConfig(); ui.touchScreenOptimizedApp = true; op.uiConfig = ui; } catch (e) { log('sin UiConfig:', String(e)); }
   ctx.start(op);
+  try { cast.framework.ui.Controls.getInstance().hasMediaControlsOverlay().then(v => log('Cast pone su interfaz encima:', v)).catch(() => {}); } catch (e) {}
   enfoca(document.querySelector('#controles .grande'));
 } else if (demo) {
   // Para verla en un navegador: /tv/?demo&id=<id>&t=<firma>&titulo=…&artista=…&album=…&img=…&sig=…&sigA=…&sigImg=…
