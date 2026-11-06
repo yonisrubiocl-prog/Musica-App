@@ -1415,6 +1415,9 @@ const ico = p => { $('playIco').innerHTML = p ? ICO.play : ICO.pause; $('npPlayI
 // Al momento, sin esperar al intervalo de 1 s (con la pestaña en segundo plano el navegador lo frena a 1 vez por
 // minuto): play, pausa, fin de canción y cada orden de otro dispositivo se cuentan en seguida (ver cxCuenta).
 const cxYa = () => { if (rend.conectar && !remoto && cur) cxCuenta(); };
+// La cola cambiada sin tocar nada (la radio añadió canciones): contarla ya, sin esperar al setInterval de cada segundo,
+// que con la pestaña en segundo plano Chrome frena (hasta una vez por minuto) y los otros se enteraban tarde
+const cxColaYa = () => { if (!rend.conectar) return; if (!remoto) return cxYa(); if (!cxAplicando && (qVer !== cxQVer || repeat !== cxRep)) cxManda('cola', cxCola()); };
 audio.onplay = () => { ico(false); cxYa(); }; audio.onpause = () => { ico(true); cxYa(); };
 audio.addEventListener('ended', () => cxYa());
 let seeking = false;
@@ -1477,7 +1480,7 @@ async function fillRadio() {
   try {
     const exclude = new Set([...queue.map(s => s.id), ...(historyCache || []).slice(0, 30).map(s => s.id)]);
     const more = (await recommend(queue[queue.length - 1] || cur, exclude)).filter(s => !queue.some(q => q.id === s.id));
-    queue.push(...more); qVer++; paintQueue(); return more.length;
+    queue.push(...more); qVer++; paintQueue(); cxColaYa(); return more.length;
   } finally { radioBusy = false; }
 }
 
@@ -1569,6 +1572,8 @@ function cxRecibe(r) {
     // otro dispositivo se quedó la música (también la TV conectada desde aquí: esto pasa a ser su mando)
     if (!remoto) { remoto = true; if (!audio.paused) { audio.pause(); if (yaEra?.activo === DISP) toast('Ahora suena en ' + cxNombre(r.activo)); } }
     cxEspejo(s);
+    // la TV conectada desde aquí no busca más radio sola: se la busca su mando (le llega en la cola nueva)
+    if (tv && isRadio && queue.length - 1 - qi <= 2 && Date.now() - tvRadioT > 30000) { tvRadioT = Date.now(); fillRadio(); }
   } else if (remoto || (!cur && s?.cancion)) {   // el que sonaba se cerró: lo de allí queda aquí, en pausa
     remoto = false; cxAdopta(s, false);
   }
@@ -1594,8 +1599,6 @@ setInterval(() => {   // cada segundo: el mando pinta el segundo y manda los cam
   if (remoto) {
     pintaTiempo(); if (cx?.sonando && !cx.sonando.pausa) ico(false);
     if (!cxAplicando && (qVer !== cxQVer || repeat !== cxRep)) cxManda('cola', cxCola());
-    // la TV conectada desde aquí no busca más radio sola: se la busca su mando (le llega en la cola nueva)
-    else if (tv && isRadio && queue.length - 1 - qi <= 2 && Date.now() - tvRadioT > 30000) { tvRadioT = Date.now(); fillRadio(); }
     return;
   }
   if (!cur || (cx?.activo !== DISP && !sonandoAhora())) return;
