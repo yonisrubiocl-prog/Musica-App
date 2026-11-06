@@ -27,16 +27,21 @@
   /* márgenes seguros (~5 %): muchas TV recortan los bordes */
   .escena { position: relative; height: 100vh; display: grid; grid-template-columns: auto 1fr; gap: 5.5vw; align-items: center;
             padding: 7vh 7vw; }
-  .media { position: relative; height: 76vh; aspect-ratio: 1; border-radius: 2.2vh; overflow: hidden; background: #1c1930;
-           box-shadow: 0 4vh 10vh rgb(0 0 0 / .55), 0 0 9vh rgb(var(--acento-rgb) / .16); transition: aspect-ratio 500ms; }
-  .media.con-canvas { aspect-ratio: 9 / 16; }
-  .media img, .media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .media img { transform-origin: 50% 45%; animation: viva 24s ease-in-out infinite alternate; animation-play-state: paused; }
-  body.sonando .media img { animation-play-state: running; }
-  @keyframes viva { 0% { transform: scale(1.02); } 50% { transform: scale(1.1) translate(2%, -1.5%); } 100% { transform: scale(1.16) translate(-2%, 1%); } }
+  /* El marco es siempre vertical (9:16), con Canvas o sin él: así la pantalla no cambia de una canción a otra. Sin
+     Canvas, la portada cuadrada en medio sobre ella misma difuminada (como Spotify). */
+  .media { position: relative; height: 76vh; aspect-ratio: 9 / 16; border-radius: 2.2vh; overflow: hidden; background: #1c1930;
+           box-shadow: 0 4vh 10vh rgb(0 0 0 / .55), 0 0 9vh rgb(var(--acento-rgb) / .16); }
+  .media video, #tapaFondo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #tapaFondo { filter: blur(3vh) saturate(140%); transform: scale(1.25); opacity: .75; }
+  #tapa { position: absolute; left: 0; top: 50%; width: 100%; aspect-ratio: 1; margin-top: -50%; object-fit: cover;
+          box-shadow: 0 2vh 6vh rgb(0 0 0 / .5); transform-origin: 50% 50%; animation: viva 24s ease-in-out infinite alternate;
+          animation-play-state: paused; }
+  body.sonando #tapa { animation-play-state: running; }
+  @keyframes viva { 0% { transform: scale(1); } 50% { transform: scale(1.05) translate(1%, -1%); } 100% { transform: scale(1.08) translate(-1%, .5%); } }
   .media video { opacity: 0; transition: opacity 700ms; }
   .media.con-canvas video { opacity: 1; }
   .media.con-canvas img { opacity: 0; }
+  .media img { transition: opacity 500ms; }
 
   .info { min-width: 0; display: flex; flex-direction: column; gap: 1.6vh; }
   .ahora { display: flex; align-items: center; gap: 1.2vh; color: var(--texto2); font-size: 2.1vh; font-weight: 600; letter-spacing: .1vh; }
@@ -97,7 +102,7 @@
 <audio id="audio" preload="auto"></audio>
 <div class="fondo" id="fondo"></div>
 <main class="escena">
-  <div class="media" id="media"><img id="tapa" alt=""></div>
+  <div class="media" id="media"><img id="tapaFondo" alt=""><img id="tapa" alt=""></div>
   <div class="info">
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i>Sonando en la TV<span class="pausa">En pausa</span></div>
     <h1 id="titulo"></h1>

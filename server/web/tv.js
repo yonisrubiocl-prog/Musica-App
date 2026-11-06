@@ -63,7 +63,7 @@ function pinta(media, siguiente) {
     const img = imagenDe(media);
     actual = {id, t, titulo: m.title || '', artista: m.artist || m.albumArtist || '', album: m.albumName || '', dur: media.duration || 0};
     $('titulo').textContent = actual.titulo; $('artista').textContent = actual.artista; $('album').textContent = actual.album;
-    if (img) $('tapa').src = img; else $('tapa').removeAttribute('src');
+    for (const el of [$('tapa'), $('tapaFondo')]) if (img) el.src = img; else el.removeAttribute('src');
     $('fondo').style.backgroundImage = img ? `url("${img.replace(/["\\]/g, '')}")` : 'none';
     $('media').classList.remove('con-canvas'); video()?.remove();
     $('letra').textContent = ''; lineas = []; lineaAhora = -2;
@@ -122,18 +122,27 @@ function enfoca(i) {
 }
 function pulsa(a) { const f = acciones[a]; const hecho = f ? f() : ''; log('botón:', a, hecho || '(sin Cast)'); if (hecho) avisa(hecho); }
 document.getElementById('controles').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { enfoca(botones().indexOf(b)); pulsa(b.dataset.a); } });
+// En fase de captura y sin dejar que siga: el reproductor de Cast usa ← → para adelantar/atrasar por su cuenta
 addEventListener('keydown', e => {
   const k = e.key, c = e.keyCode;
+  e.stopImmediatePropagation();
   const tecla = k === 'MediaPlayPause' || c === 179 ? 'playpausa' : k === 'MediaPlay' || c === 126 ? 'play' : k === 'MediaPause' || c === 127 ? 'pausa'
     : k === 'MediaTrackNext' || c === 176 ? 'siguiente' : k === 'MediaTrackPrevious' || c === 177 ? 'anterior'
     : k === 'MediaFastForward' || c === 228 ? 'mas10' : k === 'MediaRewind' || c === 227 ? 'menos10' : '';
   if (tecla) { e.preventDefault(); return pulsa(tecla); }
-  if (k === 'ArrowLeft' || c === 37) { e.preventDefault(); enfoca(foco - 1); }
-  else if (k === 'ArrowRight' || c === 39) { e.preventDefault(); enfoca(foco + 1); }
+  if (k === 'ArrowLeft' || c === 37 || k === 'ArrowRight' || c === 39) {
+    e.preventDefault(); enfoca(foco + (k === 'ArrowLeft' || c === 37 ? -1 : 1));
+    const t0 = leer().t;   // ¿se movió la canción sola con la flecha? (sería la TV, por fuera de la página)
+    setTimeout(() => { const t1 = leer().t; if (Math.abs(t1 - t0) > 4) log('la canción saltó sola con la flecha:', Math.round(t0), '→', Math.round(t1)); }, 700);
+  }
   else if (k === 'Enter' || k === 'Select' || k === 'Accept' || c === 13 || c === 23 || c === 66 || k === ' ') { e.preventDefault(); pulsa(botones()[foco].dataset.a); }
   else if (k === 'ArrowUp' || c === 38) { e.preventDefault(); pulsa('playpausa'); }   // por si el OK no llega a la página
   else log('tecla:', k || '?', c);
-});
+}, true);
+// lo mismo al soltar la tecla (por si Cast la escucha ahí): las de los botones son solo nuestras
+for (const ev of ['keyup', 'keypress']) addEventListener(ev, e => {
+  if ([37, 38, 39, 13, 23, 66].includes(e.keyCode) || /^(Arrow|Enter|Select|Accept)/.test(e.key)) { e.stopImmediatePropagation(); e.preventDefault(); }
+}, true);
 const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 const ICO_PAUSA = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
 let iconoPausa = true;

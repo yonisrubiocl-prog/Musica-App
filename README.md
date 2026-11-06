@@ -369,7 +369,10 @@ pantalla) solo suena: no pide Canvas ni letra.
 - **Botones en la TV:** −10 s · ⏮ · ⏯ · ⏭ · +10 s debajo de la barra; con el control remoto, ← → eligen (el elegido,
   iluminado; al abrir, ⏯) y OK pulsa; ↑ también pausa/sigue (por si el OK de algún mando no llega a la página). Las
   teclas multimedia del mando (⏯, ⏭, ⏮, ⏩, ⏪) también valen. Sale un aviso grande un momento; Cast avisa del cambio
-  a la app o la web que mandó la música. Las teclas que no se usan quedan en el registro ("tecla: …").
+  a la app o la web que mandó la música. Las teclas que no se usan quedan en el registro ("tecla: …"). Las flechas se
+  interceptan antes que Cast (que en Google TV las usaba para adelantar/atrasar al navegar entre botones); si aun así
+  la canción salta con una flecha, queda en el registro ("saltó sola con la flecha"). El marco del Canvas es siempre
+  vertical (9:16): sin Canvas, la portada cuadrada en medio sobre ella misma difuminada, para que no cambie de tamaño.
 - **Desde la web también** (Chrome en PC o Android, con el SDK de Cast): botón 📺 junto a 🔊 en el reproductor grande
   (sale si hay una TV con Cast en la red). Al conectar, lo que suena sigue en la TV en el mismo segundo: se le carga
   la canción y las 2 siguientes y se le añaden más al pasar de canción. Play, siguiente, anterior, la barra y el
