@@ -454,7 +454,11 @@ pantalla) solo suena: no pide Canvas ni letra.
   suena aquí, se mete en la cola de Cast sin cortar (`insertItems`); si suena en otro (espejo), va como orden `cola`.
 - **Ahora con el estilo de la pestaña Ahora de la web** (07-11-2026): el Canvas grande a la derecha, de arriba abajo
   (34vw × 86vh, medidas fijas); a la izquierda "Sonando en…", portada pequeña con título, artista y álbum, la letra
-  (anterior, actual y siguiente), la barra, −10 · ⏮ · ⏯ · ⏭ · +10 y "A continuación" compacta (4 y Lista completa).
+  (anterior, actual y siguiente) o la **Cola** (pestañas **Letra | Cola · N**, como en la web: con la Cola, fuera "A
+  continuación" y la lista más alta; OK salta a esa), la barra, −10 · ⏮ · ⏯ · ⏭ · +10 y "A continuación" compacta.
+  **El vídeo del Canvas nunca recortado** (540×960, con su forma exacta y centrado; a los lados la portada
+  difuminada): esa TV (Chrome 92) no sabe recortarlo (`object-fit: cover` en un marco de otra forma) y lo pinta en
+  blanco. Lo mismo en el panel de los menús.
   Al entrar, el Canvas llega desde la derecha creciendo y la izquierda aparece en cascada (sin desenfoque).
 - **Cómo se ve:** en Ahora, "A continuación" es una fila con las 6 próximas (↓ para llegar, OK salta a esa) y al
   final **☰ Lista completa**: toda la cola de la TV, con la que suena elegida; OK salta a esa y vuelve a Ahora. La letra,

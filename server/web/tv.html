@@ -218,6 +218,34 @@
   body.con-pestanas:not(.con-menu) .escena { padding-top: 11vh; padding-bottom: 3vh; }
   body:not(.con-menu) .media { order: 2; width: 34vw; height: 92vh; aspect-ratio: auto; border-radius: 2.6vh; }
   body.con-pestanas:not(.con-menu) .media { height: 86vh; }
+  /* El vídeo del Canvas (540×960, 9:16) NUNCA recortado: esta TV (Chrome 92) no sabe recortarlo (object-fit: cover en
+     un marco de otra forma) y lo pintaba en blanco, 07-11-2026. Va con su forma exacta, centrado, y a los lados la
+     portada difuminada. */
+  body:not(.con-menu) .media video { top: 0; bottom: auto; right: auto; height: 92vh; width: calc(92vh * 9 / 16);
+                                     left: calc((34vw - 92vh * 9 / 16) / 2); object-fit: fill; }
+  body.con-pestanas:not(.con-menu) .media video { height: 86vh; width: calc(86vh * 9 / 16); left: calc((34vw - 86vh * 9 / 16) / 2); }
+  body:not(.con-menu) .media.con-canvas #tapaFondo { opacity: .75; }
+  body.con-menu .media video { top: calc((84vh - 24vw * 16 / 9) / 2); bottom: auto; left: 0; right: auto; width: 24vw;
+                               height: calc(24vw * 16 / 9); object-fit: fill; }
+  body.con-menu .media.con-canvas #tapaFondo { opacity: .75; }
+  /* Letra | Cola (como la pestaña Ahora de la web): una u otra; con la Cola, fuera "A continuación" y la lista más alta */
+  .panel-lc { border-radius: 2vh; background: rgb(0 0 0 / .26); box-shadow: inset 0 0 0 .15vh rgb(255 255 255 / .08); overflow: hidden; }
+  body.con-menu .panel-lc { display: none; }
+  .tabs-ahora { display: flex; gap: .6vh; padding: .8vh 1.6vh 0; border-bottom: .15vh solid rgb(255 255 255 / .1); }
+  .tabs-ahora button { padding: 1vh 1.8vh 1.2vh; border: 0; background: none; color: var(--texto2); font: 700 2.1vh Roboto, system-ui, sans-serif;
+                       border-bottom: .4vh solid transparent; outline: none; border-radius: 1vh 1vh 0 0; }
+  .tabs-ahora button.on { color: var(--texto); border-bottom-color: var(--acento); }
+  .tabs-ahora button.f:focus { background: rgb(var(--acento-rgb) / .45); color: #fff; }
+  .tabs-ahora span { color: var(--texto2); font-weight: 600; }
+  .panel-lc .letra { margin-top: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel-lc .letra:empty { display: flex; }
+  .cola-lista { display: none; height: 34vh; overflow-y: auto; scrollbar-width: none; padding: .6vh .8vh; }
+  .cola-lista::-webkit-scrollbar { display: none; }
+  body.ahora-cola .panel-lc .letra { display: none; }
+  body.ahora-cola .cola-lista { display: block; }
+  body.ahora-cola:not(.con-menu) .cola { display: none; }
+  .cola-lista .cancion { padding: .7vh 1vh; } .cola-lista .cancion img { width: 5.6vh; height: 5.6vh; }
+  .cola-lista .cancion b { font-size: 2.1vh; } .cola-lista .cancion small { font-size: 1.7vh; }
   .cancion-f { display: flex; align-items: center; gap: 2.4vh; }
   #tapaMini { width: 13vh; height: 13vh; border-radius: 1.6vh; object-fit: cover; background: #1c1930; flex: none; box-shadow: 0 1.4vh 3vh rgb(0 0 0 / .35); }
   .cancion-f .txt { min-width: 0; display: flex; flex-direction: column; gap: .4vh; }
@@ -270,7 +298,8 @@
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i><span id="dondeSuena">Sonando en la TV</span><span class="pausa">En pausa</span></div>
     <div class="cancion-f"><img id="tapaMini" alt=""><div class="txt"><h1 id="titulo"></h1>
       <div class="artista" id="artista"></div><div class="album" id="album"></div></div></div>
-    <div class="letra" id="letra"></div>
+    <div class="panel-lc"><div class="tabs-ahora" id="tabsAhora"><button class="f on" data-pv="letra">Letra</button><button class="f" data-pv="cola">Cola <span id="colaN"></span></button></div>
+      <div class="letra" id="letra"></div><div class="cola-lista" id="colaLista"></div></div>
     <div class="barra"><i id="progreso"></i></div>
     <div class="tiempos"><span id="actual">0:00</span><span id="total">0:00</span></div>
     <!-- botones para el control remoto: ← → para elegir, OK para pulsar -->

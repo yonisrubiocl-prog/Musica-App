@@ -80,6 +80,7 @@ function pinta(media, proximas = []) {
     marcaSonando();
   }
   pintaCola(proximas.filter(p => limpia(p.media)));
+  pintaColaAhora(false);
 }
 // "A continuación": las próximas (hasta 6) en una fila; con OK sobre una, salta a esa. Solo se repinta si cambia
 // (Cast avisa de su estado a menudo y repintar quitaría el elegido).
@@ -137,7 +138,7 @@ function pintaLetra(t) {
 let acciones = {};   // las pone Cast (en la demo no hacen nada)
 let tocado = Date.now();   // última tecla (para cerrar solo tras un rato sin usarla ni sonar nada)
 // solo lo de la pantalla que se ve: las pestañas y, o los botones de "Ahora", o el menú abierto
-const visibles = () => [...document.querySelectorAll(eleccionAbierta() ? '#eleccion .f' : vista === 'ahora' ? '#pestanas .f, #controles .f, #colaFila .f' : '#pestanas .f, #menu .f, #panelIr')]
+const visibles = () => [...document.querySelectorAll(eleccionAbierta() ? '#eleccion .f' : vista === 'ahora' ? '#pestanas .f, #tabsAhora .f, #colaLista .f, #controles .f, #colaFila .f' : '#pestanas .f, #menu .f, #panelIr')]
   .filter(el => el.offsetParent !== null && !el.closest('[hidden]'));
 function vecino(dir) {
   const todos = visibles(), cur = todos.includes(document.activeElement) ? document.activeElement : null;
@@ -368,6 +369,36 @@ async function meteEnCola(s, despues, ya = false) {
   } catch (e) { log('no pude meterla en la cola:', e.message); return false; }
 }
 // La lista completa: toda la cola de la TV (la de Cast), la que suena marcada y elegida; OK salta a esa
+// ---- Letra | Cola en Ahora ----
+let pvAhora = 'letra', firmaColaAhora = '';
+// la cola que suena: la de la TV (Cast) o, en espejo, la del otro dispositivo; [{t, a, al, img, d}] y cuál suena
+function colaQueSuena() {
+  if (espejo) { const c = espejo.s.cola?.length ? espejo.s.cola : [espejo.s.cancion];
+    return {l: c.map(x => ({t: x.title, a: x.artist, al: x.album, img: imgOk(x.thumb) ? x.thumb : '', d: x.duration})), i: Math.max(0, c.findIndex(x => x.id === espejo.s.cancion.id))}; }
+  const {items, i} = acciones.cola ? acciones.cola() : {items: [], i: 0};
+  return {l: items.map(it => { const m = it.media?.metadata || {}; return {t: m.title, a: m.artist, al: m.albumName, img: imagenDe(it.media), d: it.media?.duration}; }), i};
+}
+function pintaColaAhora(foco) {
+  const {l, i} = colaQueSuena(), resto = Math.max(0, l.length - i - 1);
+  $('colaN').textContent = resto ? '· ' + resto : '';
+  if (pvAhora !== 'cola') return;
+  const firma = i + '|' + l.map(x => x.t).join('|');   // solo si cambió (repintar quitaría la canción elegida)
+  if (!foco && firma === firmaColaAhora) return; firmaColaAhora = firma;
+  $('colaLista').innerHTML = l.length ? l.map((x, k) => `<button class="cancion f${k === i ? ' sonando' : ''}" data-salto="${k - i}"><span class="n">${k === i ? '▶' : k + 1}</span>${x.img ? `<img src="${esc(x.img)}" alt="">` : '<img alt="">'}
+      <div><b>${esc(x.t || '')}</b><small>${esc([x.a, x.al].filter(Boolean).join(' · '))}</small></div><span>${x.d ? dur(x.d) : ''}</span></button>`).join('')
+    : '<p class="vacio">No hay nada en la cola.</p>';
+  if (foco) enfoca($('colaLista').querySelector('.sonando') || $('colaLista').querySelector('.f'));
+}
+function ponPv(v) {
+  pvAhora = v; document.body.classList.toggle('ahora-cola', v === 'cola');
+  $('tabsAhora').querySelectorAll('[data-pv]').forEach(b => b.classList.toggle('on', b.dataset.pv === v));
+  pintaColaAhora(v === 'cola');
+}
+document.getElementById('tabsAhora').addEventListener('click', e => { const b = e.target.closest('[data-pv]'); if (b) ponPv(b.dataset.pv); });
+document.getElementById('colaLista').addEventListener('click', e => {
+  const b = e.target.closest('[data-salto]'); if (!b) return; const n = +b.dataset.salto; if (!n) return;
+  avisa(espejo ? mandoEspejo('saltaA', n) : acciones.saltaA ? acciones.saltaA(n) : '');
+});
 async function colaCompleta() {
   const {items, i} = acciones.cola ? acciones.cola() : {items: [], i: 0};
   const filas = items.map((it, k) => { const m = it.media?.metadata || {}, img = imagenDe(it.media), ya = k === i;
