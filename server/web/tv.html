@@ -211,6 +211,39 @@
   .espera b { font-size: 4.4vh; } .espera span { font-size: 2.4vh; color: var(--texto2); }
   body.con-cancion .espera, body.con-pestanas .espera { opacity: 0; pointer-events: none; }
   body.solo-audio * { animation: none !important; }
+  /* ---- Ahora con el estilo de la web (07-11-2026): el Canvas grande a la derecha, de arriba abajo (medidas FIJAS:
+     automáticas, esta TV lo pintaba en blanco); a la izquierda dónde suena, portada pequeña con título, la letra
+     (anterior, actual y siguiente), la barra, los botones y "A continuación" compacta. Entra animado. ---- */
+  body:not(.con-menu) .escena { grid-template-columns: minmax(0, 1fr) auto; gap: 3vw; align-items: center; padding: 4vh 3vw 4vh 4.5vw; }
+  body.con-pestanas:not(.con-menu) .escena { padding-top: 11vh; padding-bottom: 3vh; }
+  body:not(.con-menu) .media { order: 2; width: 34vw; height: 92vh; aspect-ratio: auto; border-radius: 2.6vh; }
+  body.con-pestanas:not(.con-menu) .media { height: 86vh; }
+  .cancion-f { display: flex; align-items: center; gap: 2.4vh; }
+  #tapaMini { width: 13vh; height: 13vh; border-radius: 1.6vh; object-fit: cover; background: #1c1930; flex: none; box-shadow: 0 1.4vh 3vh rgb(0 0 0 / .35); }
+  .cancion-f .txt { min-width: 0; display: flex; flex-direction: column; gap: .4vh; }
+  body.con-menu #tapaMini { display: none; }
+  body:not(.con-menu) .letra { height: 18vh; }
+  .letra p.antes, .letra p.luego { font-size: 2.3vh; font-weight: 600; color: var(--texto2); -webkit-line-clamp: 1; margin: 0; }
+  .letra p.ahora { font-size: 3.4vh; font-weight: 800; color: var(--texto); margin: .7vh 0; -webkit-line-clamp: 2; }
+  /* A continuación compacta: 4 en fila (portada pequeña y texto al lado) y Lista completa */
+  body:not(.con-menu) .cola-fila { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 1.4vh; }
+  body:not(.con-menu) .mini { width: auto; min-width: 0; display: flex; align-items: center; gap: 1.2vh; padding: .6vh; border-radius: 1.2vh; }
+  body:not(.con-menu) .mini img, body:not(.con-menu) .mini .ph { width: 7.5vh; height: 7.5vh; flex: none; font-size: 3vh; }
+  body:not(.con-menu) .mini > b, body:not(.con-menu) .mini > small { display: none; }
+  .mini .tx { min-width: 0; } .mini .tx b { display: block; margin: 0; font-size: 1.8vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini .tx small { display: block; font-size: 1.5vh; color: var(--texto2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body:not(.con-menu) .mini.f:focus { background: rgb(var(--acento-rgb) / .3); box-shadow: inset 0 0 0 .3vh #fff; transform: none; }
+  body:not(.con-menu) .mini.f:focus :is(img, .ph) { box-shadow: none; }
+  /* entrada: el Canvas desde la derecha creciendo; la izquierda en cascada (sin desenfoque: Chrome 92) */
+  @keyframes entraCanvas { from { opacity: 0; transform: translateX(5vw) scale(.94); } }
+  @keyframes sube { from { opacity: 0; transform: translateY(2.4vh); } }
+  body:not(.con-menu) .escena.entra .media { animation: entraCanvas 650ms cubic-bezier(.2, .8, .2, 1) both; }
+  body:not(.con-menu) .escena.entra .info > * { animation: sube 560ms cubic-bezier(.2, .8, .2, 1) both; }
+  .escena.entra .info > :nth-child(2) { animation-delay: 60ms; } .escena.entra .info > :nth-child(3) { animation-delay: 120ms; }
+  .escena.entra .info > :nth-child(4) { animation-delay: 180ms; } .escena.entra .info > :nth-child(5) { animation-delay: 230ms; }
+  .escena.entra .info > :nth-child(6) { animation-delay: 280ms; } .escena.entra .info > :nth-child(7) { animation-delay: 330ms; }
+  body.solo-audio .escena.entra * { animation: none !important; }
+
   #audio { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
 </style>
 </head>
@@ -235,9 +268,8 @@
   <div class="media" id="media"><img id="tapaFondo" alt=""><img id="tapa" alt=""></div>
   <div class="info">
     <div class="ahora"><i class="eq"><b></b><b></b><b></b></i><span id="dondeSuena">Sonando en la TV</span><span class="pausa">En pausa</span></div>
-    <h1 id="titulo"></h1>
-    <div class="artista" id="artista"></div>
-    <div class="album" id="album"></div>
+    <div class="cancion-f"><img id="tapaMini" alt=""><div class="txt"><h1 id="titulo"></h1>
+      <div class="artista" id="artista"></div><div class="album" id="album"></div></div></div>
     <div class="letra" id="letra"></div>
     <div class="barra"><i id="progreso"></i></div>
     <div class="tiempos"><span id="actual">0:00</span><span id="total">0:00</span></div>

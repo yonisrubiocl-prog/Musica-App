@@ -72,7 +72,7 @@ function pinta(media, proximas = []) {
     const img = imagenDe(media);
     actual = {id, t, titulo: m.title || '', artista: m.artist || m.albumArtist || '', album: m.albumName || '', dur: media.duration || 0};
     $('titulo').textContent = actual.titulo; $('artista').textContent = actual.artista; $('album').textContent = actual.album;
-    for (const el of [$('tapa'), $('tapaFondo')]) if (img) el.src = img; else el.removeAttribute('src');
+    for (const el of [$('tapa'), $('tapaFondo'), $('tapaMini')]) if (img) el.src = img; else el.removeAttribute('src');
     $('fondo').style.backgroundImage = img ? `url("${img.replace(/["\\]/g, '')}")` : 'none';
     $('media').classList.remove('con-canvas'); video()?.remove();
     $('letra').textContent = ''; lineas = []; lineaAhora = -2;
@@ -85,14 +85,14 @@ function pinta(media, proximas = []) {
 // (Cast avisa de su estado a menudo y repintar quitaría el elegido).
 let colaFirma = '';
 function pintaCola(proximas) {
-  const lista = proximas.slice(0, 6), firma = lista.map(p => p.media.contentUrl || p.media.contentId).join('|');
+  const lista = proximas.slice(0, 4), firma = lista.map(p => p.media.contentUrl || p.media.contentId).join('|');
   if (firma === colaFirma) return; colaFirma = firma;
   $('cola').hidden = !lista.length;
   const enfocada = document.activeElement?.closest?.('#colaFila');
   $('colaFila').innerHTML = lista.map(p => { const m = p.media.metadata || {}, img = imagenDe(p.media);
     return `<button class="mini f" data-salto="${p.salto}">${img ? `<img src="${esc(img)}" alt="">` : '<span class="ph">♪</span>'}
-      <b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small></button>`; }).join('')
-    + `<button class="mini f todo" data-todo="1"><span class="ph">☰</span><b>Lista completa</b><small>Toda la cola</small></button>`;
+      <b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small><span class="tx"><b>${esc(m.title || '')}</b><small>${esc(m.artist || '')}</small></span></button>`; }).join('')
+    + `<button class="mini f todo" data-todo="1"><span class="ph">☰</span><b>Lista completa</b><small>Toda la cola</small><span class="tx"><b>Lista completa</b><small>Toda la cola</small></span></button>`;
   if (enfocada) enfoca($('colaFila').querySelector('.f') || document.querySelector('#controles .grande'));
 }
 
@@ -126,7 +126,8 @@ function pintaLetra(t) {
   let i = -1; for (let k = 0; k < lineas.length && lineas[k].at <= t + .3; k++) i = k;
   if (i === lineaAhora) return; lineaAhora = i;
   $('letra').textContent = '';
-  for (const l of [lineas[i], lineas[i + 1]]) if (l) { const p = document.createElement('p'); p.textContent = l.txt; $('letra').append(p); }
+  // la anterior (gris), la que suena (grande) y la siguiente (gris), como en la pestaña Ahora de la web
+  for (const [l, c] of [[lineas[i - 1], 'antes'], [lineas[i], 'ahora'], [lineas[i + 1], 'luego']]) if (l) { const p = document.createElement('p'); p.className = c; p.textContent = l.txt; $('letra').append(p); }
 }
 
 // ---------- el control remoto: las flechas van al elemento más cercano en esa dirección, OK lo pulsa ----------
@@ -242,7 +243,8 @@ function irA(v, render) {
   document.querySelectorAll('#pestanas button').forEach(b => b.classList.toggle('on', b.dataset.vista === v || (v === 'detalle' && b.dataset.vista === pila[0]?.base)));
   document.body.classList.toggle('con-menu', v !== 'ahora');
   $('menu').hidden = v === 'ahora';
-  if (v === 'ahora') return enfoca(document.querySelector('#controles .grande'));
+  if (v === 'ahora') { const e = $('ahora'); e.classList.remove('entra'); void e.offsetWidth; e.classList.add('entra');
+    return enfoca(document.querySelector('#controles .grande')); }
   $('menu').innerHTML = '<div class="scroll"><p class="vacio">Cargando…</p></div>';
   (render || VISTAS[v])().then(h => { $('menu').innerHTML = `<div class="scroll">${h}</div>`;
     enfoca($('menu').querySelector('[data-foco]') || visibles().find(el => el.closest('#menu'))); })
