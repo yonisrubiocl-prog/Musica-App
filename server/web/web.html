@@ -487,7 +487,7 @@
      ±10 s, Me gusta, menú); el progreso, una línea fina arriba de la zona de reproducción. Es el minirreproductor de
      siempre (mismos botones y manejadores), junto a la navegación. El reproductor de la derecha queda limpio: solo el
      Canvas (o la portada), más alto, terminando encima de la barra; Letra y Cola, a la mitad con ✕. ---- */
-  .bar-acc, .np-cab { display: none; }
+  .bar-acc, .np-cab, .bar-info { display: none; }
   @media (min-width: 1100px) {
     /* centrada y no tan ancha: como mucho 1180 px */
     body:not(.en-ahora) .dock { left: max(var(--pgap), calc((100vw - 1180px) / 2)) !important; right: max(var(--pgap), calc((100vw - 1180px) / 2)) !important; padding: 0 0 var(--pgap); display: flex; align-items: stretch;
@@ -505,19 +505,28 @@
     body:not(.en-ahora) .bar .ctl:not(.main) { color: var(--texto); }
     body:not(.en-ahora) .dock .bar:not(.on) > :not(.prog) { visibility: hidden; }   /* sin canción: la barra, vacía */
     body:not(.en-ahora) .bar img { width: 44px; height: 44px; cursor: pointer; }
-    body:not(.en-ahora) .bar .meta { flex: 0 1 auto; max-width: 300px; cursor: pointer; }
+    body:not(.en-ahora) .bar .meta { flex: 0 0 auto; max-width: 280px; cursor: pointer; }   /* el título, primero (lo que se encoge es artista · álbum) */
     body:not(.en-ahora) .bar :is(.a, .en, .time, #pFav, .vol) { display: none !important; }
     body:not(.en-ahora) .bar .ctl.side { display: grid; }
     body:not(.en-ahora) .bar #prev { margin-left: 26px; }   /* ⏮ ⏯ ⏭ cerca del nombre de la canción (con aire) */
-    body:not(.en-ahora) .bar-acc { display: flex; align-items: center; gap: 10px; margin-left: auto; padding-left: 20px; }
+    body:not(.en-ahora) .bar-acc { display: flex; align-items: center; gap: 10px; margin-left: auto; padding-left: 20px; flex: none; }
     .bar-acc button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: rgb(var(--fg) / .82); transition: background 150ms, color 150ms; }
     .bar-acc button:hover { background: rgb(var(--fg) / .07); color: var(--texto); }
     .bar-acc button.on { color: var(--acento); background: rgb(var(--acento-rgb) / .14); }
     .bar-acc svg { width: 21px; height: 21px; }
     /* el progreso: una línea fina arriba de la zona de reproducción; se engorda al pasar el ratón (clic para ir ahí) */
     body:not(.en-ahora) .bar .prog { top: 0; bottom: auto; left: 0; right: 0; height: 3px; border-radius: 0 20px 0 0; transition: height 150ms; }
-    body:not(.en-ahora) .bar .prog:hover { height: 6px; }
-    body:not(.en-ahora) .bar .prog i { border-radius: inherit; }
+    body:not(.en-ahora) .bar .prog:hover, body:not(.en-ahora) .bar .prog.arrastra { height: 6px; }
+    body:not(.en-ahora) .bar .prog i { border-radius: inherit; position: relative; }
+    /* la bolita al final de lo sonado, para arrastrar (más grande al pasar el ratón) */
+    body:not(.en-ahora) .bar .prog i::after { content: ""; position: absolute; right: -7px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+      border-radius: 50%; background: var(--texto); box-shadow: 0 0 0 3px rgb(var(--acento-rgb) / .35); transition: transform 150ms; }
+    body:not(.en-ahora) .bar .prog:hover i::after, body:not(.en-ahora) .bar .prog.arrastra i::after { transform: scale(1.25); }
+    body:not(.en-ahora) .bar .prog { touch-action: none; }
+    /* en el hueco entre ⏮⏯⏭ y los iconos de la derecha: artista · álbum y el tiempo */
+    body:not(.en-ahora) .bar-info { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; flex: 1 1 0; margin-left: 22px; }
+    .bar-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #barArt { color: rgb(var(--fg) / .8); font-size: .88rem; } #barTiempo { color: var(--texto2); font-size: .78rem; font-variant-numeric: tabular-nums; }
     /* el reproductor de la derecha, limpio y más alto: termina encima de la barra */
     body:not(.en-ahora) .np { bottom: calc(var(--nav-h) + var(--pgap) * 2); }
     .np .in > :is(.top, .titles, .seek, .times, .ctls, .vol, .disps, .tabs) { display: none !important; }
@@ -790,6 +799,7 @@ aplicarTema();
     <button class="ctl side" id="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
     <button class="ctl main" id="play" aria-label="Reproducir"><svg viewBox="0 0 24 24" id="playIco"><path d="M8 5v14l11-7z"/></svg></button>
     <button class="ctl" id="next" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+    <div class="bar-info" id="barInfo"><span id="barArt"></span><span id="barTiempo"></span></div>
     <div class="bar-acc" id="barAcc">
       <button id="bLetra" aria-label="Letra" title="Letra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
       <button id="bCola" aria-label="Cola" title="Cola (lo que sigue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h12M4 12h12M4 18h8M18 15v6M15 18l3 3 3-3"/></svg></button>
@@ -1677,6 +1687,8 @@ function start(desde = 0, sonar = true) {
 function pintaCancion() {
   $('bar').classList.add('on');
   $('pImg').src = cur.thumb || ''; $('pT').textContent = cur.title; $('pA').textContent = cur.artist || '';
+  $('barArt').textContent = [cur.artist, cur.album && cur.where !== 'youtube' ? cur.album : ''].filter(Boolean).join(' · ');
+  $('barArt').title = $('barArt').textContent;
   $('tint').style.backgroundImage = cur.thumb ? `url("${cur.thumb.replace(/"/g, '%22')}")` : 'none';
   $('tint').classList.toggle('on', !!cur.thumb);
   document.querySelectorAll('.row').forEach(r => r.classList.toggle('playing', r.dataset.row === cur.id));
@@ -1707,7 +1719,19 @@ $('next').onclick = e => { e.stopPropagation(); next(); };
 $('prev').onclick = e => { e.stopPropagation(); prev(); };
 $('play').onclick = e => { e.stopPropagation(); playPausa(); };
 $('pFav').onclick = e => { e.stopPropagation(); cur && toggleFav(cur); };
-$('prog').onclick = e => { e.stopPropagation(); const d = duracion(); if (d) irA(d * e.offsetX / e.currentTarget.offsetWidth); };
+$('prog').onclick = e => { e.stopPropagation(); if (barArrastro) { barArrastro = false; return; } const d = duracion(); if (d) irA(d * e.offsetX / e.currentTarget.offsetWidth); };
+// arrastrar la bolita de la línea de progreso (PC): se ve el punto y el tiempo, y al soltar va ahí
+let barArrastra = false, barArrastro = false;
+$('prog').addEventListener('pointerdown', e => {
+  const d = duracion(); if (!d) return;
+  e.stopPropagation(); const box = $('prog'), r = box.getBoundingClientRect(); barArrastra = true; barArrastro = false;
+  box.classList.add('arrastra'); try { box.setPointerCapture(e.pointerId); } catch (err) {}
+  const en = x => Math.max(0, Math.min(1, (x - r.left) / r.width));
+  const mueve = ev => { barArrastro = true; const f = en(ev.clientX); $('progI').style.width = f * 100 + '%'; $('barTiempo').textContent = `${dur(d * f) || '0:00'} / ${dur(d)}`; };
+  const suelta = ev => { box.removeEventListener('pointermove', mueve); box.removeEventListener('pointerup', suelta); box.classList.remove('arrastra');
+    barArrastra = false; if (barArrastro) irA(d * en(ev.clientX)); };
+  box.addEventListener('pointermove', mueve); box.addEventListener('pointerup', suelta);
+});
 $('bar').onclick = () => openNp();
 audio.onended = () => { cierraLaQueSonaba(); if (repeat === 'one') { playing = {s: cur, ctx: playing ? playing.ctx : listCtx}; audio.currentTime = 0; audio.play(); } else next(); };
 // ---------- volumen (se recuerda; las dos barras, la de abajo y la del reproductor grande, van juntas) ----------
@@ -1753,8 +1777,9 @@ const duracion = () => (remoto ? cx?.sonando?.duracion : enTv() ? tv.player.dura
 const sonandoAhora = () => remoto ? !!cx?.sonando && !cx.sonando.pausa : enTv() ? !tv.player.isPaused : !audio.paused;
 function pintaTiempo() {
   const t = tiempo(), d = duracion();
-  $('progI').style.width = d ? (100 * Math.min(t, d) / d) + '%' : 0;
+  if (!barArrastra) $('progI').style.width = d ? (100 * Math.min(t, d) / d) + '%' : 0;   // (arrastrando la bolita, no)
   $('pTime').textContent = d ? `${dur(t) || '0:00'} / ${dur(d)}` : '';
+  if (!barArrastra) $('barTiempo').textContent = d ? `${dur(t) || '0:00'} / ${dur(d)}` : '';
   if (!seeking) $('npSeek').value = d ? Math.round(1000 * Math.min(t, d) / d) : 0;
   $('npCur').textContent = dur(t) || '0:00'; $('npDur').textContent = dur(d) || '0:00';
   pintaAhoraTiempo(t, d);
