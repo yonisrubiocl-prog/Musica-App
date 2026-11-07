@@ -647,8 +647,10 @@
   .ahv-izq > :nth-child(6) { animation-delay: 280ms; } .ahv-izq > :nth-child(7) { animation-delay: 330ms; }
   .ahv-cancion.cambia :is(#ahvMini, .ahv-txt) { animation: cambiaCancion 520ms cubic-bezier(.2, .8, .2, 1); }
   .ahv-cancion.cambia .ahv-txt { animation-delay: 60ms; animation-fill-mode: both; }
-  :root.quieto :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *) { animation: none !important; }
-  @media (prefers-reduced-motion: reduce) { :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *) { animation: none !important; } }
+  /* en las demás pestañas, el Canvas (o la portada) del reproductor entra igual al cambiar de pestaña (go() pone .entra) */
+  @media (min-width: 1100px) { .np.entra :is(.canvas video, .cover) { animation: entraCanvas 650ms cubic-bezier(.2, .8, .2, 1) both; } }
+  :root.quieto :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *, .np.entra .canvas video, .np.entra .cover) { animation: none !important; }
+  @media (prefers-reduced-motion: reduce) { :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *, .np.entra .canvas video, .np.entra .cover) { animation: none !important; } }
 
   /* Ajustes: tema y color de acento */
   /* Rendimiento (Ajustes): interruptores para ahorrar datos y batería */
@@ -1408,6 +1410,7 @@ function go(t) {
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   scrollTo({top: 0});
   document.body.classList.toggle('en-ahora', t === 'ahora');
+  if (t !== 'ahora') { const np = $('np'); np.classList.remove('entra'); void np.offsetWidth; np.classList.add('entra'); }   // el Canvas entra
   return {inicio, buscar, biblioteca, ahora: vistaAhora}[t]();
 }
 $('nav').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); };
