@@ -185,10 +185,8 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     letra están en las pestañas **Siguiente | Letra** del reproductor, bajo demanda (`tresColumnas` ya no se cumple
     nunca; el código de la barra se queda por si vuelve).
   - **El reproductor del PC no se desplaza** (07-11-2026): la portada o el Canvas llenan lo que quede y las pestañas
-    **Siguiente | Letra** están siempre a la vista. **Letra**: en el hueco de la portada, encima del Canvas, la letra que
-    sigue la canción (anterior, la que suena y la siguiente, como en la pestaña Ahora; tocar una línea va a ese
-    momento). **Siguiente**: arriba los controles con el Canvas de fondo y abajo la cola con su propio desplazamiento.
-    Tocar otra vez la misma pestaña la cierra. Antes las
+    **Siguiente | Letra** están siempre a la vista. Tocar una la abre (`.np.abierto`): arriba los controles con el
+    Canvas de fondo, abajo la letra o la cola con su propio desplazamiento; tocarla otra vez la cierra. Antes las
     pestañas quedaban fuera de la vista y, al bajar, la barra pegada hacía que el Canvas se midiera mal y se metiera
     bajo la letra (vídeo de un amigo): ahora se mide la barra en su sitio normal y otra vez al cambiar la ventana.
   - **Vistas en listas, no en cuadrículas de portadas** (07-11-2026; `docs/afina-inicio-propuesta-20261106`):
