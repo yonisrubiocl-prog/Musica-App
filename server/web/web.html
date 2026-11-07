@@ -459,8 +459,13 @@
     .np .in { display: flex; flex-direction: column; overflow: hidden; }
     .np .in > * { flex: none; }
     .np .in > .cover { flex: 1 1 auto; min-height: 0; width: auto; max-width: 100%; align-self: center; }
-    .np .in > .tabs { position: relative; top: auto; margin-top: 12px; }
+    /* las pestañas, siempre como con Canvas (cápsula de cristal redondeada): sin Canvas quedaban con las líneas de antes */
+    .np .in > .tabs { position: relative; top: auto; margin: 12px 0 0; padding: 0; border: 1px solid var(--borde-cristal); border-radius: 18px;
+                      background: color-mix(in srgb, var(--barra) 70%, transparent);
+                      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+                      box-shadow: 0 10px 34px rgb(0 0 0 / calc(.35 * var(--sombra))); }
     .np .in > .tabs::after { display: none; }
+    .np .in > .tabs button.on::after { bottom: 6px; left: 42%; right: 42%; }
     .np .in > #npPanel { display: none; }
     .np.abierto .in > #npPanel { display: block; flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-top: 6px; }
     /* abierta: arriba los controles con el Canvas de fondo; abajo el panel con todo el sitio libre (a medias con la
