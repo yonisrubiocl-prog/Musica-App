@@ -477,7 +477,7 @@
     body.en-ahora .wrap { max-width: none; margin: 0; padding: 0; }
     .ahv { display: block; height: 100vh; padding: 3vh 1.5vw 116px 2.5vw; }
     .ahv-izq { height: 100%; }
-    .ahv-der { position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--ahv-der); }
+    .ahv-der { animation: aparece 250ms var(--ease); position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--ahv-der); }
     .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; padding-right: calc(var(--ahv-der) + var(--pgap) * 2); }
     .ahv-izq { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
     .ahv-der { min-height: 0; }
@@ -634,6 +634,7 @@
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
   .fade { animation: fade 250ms var(--ease); }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+  @keyframes aparece { from { opacity: 0; } }   /* sin moverse: para lo que va fijo en la pantalla */
 
   /* Ajustes: tema y color de acento */
   /* Rendimiento (Ajustes): interruptores para ahorrar datos y batería */
@@ -1988,8 +1989,10 @@ let ahvLetra = {id: null, lineas: []}, ahvLinea = -2, ahvVista = 'letra', ahvArr
 const pintaSeek = pct => $('ahvSeek')?.style.setProperty('--p', Math.max(0, Math.min(100, pct)) + '%');
 function vistaAhora() {
   if (!panelFijo.matches) return go('inicio');
-  wrap.innerHTML = `<section class="ahv fade" id="ahv">
-    <div class="ahv-izq">
+  // (la animación de entrada solo en la izquierda: con transform en .ahv, el Canvas fijo de la derecha se colocaba
+  // respecto a la vista y no a la pantalla, salía en medio y saltaba a su sitio al acabar)
+  wrap.innerHTML = `<section class="ahv" id="ahv">
+    <div class="ahv-izq fade">
       <div class="ahv-cab"><span class="ahv-tit">Ahora</span><button class="ahv-donde" id="ahvDondeB"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i><span id="ahvDonde"></span></button></div>
       <div class="ahv-cancion">
         <img id="ahvMini" alt="">
