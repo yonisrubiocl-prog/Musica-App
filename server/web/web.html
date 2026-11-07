@@ -492,13 +492,17 @@
     /* centrada y no tan ancha: como mucho 1180 px */
     body:not(.en-ahora) .dock { left: max(var(--pgap), calc((100vw - 1180px) / 2)) !important; right: max(var(--pgap), calc((100vw - 1180px) / 2)) !important; padding: 0 0 var(--pgap); display: flex; align-items: stretch;
       filter: drop-shadow(0 -6px 30px rgb(0 0 0 / calc(.3 * var(--sombra)))); }
-    body:not(.en-ahora) .dock > * { max-width: none; margin: 0; }
+    body:not(.en-ahora) .dock > * { max-width: none; margin: 0; border-top: 1px solid var(--borde-cristal) !important; border-bottom: 1px solid var(--borde-cristal) !important; }
+    body:not(.en-ahora) .dock nav { border-left: 1px solid var(--borde-cristal); }
+    body:not(.en-ahora) .dock .bar { border-right: 1px solid var(--borde-cristal) !important; }
     body:not(.en-ahora) .dock nav { order: -1; flex: none; width: 360px; border-radius: 20px 0 0 20px; box-shadow: none;
-      background: color-mix(in srgb, var(--barra) 82%, rgb(var(--fg)) 8%); }   /* más contraste: se veía apagada */
+      background: color-mix(in srgb, var(--barra) 80%, rgb(var(--fg)) 13%); }   /* más contraste: se veía apagada */
     body:not(.en-ahora) .dock nav button { color: rgb(var(--fg) / .78); }
     body:not(.en-ahora) .dock nav button.on { color: var(--texto); }
     body:not(.en-ahora) .dock .bar { display: flex !important; flex: 1; min-width: 0; height: var(--nav-h); max-height: none; opacity: 1; margin: 0;
-      padding: 0 24px 0 20px; border-radius: 0 20px 20px 0; border: 0; border-left: 1px solid var(--linea); box-shadow: none; overflow: visible; cursor: default; gap: 14px; }
+      padding: 0 24px 0 20px; border-radius: 0 20px 20px 0; border: 0; border-left: 1px solid var(--linea); box-shadow: none; overflow: visible; cursor: default; gap: 14px;
+      background: color-mix(in srgb, var(--barra) 80%, rgb(var(--fg)) 13%); }   /* el mismo fondo que la navegación: se veía apagada */
+    body:not(.en-ahora) .bar .ctl:not(.main) { color: var(--texto); }
     body:not(.en-ahora) .dock .bar:not(.on) > :not(.prog) { visibility: hidden; }   /* sin canción: la barra, vacía */
     body:not(.en-ahora) .bar img { width: 44px; height: 44px; cursor: pointer; }
     body:not(.en-ahora) .bar .meta { flex: 0 1 auto; max-width: 300px; cursor: pointer; }
@@ -506,7 +510,7 @@
     body:not(.en-ahora) .bar .ctl.side { display: grid; }
     body:not(.en-ahora) .bar #prev { margin-left: 26px; }   /* ⏮ ⏯ ⏭ cerca del nombre de la canción (con aire) */
     body:not(.en-ahora) .bar-acc { display: flex; align-items: center; gap: 10px; margin-left: auto; padding-left: 20px; }
-    .bar-acc button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--texto2); transition: background 150ms, color 150ms; }
+    .bar-acc button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: rgb(var(--fg) / .82); transition: background 150ms, color 150ms; }
     .bar-acc button:hover { background: rgb(var(--fg) / .07); color: var(--texto); }
     .bar-acc button.on { color: var(--acento); background: rgb(var(--acento-rgb) / .14); }
     .bar-acc svg { width: 21px; height: 21px; }
