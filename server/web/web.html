@@ -469,15 +469,16 @@
   .solo-pc { display: none !important; }
   @media (min-width: 1100px) {
     #nav .solo-pc { display: flex !important; }
-    /* el Canvas ocupa justo el sitio del reproductor de la derecha (de arriba abajo): la barra de navegación y el
-       contenido quedan donde en las demás pestañas, y al cambiar de pestaña la tarjeta de la derecha no se mueve */
-    body.en-ahora { padding-left: 0 !important; }
+    /* el Canvas, de arriba abajo a la derecha, con el ancho de antes (~38 % del contenido: --ahv-der); la barra de
+       navegación, donde en las demás pestañas (no llega a tocarlo) */
+    :root { --ahv-der: 34vw; }
+    body.en-ahora { padding-left: 0 !important; padding-right: calc(var(--ahv-der) + var(--pgap) * 2) !important; }
     body.en-ahora :is(.np, .qside) { display: none !important; }
     body.en-ahora .wrap { max-width: none; margin: 0; padding: 0; }
     .ahv { display: block; height: 100vh; padding: 3vh 1.5vw 116px 2.5vw; }
     .ahv-izq { height: 100%; }
-    .ahv-der { position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--panel); }
-    .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; padding-right: calc(var(--panel) + var(--pgap) * 2); }
+    .ahv-der { position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--ahv-der); }
+    .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; padding-right: calc(var(--ahv-der) + var(--pgap) * 2); }
     .ahv-izq { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
     .ahv-der { min-height: 0; }
     /* el Canvas: alto del todo, a lo ancho de su columna, esquinas redondeadas */
