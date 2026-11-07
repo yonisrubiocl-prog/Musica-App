@@ -184,6 +184,11 @@ cambios en un navegador de verdad sin pantalla: `tools/probar-web.sh` (Playwrigh
     **Desde el 07-11-2026 no hay columna fija de la cola** a la izquierda (más sitio para el contenido): la cola y la
     letra están en las pestañas **Siguiente | Letra** del reproductor, bajo demanda (`tresColumnas` ya no se cumple
     nunca; el código de la barra se queda por si vuelve).
+  - **El reproductor del PC no se desplaza** (07-11-2026): la portada o el Canvas llenan lo que quede y las pestañas
+    **Siguiente | Letra** están siempre a la vista. Tocar una la abre (`.np.abierto`): arriba los controles con el
+    Canvas de fondo, abajo la letra o la cola con su propio desplazamiento; tocarla otra vez la cierra. Antes las
+    pestañas quedaban fuera de la vista y, al bajar, la barra pegada hacía que el Canvas se midiera mal y se metiera
+    bajo la letra (vídeo de un amigo): ahora se mide la barra en su sitio normal y otra vez al cambiar la ventana.
   - **Vistas en listas, no en cuadrículas de portadas** (07-11-2026; `docs/afina-inicio-propuesta-20261106`):
     **Inicio**: saludo, "Retoma tu música" (3 pequeñas), dos paneles de filas lado a lado (Escuchadas recientemente ·
     Para ti, 6 cada uno, "Ver todo": el historial a Biblioteca, Para ti se despliega), una franja de álbumes

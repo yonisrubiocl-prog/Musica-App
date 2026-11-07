@@ -454,7 +454,19 @@
     .np .tint { position: absolute; inset: -25%; opacity: .55; }
     .np .in { position: relative; z-index: 1; height: 100%; overflow-y: auto; padding: 20px 26px 28px; --np-pad: 20px; --np-x: 26px; --np-bg: var(--hoja); }
     .np .top .back { visibility: hidden; }
-    .np .cover { width: 100%; margin-top: 14px; border-radius: 22px;
+    /* sin desplazamiento: la portada (o el Canvas) llena lo que quede; las pestañas Siguiente | Letra siempre a la
+       vista; abierta una, arriba la mitad para la portada / el Canvas y abajo la letra o la cola (07-11-2026) */
+    .np .in { display: flex; flex-direction: column; overflow: hidden; }
+    .np .in > * { flex: none; }
+    .np .in > .cover { flex: 1 1 auto; min-height: 0; width: auto; max-width: 100%; align-self: center; }
+    .np .in > .tabs { position: relative; top: auto; margin-top: 12px; }
+    .np .in > .tabs::after { display: none; }
+    .np .in > #npPanel { display: none; }
+    .np.abierto .in > #npPanel { display: block; flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-top: 6px; }
+    /* abierta: arriba los controles con el Canvas de fondo; abajo el panel con todo el sitio libre (a medias con la
+       portada, a 1280×720 la letra se quedaba en 96 px) */
+    .np.abierto .in > .cover { display: none; }
+    .np .cover { margin-top: 14px; border-radius: 22px;
                  box-shadow: 0 26px 60px rgba(0,0,0,.55), 0 0 60px rgb(var(--acento-rgb) / .18); }
     .np.sin .in > *:not(.vacio) { display: none; }
     .np.sin .vacio { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
@@ -2145,7 +2157,7 @@ function pintaAhoraCanvas() {
 function saltaEnCola(i) { if (!queue[i] || i === qi) return; qi = i; start(); }
 
 // ---------- reproductor grande ----------
-let npTab = 'cola';
+let npTab = 'cola', npAbierto = false;   // npAbierto: en el PC, la letra o la cola abiertas (mitad y mitad)
 const panelFijo = matchMedia('(min-width: 1100px)');   // en el PC el reproductor grande ya está a la derecha
 panelFijo.addEventListener('change', () => { if (!panelFijo.matches && tab === 'ahora') go('inicio'); });   // Ahora es solo del PC
 // La cola ya no tiene columna fija a la izquierda (más sitio para el contenido): vive en el panel del reproductor,
@@ -2197,6 +2209,10 @@ $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[re
 let letraOn = store.get('letra_visible', true);
 $('npTabs').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (panelFijo.matches) {   // PC: abrir esa (mitad y mitad) o, si ya estaba abierta, cerrarla; sin desplazar nada
+    npAbierto = !(npAbierto && npTab === b.dataset.np); npTab = b.dataset.np;
+    $('np').classList.toggle('abierto', npAbierto); paintNp(); ajustaEscena(); return;
+  }
   if (tresColumnas.matches && b.dataset.np === 'letra') { letraOn = !letraOn; store.set('letra_visible', letraOn); }
   else npTab = b.dataset.np;
   paintNp();
@@ -2285,8 +2301,7 @@ function ajustaEscena() {
 }
 function mideEscena(np, inn, cover, tabs) {
     const pad = parseFloat(getComputedStyle(inn).paddingBottom), panel = $('npPanel');
-    const falta = panelFijo.matches ? inn.clientHeight - (panel.offsetTop + panel.offsetHeight + pad)
-      : np.clientHeight - (tabs.offsetTop + tabs.offsetHeight + pad);
+    const falta = panelFijo.matches ? 0 : np.clientHeight - (tabs.offsetTop + tabs.offsetHeight + pad);
     if (falta > 0) {
       cover.style.height = cover.offsetHeight + falta + 'px';
       const sobra = panelFijo.matches ? inn.scrollHeight - inn.clientHeight : 0;   // márgenes que no se ven en la cuenta
@@ -2311,7 +2326,7 @@ function paintNp() {
   $('npRepeat').innerHTML = repeat === 'one' ? ICO.repeatOne : ICO.repeat;
   $('npRepeat').classList.toggle('on', repeat !== 'off');
   $('npRepeat').title = {off: 'Repetir', all: 'Repitiendo la lista', one: 'Repitiendo esta canción'}[repeat];
-  document.querySelectorAll('#npTabs button').forEach(b => b.classList.toggle('on', b.dataset.np === npTab && (!tresColumnas.matches || letraOn)));
+  document.querySelectorAll('#npTabs button').forEach(b => b.classList.toggle('on', b.dataset.np === npTab && (!tresColumnas.matches || letraOn) && (!panelFijo.matches || npAbierto)));
   const letraBtn = document.querySelector('#npTabs [data-np="letra"]');
   letraBtn.textContent = tresColumnas.matches ? (letraOn ? 'Letra · ocultar' : 'Mostrar letra') : 'Letra';
   if (tresColumnas.matches && !letraOn) { $('npPanel').innerHTML = ''; lyrFor = null; lyrLines = []; paintHearts(); return; }
@@ -2352,7 +2367,8 @@ function markQueue(dest, fresh) {
   const row = dest.querySelector(`[data-qrow="${qi}"]`), box = row && scrollBox(row);
   if (!box) return;
   // la cola del reproductor grande va debajo de la portada (o del Canvas): no bajar si se está mirando la portada
-  if ($('np').contains(box) && box.scrollTop < $('npTabs').offsetTop - 40) return;
+  // (solo si se desplaza el reproductor entero, el móvil; en el PC la cola tiene su panel y baja dentro de él)
+  if ((box === $('np') || box.classList.contains('in')) && box.scrollTop < $('npTabs').offsetTop - 40) return;
   const b = box.getBoundingClientRect(), rr = row.getBoundingClientRect();
   if (fresh) {   // recién pintada: hasta 2 anteriores encima de la que suena
     const first = dest.querySelector(`[data-qrow="${Math.max(0, qi - 2)}"]`);
@@ -2474,7 +2490,11 @@ function followLyrics() {
   const t = tiempo(); let i = -1; for (let k = 0; k < lyrLines.length && lyrLines[k].at <= t; k++) i = k;
   if (i === lyrNow) return; lyrNow = i;
   $('npPanel').querySelectorAll('.lyr p').forEach((p, k) => { p.classList.toggle('now', k === i); p.classList.toggle('past', k < i); });
-  const el = $('npPanel').querySelector(`[data-li="${i}"]`); if (el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
+  const el = $('npPanel').querySelector(`[data-li="${i}"]`); if (!el) return;
+  if (panelFijo.matches) {   // en el PC, solo dentro del panel de la letra (scrollIntoView movía también el reproductor y el Canvas)
+    const box = $('npPanel'), b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+    box.scrollTo({top: box.scrollTop + r.top - b.top - box.clientHeight / 2 + r.height / 2, behavior: 'smooth'});
+  } else el.scrollIntoView({block: 'center', behavior: 'smooth'});
 }
 
 (async () => {
