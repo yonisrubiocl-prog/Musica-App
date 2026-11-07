@@ -2276,6 +2276,14 @@ function ajustaEscena() {
     const np = $('np'), inn = np.querySelector('.in'), cover = np.querySelector('.cover'), tabs = $('npTabs');
     cover.style.height = '';
     if (!np.classList.contains('con-canvas')) return np.style.removeProperty('--escena');
+    // la barra Siguiente | Letra va pegada arriba al bajar (sticky) y Chrome da su posición PEGADA: medida así (al
+    // cambiar de canción leyendo la letra) el Canvas bajaba hasta media letra (vídeo de Ramses, 07-11-2026). Se mide
+    // en su sitio normal, sin pegar, y se devuelve.
+    const pega = tabs.style.position; tabs.style.position = 'static';
+    try { mideEscena(np, inn, cover, tabs); } finally { tabs.style.position = pega; }
+  });
+}
+function mideEscena(np, inn, cover, tabs) {
     const pad = parseFloat(getComputedStyle(inn).paddingBottom), panel = $('npPanel');
     const falta = panelFijo.matches ? inn.clientHeight - (panel.offsetTop + panel.offsetHeight + pad)
       : np.clientHeight - (tabs.offsetTop + tabs.offsetHeight + pad);
@@ -2285,8 +2293,8 @@ function ajustaEscena() {
       if (sobra > 0) cover.style.height = cover.offsetHeight - sobra + 'px';
     }
     np.style.setProperty('--escena', tabs.offsetTop + tabs.offsetHeight + 'px');
-  });
 }
+addEventListener('resize', () => ajustaEscena());   // otra anchura o altura: otra medida (antes se quedaba la vieja)
 new MutationObserver(ajustaEscena).observe($('npPanel'), {childList: true, subtree: true});
 addEventListener('resize', ajustaEscena);
 
