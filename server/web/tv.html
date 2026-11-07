@@ -216,18 +216,10 @@
      (anterior, actual y siguiente), la barra, los botones y "A continuación" compacta. Entra animado. ---- */
   body:not(.con-menu) .escena { grid-template-columns: minmax(0, 1fr) auto; gap: 3vw; align-items: center; padding: 4vh 3vw 4vh 4.5vw; }
   body.con-pestanas:not(.con-menu) .escena { padding-top: 11vh; padding-bottom: 3vh; }
-  body:not(.con-menu) .media { order: 2; width: 34vw; height: 92vh; aspect-ratio: auto; border-radius: 2.6vh; }
+  /* el marco del Canvas, como el que funcionaba en esta TV: 9:16 por su alto (con otras proporciones, o animado, el
+     vídeo salía en BLANCO en la TV, 07-11-2026) */
+  body:not(.con-menu) .media { order: 2; height: 92vh; aspect-ratio: 9 / 16; border-radius: 2.6vh; }
   body.con-pestanas:not(.con-menu) .media { height: 86vh; }
-  /* El vídeo del Canvas (540×960, 9:16) NUNCA recortado: esta TV (Chrome 92) no sabe recortarlo (object-fit: cover en
-     un marco de otra forma) y lo pintaba en blanco, 07-11-2026. Va con su forma exacta, centrado, y a los lados la
-     portada difuminada. */
-  body:not(.con-menu) .media video { top: 0; bottom: auto; right: auto; height: 92vh; width: calc(92vh * 9 / 16);
-                                     left: calc((34vw - 92vh * 9 / 16) / 2); object-fit: fill; }
-  body.con-pestanas:not(.con-menu) .media video { height: 86vh; width: calc(86vh * 9 / 16); left: calc((34vw - 86vh * 9 / 16) / 2); }
-  body:not(.con-menu) .media.con-canvas #tapaFondo { opacity: .75; }
-  body.con-menu .media video { top: calc((84vh - 24vw * 16 / 9) / 2); bottom: auto; left: 0; right: auto; width: 24vw;
-                               height: calc(24vw * 16 / 9); object-fit: fill; }
-  body.con-menu .media.con-canvas #tapaFondo { opacity: .75; }
   /* Letra | Cola (como la pestaña Ahora de la web): una u otra; con la Cola, fuera "A continuación" y la lista más alta */
   .panel-lc { border-radius: 2vh; background: rgb(0 0 0 / .26); box-shadow: inset 0 0 0 .15vh rgb(255 255 255 / .08); overflow: hidden; }
   body.con-menu .panel-lc { display: none; }
@@ -265,7 +257,7 @@
   /* entrada: el Canvas desde la derecha creciendo; la izquierda en cascada (sin desenfoque: Chrome 92) */
   @keyframes entraCanvas { from { opacity: 0; transform: translateX(5vw) scale(.94); } }
   @keyframes sube { from { opacity: 0; transform: translateY(2.4vh); } }
-  body:not(.con-menu) .escena.entra .media { animation: entraCanvas 650ms cubic-bezier(.2, .8, .2, 1) both; }
+  /* (el Canvas, sin animación: animado salía en blanco en la TV) */
   body:not(.con-menu) .escena.entra .info > * { animation: sube 560ms cubic-bezier(.2, .8, .2, 1) both; }
   .escena.entra .info > :nth-child(2) { animation-delay: 60ms; } .escena.entra .info > :nth-child(3) { animation-delay: 120ms; }
   .escena.entra .info > :nth-child(4) { animation-delay: 180ms; } .escena.entra .info > :nth-child(5) { animation-delay: 230ms; }
