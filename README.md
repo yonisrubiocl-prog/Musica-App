@@ -620,7 +620,8 @@ semanas).
   artista, álbum, año y número de pista (`track_no`).
 - **A ritmo de persona, no de robot:** entre canciones espera el 40–110 % de lo que dura la canción (al azar); entre
   álbumes, 5–30 min y, 1 de cada 7 veces, 30–90 min. De madrugada (**01:00–09:00 de Chile**) siempre; de día un 50 %
-  más lento y solo si nadie usó YouTube en 10 min. Si YouTube avisa de bloqueo, para 24 h. Unas 15–20 canciones/hora. Un reinicio de la API respeta la espera que tocaba (`now.next_at`).
+  más lento y solo si nadie usó YouTube en 10 min. Si YouTube avisa de bloqueo, para 24 h. Unas 15–20 canciones/hora.
+  Reiniciar la API no se salta la espera que tocaba (`now.next_at`, guardado en el estado).
 - **Orden:** primero los adelantados (`server/data/precarga-primero.txt`, un artista por línea, en ese orden; el
   30-10-2026: Maná) y luego uno al azar entre los 3 más escuchados que falten. Se adelanta en cuanto acabe el álbum
   que esté bajando.
