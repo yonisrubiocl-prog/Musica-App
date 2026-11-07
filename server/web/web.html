@@ -515,8 +515,8 @@
     .bar-acc button:hover { background: rgb(var(--fg) / .07); color: var(--texto); }
     .bar-acc button.on { color: var(--acento); background: rgb(var(--acento-rgb) / .14); }
     .bar-acc svg { width: 21px; height: 21px; }
-    /* el progreso: una línea fina arriba de la zona de reproducción; se engorda al pasar el ratón (clic para ir ahí) */
-    body:not(.en-ahora) .bar .prog { top: 0; bottom: auto; left: 0; right: 0; height: 3px; border-radius: 0 20px 0 0; transition: height 150ms; }
+    /* el progreso: una línea fina arriba de la zona de reproducción, que acaba antes de la curva de la esquina; se engorda al pasar el ratón (clic para ir ahí) */
+    body:not(.en-ahora) .bar .prog { top: 0; bottom: auto; left: 0; right: 20px; height: 3px; border-radius: 0 3px 3px 0; transition: height 150ms; }
     body:not(.en-ahora) .bar .prog:hover, body:not(.en-ahora) .bar .prog.arrastra { height: 6px; }
     body:not(.en-ahora) .bar .prog i { border-radius: inherit; position: relative; }
     /* la bolita al final de lo sonado, para arrastrar (más grande al pasar el ratón) */
