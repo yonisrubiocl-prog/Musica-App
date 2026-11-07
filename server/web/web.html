@@ -477,7 +477,7 @@
     body.en-ahora .wrap { max-width: none; margin: 0; padding: 0; }
     .ahv { display: block; height: 100vh; padding: 3vh 1.5vw 116px 2.5vw; }
     .ahv-izq { height: 100%; }
-    .ahv-der { animation: aparece 250ms var(--ease); position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--ahv-der); }
+    .ahv-der { animation: entraCanvas 650ms cubic-bezier(.2, .8, .2, 1) both; position: fixed; z-index: 50; top: var(--pgap); right: var(--pgap); bottom: var(--pgap); width: var(--ahv-der); }
     .ahv:fullscreen { background: var(--fondo); padding-bottom: 3vh; padding-right: calc(var(--ahv-der) + var(--pgap) * 2); }
     .ahv-izq { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
     .ahv-der { min-height: 0; }
@@ -635,6 +635,20 @@
   .fade { animation: fade 250ms var(--ease); }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
   @keyframes aparece { from { opacity: 0; } }   /* sin moverse: para lo que va fijo en la pantalla */
+  /* Ahora: el Canvas entra desde la derecha creciendo y enfocándose; la izquierda, en cascada; al cambiar de canción,
+     portada y título con un pequeño salto. La transformación va en el propio elemento fijo (no en un padre: eso lo
+     sacaba de su sitio). Sin animaciones (Rendimiento) o con "reducir movimiento", nada. */
+  @keyframes entraCanvas { from { opacity: 0; transform: translateX(48px) scale(.94); filter: blur(12px); } }
+  @keyframes sube { from { opacity: 0; transform: translateY(22px); } }
+  @keyframes cambiaCancion { 0% { opacity: .2; transform: translateY(10px) scale(.98); } 100% { opacity: 1; transform: none; } }
+  .ahv-izq > * { animation: sube 560ms cubic-bezier(.2, .8, .2, 1) both; }
+  .ahv-izq > :nth-child(2) { animation-delay: 60ms; } .ahv-izq > :nth-child(3) { animation-delay: 120ms; }
+  .ahv-izq > :nth-child(4) { animation-delay: 180ms; } .ahv-izq > :nth-child(5) { animation-delay: 230ms; }
+  .ahv-izq > :nth-child(6) { animation-delay: 280ms; } .ahv-izq > :nth-child(7) { animation-delay: 330ms; }
+  .ahv-cancion.cambia :is(#ahvMini, .ahv-txt) { animation: cambiaCancion 520ms cubic-bezier(.2, .8, .2, 1); }
+  .ahv-cancion.cambia .ahv-txt { animation-delay: 60ms; animation-fill-mode: both; }
+  :root.quieto :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *) { animation: none !important; }
+  @media (prefers-reduced-motion: reduce) { :is(.ahv-der, .ahv-izq > *, .ahv-cancion.cambia *) { animation: none !important; } }
 
   /* Ajustes: tema y color de acento */
   /* Rendimiento (Ajustes): interruptores para ahorrar datos y batería */
@@ -1992,7 +2006,7 @@ function vistaAhora() {
   // (la animación de entrada solo en la izquierda: con transform en .ahv, el Canvas fijo de la derecha se colocaba
   // respecto a la vista y no a la pantalla, salía en medio y saltaba a su sitio al acabar)
   wrap.innerHTML = `<section class="ahv" id="ahv">
-    <div class="ahv-izq fade">
+    <div class="ahv-izq">
       <div class="ahv-cab"><span class="ahv-tit">Ahora</span><button class="ahv-donde" id="ahvDondeB"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i><span id="ahvDonde"></span></button></div>
       <div class="ahv-cancion">
         <img id="ahvMini" alt="">
@@ -2075,6 +2089,9 @@ function pintaAhora() {
   const donde = remoto ? cxNombre(cx.activo) : enTv() ? tv.nombre : '';
   $('ahvDonde').textContent = donde ? 'Sonando en ' + donde : 'Sonando aquí';
   $('ahvDondeB').classList.toggle('fuera', !!donde);
+  if ($('ahvT').textContent && $('ahvT').textContent !== (cur.title || '')) {   // otra canción: portada y título con transición
+    const c = $('ahv').querySelector('.ahv-cancion'); c.classList.remove('cambia'); void c.offsetWidth; c.classList.add('cambia');
+  }
   $('ahvT').textContent = cur.title || ''; $('ahvA').textContent = cur.artist || ''; $('ahvAl').textContent = cur.album || '';
   for (const id of ['ahvImg', 'ahvFondo', 'ahvMini']) { if (cur.thumb) $(id).src = cur.thumb; else $(id).removeAttribute('src'); }
   if (ahvLetra.id !== cur.id) ponLetraAhora(cur);
