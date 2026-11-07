@@ -207,7 +207,19 @@ addEventListener('keydown', e => {
     : k === 'MediaFastForward' || c === 228 ? 'mas10' : k === 'MediaRewind' || c === 227 ? 'menos10' : '';
   if (tecla) { e.preventDefault(); return pulsa(tecla); }
   const dir = DIR[k] || DIR[c];
-  if (dir) { e.preventDefault(); return enfoca(vecino(dir)); }
+  if (dir) {
+    e.preventDefault();
+    // en una lista larga (la Cola de Ahora o las canciones de una lista), ↑ ↓ van en orden: la anterior o la
+    // siguiente, y la lista se desplaza sola. Solo desde la primera ↑ sale (a las pestañas) y desde la última ↓ baja.
+    // Por cercanía, con la lista desplazada, ↑ se escapaba a "Letra" en vez de subir.
+    const ae = document.activeElement, fila = ae?.classList?.contains('cancion') ? ae : null;
+    if (fila && (dir === 'arr' || dir === 'aba')) {
+      const her = [...fila.parentNode.querySelectorAll(':scope > .cancion.f')], k = her.indexOf(fila);
+      const otra = her[dir === 'arr' ? k - 1 : k + 1];
+      if (otra) { otra.focus({preventScroll: true}); otra.scrollIntoView({block: 'nearest'}); return; }
+    }
+    return enfoca(vecino(dir));
+  }
   if (k === 'Enter' || k === 'Select' || k === 'Accept' || c === 13 || c === 23 || c === 66 || k === ' ') {
     e.preventDefault();
     const el = visibles().includes(document.activeElement) ? document.activeElement : null;
