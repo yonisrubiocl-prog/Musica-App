@@ -489,7 +489,7 @@
      Canvas (o la portada), más alto, terminando encima de la barra; Letra y Cola, a la mitad con ✕. ---- */
   .bar-acc, .np-cab { display: none; }
   @media (min-width: 1100px) {
-    body:not(.en-ahora) .dock { left: var(--pgap) !important; right: var(--pgap) !important; padding: 0 0 var(--pgap); display: flex; align-items: stretch;
+    body:not(.en-ahora) .dock { left: max(var(--pgap), 5vw) !important; right: max(var(--pgap), 5vw) !important; padding: 0 0 var(--pgap); display: flex; align-items: stretch;
       filter: drop-shadow(0 -6px 30px rgb(0 0 0 / calc(.3 * var(--sombra)))); }
     body:not(.en-ahora) .dock > * { max-width: none; margin: 0; }
     body:not(.en-ahora) .dock nav { order: -1; flex: none; width: 380px; border-radius: 20px 0 0 20px; box-shadow: none; }
@@ -497,10 +497,10 @@
       padding: 0 14px 0 18px; border-radius: 0 20px 20px 0; border: 0; border-left: 1px solid var(--linea); box-shadow: none; overflow: visible; cursor: default; gap: 12px; }
     body:not(.en-ahora) .dock .bar:not(.on) > :not(.prog) { visibility: hidden; }   /* sin canción: la barra, vacía */
     body:not(.en-ahora) .bar img { width: 44px; height: 44px; cursor: pointer; }
-    body:not(.en-ahora) .bar .meta { flex: 0 1 320px; cursor: pointer; }
+    body:not(.en-ahora) .bar .meta { flex: 0 1 auto; max-width: 300px; cursor: pointer; }
     body:not(.en-ahora) .bar :is(.a, .en, .time, #pFav, .vol) { display: none !important; }
     body:not(.en-ahora) .bar .ctl.side { display: grid; }
-    body:not(.en-ahora) .bar #prev { margin-left: auto; }
+    body:not(.en-ahora) .bar #prev { margin-left: 6px; }   /* ⏮ ⏯ ⏭ junto al nombre de la canción */
     body:not(.en-ahora) .bar-acc { display: flex; align-items: center; gap: 4px; margin-left: auto; }
     .bar-acc button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--texto2); transition: background 150ms, color 150ms; }
     .bar-acc button:hover { background: rgb(var(--fg) / .07); color: var(--texto); }
