@@ -1,0 +1,15 @@
+Implementa la revisión de LEER-PRIMERO.md de esta carpeta. El usuario rechazó la barra anterior por estar demasiado cargada: mantener limpieza es la prioridad.
+
+Conserva estructura, colores y pestaña Ahora. Fuera de Ahora, mueve la reproducción a una barra inferior común con la navegación. En escritorio debe ser una sola fila limpia: navegación a la izquierda; portada pequeña y solo título; anterior/play/siguiente; pequeños iconos Letra, Cola, Dispositivos y Más. Progreso fino en el borde de la zona de reproducción.
+
+Volumen, aleatorio, repetición, saltos de 10 segundos, favorito y acciones secundarias se conservan en popovers/menú Más. No poner todos esos controles visibles ni recuperar las dos filas recargadas.
+
+Canvas limpio a la derecha. Letra y Cola utilizan todo ese panel cuando se seleccionan; nunca media altura de vídeo y media de contenido. Un cierre visible devuelve al canvas, con audio y estado intactos. Mantener sincronización y todas las acciones de la cola.
+
+Revisa referencia-barra-limpia.fragment.html como maqueta conceptual; no copies sus marcadores o sus simulaciones como lógica de producción. Reutiliza componentes, estado, instancias multimedia y funciones reales de la app. La captura estado-actual.png sirve para conservar identidad y estructura.
+
+Sigue el documento para accesibilidad, responsive, integración con Ahora y validación. No reinicies vídeo, audio o Cast al cambiar de sección o modo. No elimines funciones por ocultar controles. Trabaja hasta completar la implementación y las comprobaciones necesarias; declara lo que no puedas probar realmente. No despliegues salvo autorización existente.
+
+ACLARACIÓN FINAL Y PRIORITARIA DEL USUARIO:
+La barra simplificada está aprobada. La izquierda NO se rediseña: conservar exactamente las listas, tarjetas, columnas, tamaños, tipografía, espaciados, orden y funciones de la app actual. La izquierda reducida de la maqueta solo era contexto ilustrativo; no copiarla.
+Cambiar únicamente la barra, liberar el canvas de sus controles y aprovechar el espacio para que quede limpio y más alto a la derecha. Reservar el mínimo espacio necesario para la barra sin que tape contenido. No ensanchar el canvas a costa de estrechar o reorganizar la izquierda. Mantener la lógica de Letra/Cola descrita y Ahora intacta. Esta aclaración prevalece sobre cualquier diferencia visual de la maqueta.

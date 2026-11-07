@@ -482,6 +482,53 @@
     .np .vacio b { color: var(--texto); font-size: 1.15rem; }
     body.locked { overflow: auto; }
   }
+  /* ---- Barra limpia (PC, fuera de Ahora; docs/afina-barra-limpia-20261106): una sola fila abajo con la navegación,
+     la portada pequeña y el título, ⏮ ⏯ ⏭ y 🎤 Letra · ☰ Cola · Dispositivos · ⋯ Más (volumen, aleatorio, repetir,
+     ±10 s, Me gusta, menú); el progreso, una línea fina arriba de la zona de reproducción. Es el minirreproductor de
+     siempre (mismos botones y manejadores), junto a la navegación. El reproductor de la derecha queda limpio: solo el
+     Canvas (o la portada), más alto, terminando encima de la barra; Letra y Cola, a la mitad con ✕. ---- */
+  .bar-acc, .np-cab { display: none; }
+  @media (min-width: 1100px) {
+    body:not(.en-ahora) .dock { left: var(--pgap) !important; right: var(--pgap) !important; padding: 0 0 var(--pgap); display: flex; align-items: stretch;
+      filter: drop-shadow(0 -6px 30px rgb(0 0 0 / calc(.3 * var(--sombra)))); }
+    body:not(.en-ahora) .dock > * { max-width: none; margin: 0; }
+    body:not(.en-ahora) .dock nav { order: -1; flex: none; width: 380px; border-radius: 20px 0 0 20px; box-shadow: none; }
+    body:not(.en-ahora) .dock .bar { display: flex !important; flex: 1; min-width: 0; height: var(--nav-h); max-height: none; opacity: 1; margin: 0;
+      padding: 0 14px 0 18px; border-radius: 0 20px 20px 0; border: 0; border-left: 1px solid var(--linea); box-shadow: none; overflow: visible; cursor: default; gap: 12px; }
+    body:not(.en-ahora) .dock .bar:not(.on) > :not(.prog) { visibility: hidden; }   /* sin canción: la barra, vacía */
+    body:not(.en-ahora) .bar img { width: 44px; height: 44px; cursor: pointer; }
+    body:not(.en-ahora) .bar .meta { flex: 0 1 320px; cursor: pointer; }
+    body:not(.en-ahora) .bar :is(.a, .en, .time, #pFav, .vol) { display: none !important; }
+    body:not(.en-ahora) .bar .ctl.side { display: grid; }
+    body:not(.en-ahora) .bar #prev { margin-left: auto; }
+    body:not(.en-ahora) .bar-acc { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .bar-acc button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--texto2); transition: background 150ms, color 150ms; }
+    .bar-acc button:hover { background: rgb(var(--fg) / .07); color: var(--texto); }
+    .bar-acc button.on { color: var(--acento); background: rgb(var(--acento-rgb) / .14); }
+    .bar-acc svg { width: 21px; height: 21px; }
+    /* el progreso: una línea fina arriba de la zona de reproducción; se engorda al pasar el ratón (clic para ir ahí) */
+    body:not(.en-ahora) .bar .prog { top: 0; bottom: auto; left: 0; right: 0; height: 3px; border-radius: 0 20px 0 0; transition: height 150ms; }
+    body:not(.en-ahora) .bar .prog:hover { height: 6px; }
+    body:not(.en-ahora) .bar .prog i { border-radius: inherit; }
+    /* el reproductor de la derecha, limpio y más alto: termina encima de la barra */
+    body:not(.en-ahora) .np { bottom: calc(var(--nav-h) + var(--pgap) * 2); }
+    .np .in > :is(.top, .titles, .seek, .times, .ctls, .vol, .disps, .tabs) { display: none !important; }
+    .np .in { padding-top: 22px; padding-bottom: 22px; }
+    /* sin Canvas, la portada cuadrada y centrada (sin estirarla); con Canvas, el vídeo llena el reproductor */
+    .np .in > .cover { flex: 0 0 auto; width: 100%; aspect-ratio: 1; margin: auto 0; align-self: center; }
+    .np.abierto .in > .cover { display: block; flex: 1 1 0; width: auto; margin: 0; }
+    .np.abierto .in > #npPanel { flex: 1 1 0; }
+    .np.abierto .in > .np-cab { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 4px 4px 8px 6px;
+      border-bottom: 1px solid var(--linea); }
+    .np-cab b { font-size: 1.05rem; } .np-cab button { width: 36px; height: 36px; border-radius: 50%; color: var(--texto2); font-size: 1.1rem; }
+    .np-cab button:hover { background: rgb(var(--fg) / .08); color: var(--texto); }
+    .mas-vol { display: flex; align-items: center; gap: 10px; padding: 6px 4px 12px; }
+    .mas-vol button { width: 40px; height: 40px; display: grid; place-items: center; color: var(--texto2); } .mas-vol svg { width: 22px; height: 22px; fill: currentColor; }
+    #sheet .mas-vol input { flex: 1; -webkit-appearance: none; appearance: none; height: 5px; padding: 0; border: 0; margin: 0; border-radius: 5px; cursor: pointer;
+      background: linear-gradient(90deg, var(--acento) var(--v, 0%), rgb(var(--fg) / .16) var(--v, 0%)); }
+    #sheet .mas-vol input::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--texto); }
+    .mas-fila { display: flex; gap: 8px; padding: 0 4px 10px; }
+  }
   /* Pestaña Ahora (solo PC): sin el panel de la derecha ni la cola de la izquierda (ver vistaAhora) */
   .solo-pc { display: none !important; }
   @media (min-width: 1100px) {
@@ -735,6 +782,12 @@ aplicarTema();
     <button class="ctl side" id="prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
     <button class="ctl main" id="play" aria-label="Reproducir"><svg viewBox="0 0 24 24" id="playIco"><path d="M8 5v14l11-7z"/></svg></button>
     <button class="ctl" id="next" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+    <div class="bar-acc" id="barAcc">
+      <button id="bLetra" aria-label="Letra" title="Letra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button id="bCola" aria-label="Cola" title="Cola (lo que sigue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h12M4 12h12M4 18h8M18 15v6M15 18l3 3 3-3"/></svg></button>
+      <button id="bDisp" aria-label="Dispositivos" title="Dónde suena / TV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg></button>
+      <button id="bMas" aria-label="Más" title="Más (volumen, aleatorio, repetir…)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+    </div>
     <div class="vol"><button data-mute aria-label="Silenciar"></button><input type="range" min="0" max="100" data-vol aria-label="Volumen"></div>
     <div class="prog" id="prog"><i id="progI"></i></div>
   </div>
@@ -775,6 +828,7 @@ aplicarTema();
     <div class="disps" id="npDisps"><button class="disp" id="npDisp" aria-label="Dónde suena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><circle cx="12" cy="14" r="3.6"/><circle cx="12" cy="7" r="1.1" fill="currentColor"/></svg><span id="npDispT">Este dispositivo</span></button>
       <button class="disp" id="npTv" hidden aria-label="Enviar a la TV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span id="npTvT"></span></button></div>
     <div class="tabs" id="npTabs"><button data-np="cola" class="on">Siguiente</button><button data-np="letra">Letra</button></div>
+    <div class="np-cab" id="npCab"><b id="npCabT"></b><button id="npCerrar" aria-label="Cerrar y volver al Canvas" title="Cerrar">✕</button></div>
     <div id="npPanel"></div>
   </div>
 </div>
@@ -1897,7 +1951,11 @@ $('npDisp').onclick = () => {
   // las TV (id "tv…") llevan ⏻ para cerrarlas, la conectara quien la conectara (orden "desconectar")
   sheet('<h4>Dónde suena</h4>' + lista.map(d => `<div class="dsp-fila"><button class="opt${d.id === activo ? ' dsp-on' : ''}" data-d="${esc(d.id)}"><i>${d.id.startsWith('tv') ? '📺' : /Celular|iPhone|Tablet|iPad|App/.test(d.nombre) ? '📱' : '💻'}</i>
       <span>${esc(d.id === DISP ? 'Este dispositivo' : d.nombre)}<small>${esc(d.id === activo ? (d.id === DISP ? DISP_NOMBRE + ' · suena aquí' : 'Suena aquí') : d.id === DISP ? DISP_NOMBRE : 'Abierto')}</small></span></button>${d.id.startsWith('tv') ? `<button class="dsp-cerrar" data-cerrar="${esc(d.id)}" aria-label="Desconectar la TV" title="Desconectar la TV">⏻</button>` : ''}</div>`).join('')
-    + (lista.length < 2 ? '<p class="nota">Abre la web o la app en otro dispositivo con tu cuenta y saldrá aquí.</p>' : ''));
+    + (lista.length < 2 ? '<p class="nota">Abre la web o la app en otro dispositivo con tu cuenta y saldrá aquí.</p>' : '')
+    + (tv ? `<button class="opt" id="dspTv"><i>📺</i><span>Conectada a ${esc(tv.nombre)}<small>Tocar para desconectar la TV (Google Cast)</small></span></button>`
+       : tvListo && !$('npTv').hidden ? '<button class="opt" id="dspTv"><i>📺</i><span>Enviar a una TV<small>Google Cast</small></span></button>' : ''));
+  if ($('dspTv')) $('dspTv').onclick = () => { closeSheet(); const c = cast.framework.CastContext.getInstance();
+    if (tv) c.endCurrentSession(true); else c.requestSession().catch(() => {}); };
   $('sheet').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
     closeSheet();
     const a = b.dataset.d; if (a === activo) return;
@@ -2214,10 +2272,7 @@ $('npRepeat').onclick = () => { repeat = {off: 'all', all: 'one', one: 'off'}[re
 let letraOn = store.get('letra_visible', true);
 $('npTabs').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (panelFijo.matches) {   // PC: abrir esa (mitad y mitad) o, si ya estaba abierta, cerrarla; sin desplazar nada
-    npAbierto = !(npAbierto && npTab === b.dataset.np); npTab = b.dataset.np;
-    $('np').classList.toggle('abierto', npAbierto); paintNp(); ajustaEscena(); return;
-  }
+  if (panelFijo.matches) return npAbre(b.dataset.np);
   if (tresColumnas.matches && b.dataset.np === 'letra') { letraOn = !letraOn; store.set('letra_visible', letraOn); }
   else npTab = b.dataset.np;
   paintNp();
@@ -2226,6 +2281,41 @@ $('npTabs').onclick = e => {
     if (box.scrollTop < $('npTabs').offsetTop - 40) box.scrollTo({top: $('npTabs').offsetTop, behavior: 'smooth'});
   }
 };
+// PC: abrir Letra o Cola (arriba el Canvas, abajo el panel) o, si ya estaba abierta esa, cerrarla; sin desplazar nada.
+// La usan las pestañas del reproductor y los botones 🎤 y ☰ de la barra de abajo.
+function npAbre(t, cerrar) {
+  npAbierto = cerrar ? false : !(npAbierto && npTab === t); if (t) npTab = t;
+  $('np').classList.toggle('abierto', npAbierto);
+  $('npCabT').textContent = npTab === 'letra' ? 'Letra' : 'Siguiente';
+  $('bLetra').classList.toggle('on', npAbierto && npTab === 'letra'); $('bCola').classList.toggle('on', npAbierto && npTab === 'cola');
+  paintNp(); ajustaEscena();
+}
+$('npCerrar').onclick = () => npAbre(null, true);
+$('bLetra').onclick = e => { e.stopPropagation(); npAbre('letra'); };
+$('bCola').onclick = e => { e.stopPropagation(); npAbre('cola'); };
+$('bDisp').onclick = e => { e.stopPropagation(); $('npDisp').click(); };
+// Más: lo que ya no está a la vista en la barra (volumen, aleatorio, repetir, ±10 s, Me gusta y el menú de la canción)
+$('bMas').onclick = e => { e.stopPropagation(); masSheet(); };
+function masSheet() {
+  const fav = cur && favs.has(cur.id);
+  sheet(`<h4>${cur ? esc(cur.title) : 'Reproducción'}</h4>
+    <div class="mas-vol"><button data-mute aria-label="Silenciar">${VOL_ICO(vol)}</button><input type="range" min="0" max="100" value="${vol}" id="masVol" aria-label="Volumen" style="--v:${vol}%"></div>
+    <div class="mas-fila"><button class="pill glass" id="masMenos">−10 s</button><button class="pill glass" id="masMas">+10 s</button></div>
+    <button class="opt" id="masAle"><i>${isRadio ? '📻' : '🔀'}</i><span>${isRadio ? 'Radio' : 'Aleatorio'}<small>${isRadio ? 'Las siguientes son recomendadas' : shuffleNow() ? 'Activado' : 'Desactivado'}</small></span></button>
+    <button class="opt" id="masRep"><i>🔁</i><span>Repetir<small>${{off: 'No', all: 'La lista', one: 'Esta canción'}[repeat]}</small></span></button>
+    ${cur ? `<button class="opt" id="masFav"><i>${fav ? '💔' : '♡'}</i><span>${fav ? 'Quitar de Me gusta' : 'Me gusta'}</span></button>
+    <button class="opt" id="masMenu"><i>⋯</i><span>Más opciones de la canción<small>Artista, álbum, playlist, a continuación…</small></span></button>` : ''}`);
+  $('masVol').oninput = e => { ponVolumen(+e.target.value); if (vol) volAntes = vol; e.target.style.setProperty('--v', vol + '%'); };
+  $('sheet').querySelector('[data-mute]').onclick = () => { ponVolumen(vol ? 0 : volAntes || 100); masSheet(); };
+  $('masMenos').onclick = () => irA(Math.max(0, tiempo() - 10)); $('masMas').onclick = () => irA(tiempo() + 10);
+  $('masAle').onclick = () => { $('npShuffle').click(); masSheet(); };
+  $('masRep').onclick = () => { $('npRepeat').click(); masSheet(); };
+  if ($('masFav')) $('masFav').onclick = () => { toggleFav(cur); masSheet(); };
+  if ($('masMenu')) $('masMenu').onclick = () => { closeSheet(); songMenu(cur); };
+}
+// en el PC, la portada o el título de la barra llevan a Ahora (en el móvil, la barra abre el reproductor grande)
+$('pImg').addEventListener('click', e => { if (panelFijo.matches) { e.stopPropagation(); go('ahora'); } });
+$('bar').querySelector('.meta').addEventListener('click', e => { if (panelFijo.matches) { e.stopPropagation(); go('ahora'); } });
 // ---------- Canvas ----------
 // Al poner una canción se pregunta si tiene (/canvas/<id>/estado). Si no lo tiene ni se intentó, el servidor lo hace
 // ya (~1 min): se vuelve a preguntar cada 20 s, unas cuantas veces. El vídeo (~400 KB) se baja solo con el reproductor
@@ -2300,6 +2390,9 @@ function ajustaEscena() {
     // la barra Siguiente | Letra va pegada arriba al bajar (sticky) y Chrome da su posición PEGADA: medida así (al
     // cambiar de canción leyendo la letra) el Canvas bajaba hasta media letra (vídeo de Ramses, 07-11-2026). Se mide
     // en su sitio normal, sin pegar, y se devuelve.
+    if (panelFijo.matches) {   // PC (barra limpia): el Canvas llena el reproductor; con Letra/Cola, la mitad de arriba
+      return np.style.setProperty('--escena', (npAbierto ? cover.offsetTop + cover.offsetHeight : inn.clientHeight) + 'px');
+    }
     const pega = tabs.style.position; tabs.style.position = 'static';
     try { mideEscena(np, inn, cover, tabs); } finally { tabs.style.position = pega; }
   });
