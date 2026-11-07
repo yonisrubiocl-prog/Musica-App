@@ -39,8 +39,10 @@ NIGHT_UTC = (4, 12)                     # 01:00-09:00 en Chile, como la precarga
 GAP = (90, 300)                         # entre las de fondo (segundos, al azar): ~18 por hora, ~70 peticiones
 DAY_SLOWER = 1.5
 IDLE = 600                              # de día, las de fondo solo si nadie usó YouTube en estos segundos
-BUSY = 150                              # con más peticiones a YouTube en la última hora (tope 300), solo las que se
+BUSY = 100                              # con más peticiones a YouTube en la última hora (tope 300), solo las que se
                                         # están poniendo: las de fondo y las de la precarga esperan (cada una cuesta ~4-9)
+FONDO_HORA = 6                          # como mucho estas de fondo por hora (~40 peticiones): el 07-11-2026 llegaban
+                                        # a 169 de 300 en una hora, casi todas del Canvas de fondo
 BLOCK_PAUSE = 24 * 3600
 RETRY, MAX_ERRORS = 6 * 3600, 3         # otros fallos: se reintenta pasado RETRY, como mucho MAX_ERRORS veces
 NET_PAUSE = 30 * 60                     # sin conexión con los servidores de vídeo: todo quieto este rato, sin contarlo
@@ -309,8 +311,9 @@ class Canvas:
                     time.sleep(300)
                     continue
                 night = NIGHT_UTC[0] <= time.gmtime().tm_hour < NIGHT_UTC[1]
+                self.fondo_hechas = [t for t in getattr(self, "fondo_hechas", []) if now - t < 3600]
                 with self.lock:
-                    vid, kind = self._next(night or self.user_idle(IDLE))
+                    vid, kind = self._next((night or self.user_idle(IDLE)) and len(self.fondo_hechas) < FONDO_HORA)
                 if not vid:
                     self._rest(5)
                     continue
@@ -319,6 +322,7 @@ class Canvas:
                     self.urgent.pop(vid, None)
                     self.soon.pop(vid, None)
                 if kind == "fondo":
+                    self.fondo_hechas.append(time.time())
                     self._rest(random.uniform(*GAP) * (1 if night else DAY_SLOWER))
             except Exception as ex:
                 code = getattr(ex, "status_code", 0)

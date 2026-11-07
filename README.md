@@ -221,7 +221,8 @@ KB por canción en `/var/lib/musicapp/canvas/<id>.mp4`. La portada deja su sitio
   nadie usa YouTube, con 1,5–5 min al azar entre una y otra (~18 por hora). Todo por el ritmo general con YouTube;
   con aviso de bloqueo, 24 h quieto. Los de canciones que el tope de espacio borra se borran una vez al día.
 - **Freno:** cada Canvas cuesta ~4 peticiones a YouTube (hasta ~9 si su vídeo sale quieto y hay que buscar otro). El
-  06-11 llegó a 265 de 300 por hora. Con más de **150 en la última hora** (`BUSY`), solo se hacen las que alguien está
+  06-11 llegó a 265 de 300 por hora. Desde el 07-11 (la evaluación de rendimiento vio 169 de 300 en una hora, casi todas suyas), **como mucho 6 de
+  fondo por hora** (`FONDO_HORA`, ~40 peticiones) y con más de **100 en la última hora** (`BUSY`), solo se hacen las que alguien está
   poniendo; las de fondo y las de la precarga esperan. La cuenta de la última hora (y un bloqueo de YouTube) se guarda en
   `data/youtube-estado.json` (`recientes`) y **sobrevive a los reinicios** (antes volvía a 0 al reiniciar la API).
 - **Estado** en `/data/canvas.json` (`ok`, `no` con el motivo, `err`); resumen en `GET /interno/canvas`. En el panel

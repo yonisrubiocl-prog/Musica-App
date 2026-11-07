@@ -1748,7 +1748,7 @@ const DISP_NOMBRE = (() => {
   const que = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? (/Mobile/.test(u) ? 'Celular' : 'Tablet') : 'PC';
   return `${que} · ${nav}`;
 })();
-let cx = null, remoto = false, cxAplicando = false;   // lo último del servidor; ¿suena en otro?; aplicando lo de fuera
+let cx = null, remoto = false, cxAplicando = false, cxColaFirma = '';   // lo último del servidor; ¿suena en otro?; aplicando lo de fuera
 let cxOrden = 0, cxQVer = -1, cxRep = 'off', cxFirma = '', cxUltima = 0, cxPos = 0, cxColaContada = -1;
 const fichaQ = s => ({...ficha(s), where: s.where, ...(s._rec ? {_rec: true} : {}), ...(s._cola ? {_cola: true} : {})});
 const cxCola = () => ({cola: queue.map(fichaQ), qi, radio: isRadio, repetir: repeat, aleatorio: shuffleNow()});
@@ -1789,8 +1789,13 @@ function cxHaz(o) {   // una orden de otro dispositivo para este, que es el que 
 function cxEspejo(s) {
   cxAplicando = true;
   const antes = cur?.id;
-  queue = s.cola?.length ? s.cola.slice() : [s.cancion]; qi = Math.max(0, Math.min(s.qi || 0, queue.length - 1));
-  isRadio = !!s.radio; repeat = s.repetir || 'off'; qVer++; cxQVer = qVer; cxRep = repeat;
+  // la cola solo se rehace (y se repinta entera: pueden ser 300 filas) si cambió; el que suena cuenta su estado cada
+  // pocos segundos y casi siempre es la misma cola (07-11-2026)
+  const firma = (s.cola?.length ? s.cola : [s.cancion]).map(x => x.id).join(',') + '|' + (s.radio ? 1 : 0);
+  // (si no cambió, no se toca cxQVer: un cambio de la cola hecho aquí y aún sin mandar se sigue mandando)
+  if (firma !== cxColaFirma) { queue = s.cola?.length ? s.cola.slice() : [s.cancion]; qVer++; cxQVer = qVer; cxColaFirma = firma; }
+  qi = Math.max(0, Math.min(s.qi || 0, queue.length - 1));
+  isRadio = !!s.radio; repeat = s.repetir || 'off'; cxRep = repeat;
   cur = queue[qi]?.id === s.cancion?.id ? queue[qi] : s.cancion;
   if (cur?.id !== antes) pintaCancion(); else paintNp();
   paintQueue(); ico(!!s.pausa); pintaTiempo();
